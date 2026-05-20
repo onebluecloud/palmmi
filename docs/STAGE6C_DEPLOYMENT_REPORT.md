@@ -85,7 +85,7 @@
 ## 9. 本次修改文件
 
 - `.gitignore`
-  - 修改原因：排除 Wrangler 本地状态目录 `.wrangler/`，避免提交本地 dev 缓存和运行状态
+  - 修改原因：排除 Wrangler 本地状态目录 `.wrangler/` 和 Playwright 本地会话目录 `.playwright-cli/`，避免提交本地 dev 缓存和运行状态
   - 是否源码：否
   - 是否部署配置：是
   - 是否文档：否
