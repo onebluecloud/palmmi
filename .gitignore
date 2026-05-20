@@ -9,6 +9,7 @@
 *.key
 *.secret
 dist/
+.wrangler/
 test-results/
 PalmTag_rule_engine_v0/samples/palms/*.jpg
 PalmTag_rule_engine_v0/samples/palms/*.jpeg

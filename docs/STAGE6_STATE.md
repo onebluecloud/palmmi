@@ -2,73 +2,66 @@
 
 ## 当前阶段
 
-Stage 6C-Prep：GitHub remote / 首次 commit / Cloudflare Pages 预部署前置适配
+Stage 6C：Cloudflare Pages Preview 部署 Dry Run
 
-## 已完成
+## Stage 6C 是否完成
 
-- Stage 1–5 已完成 / 冻结
-- Stage 6A：部署方案确认已完成
-- Stage 6B：环境变量与密钥管理已完成
-- Stage 6C-Prep：GitHub remote 已配置
-- Stage 6C-Prep：Cloudflare Pages 静态构建命令已补齐
-- Stage 6C-Prep：Cloudflare Pages Functions API 入口已新增
-- Stage 6C-Prep：提交前安全检查已完成
-- Stage 6C-Prep：掌纹样本原图、测试结果和真实 Qwen 批测 raw text 输出已排除在 Git 提交之外
+未完成，当前状态：BLOCKED。
 
-## 当前禁止修改
+## Cloudflare Pages 链接
 
-- Stage 3 人格规则
-- Stage 3 权重阈值
-- Stage 4 UI 主风格
-- Stage 5 Qwen / VLM 识别主逻辑
-- 支付 / 打赏
-- 登录系统
-- 宣发功能
-- 正式域名绑定
-- Cloudflare DNS
-- 正式部署
-- 真实 Qwen API Key / Cloudflare Token / GitHub Token
+- pages.dev 链接：尚未获得
+- 原因：Cloudflare Dashboard 登录 / GitHub 授权未完成，Pages 项目未创建
+
+## 构建结果
+
+- 本地 `npm run build`：PASS
+- 本地 Wrangler Pages dev：PASS，Worker 成功编译并在 `http://127.0.0.1:8788` 启动
+- Cloudflare 远端构建：BLOCKED，未触发
+
+## API / Function 验证结果
+
+- 本地 `/api/analyze` POST：PASS，mock-only 返回 `ok: true`
+- 本地 `/api/analyze` GET：PASS，返回脱敏 `METHOD_NOT_ALLOWED`
+- Cloudflare 线上 `/api/analyze`：BLOCKED，未获得 pages.dev 链接
+- 真实 Qwen / VLM：未开启，未配置真实 Key
 
 ## 当前阻塞项
 
-- Cloudflare Pages Preview 尚未创建
-- Cloudflare / GitHub 页面授权尚未在浏览器中完成
-- 真实 Qwen / VLM 线上链路尚未验证
-- 图片上传 body size 和 serverless timeout 风险尚未在线验证
-
-## 下一步是否进入 6C
-
-可以进入 Stage 6C：Preview 部署 Dry Run。
-
-Stage 6C 仍必须保持：
-
-- 先使用 mock 链路
-- 不公开发布
-- 不绑定正式域名
-- 不配置真实 Qwen Key 到聊天或代码
-- 不接支付 / 打赏 / 登录
-
-## 人工待办
-
-- 保持 GitHub 账号已登录
-- 保持 Cloudflare 账号已登录
-- 如 Cloudflare 需要连接 GitHub，用户在浏览器中确认授权
-- 后续在 Cloudflare 页面手动配置环境变量，不把真实 Key 发到聊天
-- 准备 3–10 张测试图片
-- 准备 iPhone / 安卓微信测试设备
-
-## 当前风险
-
-- Qwen API Key 泄露风险
-- base64 / 图片 data URL 日志泄露风险
-- provider raw response 泄露风险
-- 真实图片批测输出泄露风险
-- Cloudflare Pages Functions runtime 兼容风险
-- 图片上传 body size 风险
-- 真实 Qwen 请求 serverless timeout 风险
-- Cloudflare Preview 配置错误风险
-- 测试链接外泄导致成本失控风险
+- Playwright 独立浏览器未复用用户 Chrome 的 Cloudflare 登录态
+- Cloudflare Dashboard 登录未完成
+- GitHub 单仓库授权未完成
+- Cloudflare Pages 项目未创建
+- 未获得真实 `*.pages.dev` Preview 链接
 
 ## 下一步
 
-Stage 6C：Preview 部署 Dry Run。
+Stage 6C 修复轮 / 授权轮，而不是 Stage 6D。
+
+下一步需要在 Cloudflare Dashboard 中：
+
+- 进入 Workers & Pages / Pages
+- 选择 Connect to Git
+- 授权 GitHub 单仓库 `onebluecloud/palmmi`
+- 项目名使用 `palmmi`
+- 构建命令使用 `npm run build`
+- 输出目录使用 `dist`
+- 暂不配置真实 Qwen Key
+- 不绑定域名
+- 不修改 DNS
+
+## 人工待办
+
+- 在可登录的浏览器里完成 Cloudflare 登录
+- 如 Cloudflare 要求 GitHub 授权，只授权 `onebluecloud/palmmi`
+- 不要把 Qwen API Key、Cloudflare Token、GitHub Token 发到聊天
+- 暂时不要公开分享后续获得的 `*.pages.dev` 链接
+
+## 当前风险
+
+- Cloudflare Pages 线上 runtime 尚未验证
+- 图片上传 body size 风险尚未在线验证
+- 移动端线上布局尚未验证
+- Preview 链接外泄导致测试访问不可控风险
+- 真实 Qwen API Key 泄露风险
+- base64 / provider raw response 日志泄露风险
