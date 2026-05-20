@@ -2,12 +2,12 @@
 
 ## 当前阶段
 
-Stage 6E：公网真实 Qwen 链路验证
+Stage 6E：公网真实 Qwen 链路验证重跑
 
 ## Stage 6E 是否完成
 
-BLOCKED。
-本地真实 Qwen provider 已跑通，但 Cloudflare Production 真实 Secret 未配置，公网 real Qwen 链路尚未完成。
+未完成，当前状态：FAIL / BLOCKED。
+Cloudflare Production 已配置关键变量并重新部署，线上已进入 real Qwen 请求路径，但正常掌纹图返回 `VLM_API_REQUEST_FAILED`，公网真实链路未跑通。
 
 ## 已完成
 
@@ -16,40 +16,37 @@ BLOCKED。
 - Stage 6B：环境变量与密钥管理已完成。
 - Stage 6C：Cloudflare Pages Preview / Dry Run 已完成。
 - Stage 6D：图片上传与临时缓存策略已完成。
-- Stage 6E 本地检查：
-  - 已确认项目真实读取的环境变量名。
-  - 已确认本机存在 Qwen Key，未输出值。
-  - 已完成本地 real Qwen provider 测试。
-  - 已完成 Pages Function 入口从 mock-only 到 Stage 5P 服务的最小适配。
-  - 已完成 Cloudflare runtime `__dirname` 兼容修复。
+- Stage 6E 前置：
+  - `PALMMI_QWEN_API_KEY` Production Secret 已存在。
+  - `PALMMI_VLM_PROVIDER` Production 变量已存在。
+  - `PALMMI_VLM_MODE` Production 变量已存在。
+  - 已触发 Production redeploy：`a67e8a48-50ac-4e94-9a56-8da13fbf5b73`。
+  - 本地 real Qwen 5 张 fixture 仍可跑通。
 
 ## 当前线上链接
 
 - Pages：`https://palmmi.pages.dev`
-- Stage 6E runtime compatibility deployment：`https://c6fc5632.palmmi.pages.dev`
 - workers.dev：`https://palmmi.onebluecloud723.workers.dev`
-- 当前用途：Stage 6 内测，不公开传播
-- 正式域名：未绑定
-- DNS：未修改
+- Stage 6E redeploy：`https://a67e8a48.palmmi.pages.dev`
+- 链接用途：仅用于 Stage 6 内测，不公开传播
 
 ## 当前 Cloudflare 环境变量状态
 
-| 变量名 | Production | Preview |
-|---|---|---|
-| `PALMMI_QWEN_API_KEY` | 未配置 | 未配置 |
-| `PALMMI_VLM_PROVIDER` | 未配置 | 已配置 |
-| `PALMMI_VLM_MODE` | 未配置 | 已配置 |
-| `PALMMI_QWEN_MODEL` | 未配置 | 未配置 |
-| `PALMMI_QWEN_ENDPOINT` | 未配置 | 未配置 |
-| `PALMMI_VLM_TIMEOUT_MS` | 未配置 | 未配置 |
-| `PALMMI_VLM_MAX_IMAGE_BYTES` | 未配置 | 未配置 |
+| 变量名 | Production |
+|---|---|
+| `PALMMI_QWEN_API_KEY` | 已配置，Secret |
+| `PALMMI_VLM_PROVIDER` | 已配置 |
+| `PALMMI_VLM_MODE` | 已配置 |
+| `PALMMI_QWEN_MODEL` | 未配置，使用默认值 |
+| `PALMMI_QWEN_ENDPOINT` | 未配置，使用默认值 |
+| `PALMMI_VLM_TIMEOUT_MS` | 未配置，使用默认值 |
+| `PALMMI_VLM_MAX_IMAGE_BYTES` | 未配置，使用默认值 |
 
 ## 当前 provider 状态
 
 - 本地 Node：real / qwen 可用。
-- 本地 Pages Functions：mock 可用。
-- Cloudflare Production：默认 mock，未切 real；Stage 6E runtime compatibility deployment `c6fc5632-f167-489b-a44b-814f4cd0a744` 成功。
-- Cloudflare Preview：已有 Preview 变量，但本轮未配置真实 Qwen Key。
+- Cloudflare Production：已离开 mock 路径，进入 real Qwen 请求路径。
+- Cloudflare Production 正常掌纹图：FAIL，返回 `VLM_API_REQUEST_FAILED`。
 
 ## 当前禁止修改
 
@@ -68,27 +65,25 @@ BLOCKED。
 ## 当前人工待办
 
 - 不要把 Qwen API Key、Cloudflare Token、GitHub Token 发到聊天。
-- 在 Cloudflare Dashboard 的 Pages 项目 `palmmi` 中手动配置 Production Secret：`PALMMI_QWEN_API_KEY`。
-- 在 Cloudflare Dashboard 的 Production 环境中配置真实链路变量：`PALMMI_VLM_PROVIDER`、`PALMMI_VLM_MODE`。
-- 可选配置：`PALMMI_QWEN_MODEL`、`PALMMI_QWEN_ENDPOINT`、`PALMMI_VLM_TIMEOUT_MS`、`PALMMI_VLM_MAX_IMAGE_BYTES`。
-- 配置后重新触发一次 Pages Production 部署。
-- 准备正常掌纹、左手、右手、偏暗、模糊、裁切不完整、无效、超大、错误格式测试样本。
+- 不要公开分享 `*.pages.dev` 或 `*.workers.dev` 链接。
+- 暂时不要买域名。
+- 暂时不要绑定正式域名。
+- 暂时不要修改 DNS。
+- 暂时不要接支付 / 打赏 / 登录。
 
 ## 当前 Codex 待办
 
-- 用户完成 Cloudflare Production Secret 配置后，重新执行 Stage 6E 公网 real Qwen 链路验证。
-- 验证 `upload -> analyze -> Qwen -> result`。
-- 验证 `upload -> analyze -> Qwen -> result -> poster`。
-- 检查构建日志、运行日志、API 返回是否泄露 Key / Token / base64 / provider raw response。
+- Stage 6E 修复轮：定位公网 `VLM_API_REQUEST_FAILED`。
+- 只允许做脱敏诊断，不输出 Key / Token / raw response。
+- 可能需要检查 Secret 值是否粘贴正确、模型权限是否可用、Cloudflare 到 Qwen endpoint 的请求是否被拒绝。
 
 ## 当前风险
 
-- Cloudflare Production Secret 未配置，公网 real Qwen 尚未验证。
-- 真实 Qwen 成本需要限制测试样本数量。
-- 偏暗 / 模糊 / 裁切不完整样本不足。
-- Preview / Production 配置错误可能导致 mock 与 real 状态混淆。
-- 测试链接外泄可能导致真实模型成本失控。
+- 公网真实 Qwen 链路未跑通。
+- 多次公网 real 请求可能产生成本。
+- 真实 provider 错误被正确脱敏，但也降低了诊断信息，需要下一轮安全诊断。
+- 测试链接仍需保持不公开。
 
 ## 下一步
 
-Stage 6E 修复轮：用户先在 Cloudflare Dashboard 手动配置 Production Secret 和真实链路变量，然后 Codex 重新执行公网 real Qwen 验证。Stage 6F 仍然 BLOCKED。
+不要进入 Stage 6F。先执行 Stage 6E 修复轮，定位并修复公网 `VLM_API_REQUEST_FAILED`。
