@@ -27,7 +27,7 @@
             <div>
               <div class="eyebrow">Capture Guide</div>
               <h1 class="upload-title" id="upload-title">请上传清晰的<br />掌心照片</h1>
-              <p class="upload-copy">保持掌纹完整可见。当前页面只做本地预览，点击开始分析后会进入本地演示流程。</p>
+              <p class="upload-copy">保持掌纹完整可见。当前页面先做本地预览，点击开始分析后会进入一次性分析流程。</p>
             </div>
 
             <div>
@@ -35,7 +35,7 @@
                 <input class="file-input" id="palmFile" name="palmFile" type="file" accept="image/jpeg,image/png,image/webp" />
                 <div class="dropzone__content" id="emptyState">
                   <label class="btn btn--dark" for="palmFile">选择图片</label>
-                  <p>支持 JPG / PNG / WebP，建议 10MB 以内。</p>
+                  <p>支持 JPG / PNG / WebP，建议 8MB 以内。</p>
                 </div>
                 <div class="preview-box" id="previewBox" aria-live="polite">
                   <img id="previewImage" alt="已选择的手掌照片预览" />
@@ -68,10 +68,10 @@
               <div class="tip-item"><span>2</span><div><strong>光线充足</strong><em>自然光最好，避免过暗、过曝和明显反光。</em></div></div>
               <div class="tip-item"><span>3</span><div><strong>背景干净</strong><em>减少杂物、文字和其他手部遮挡。</em></div></div>
               <div class="tip-item"><span>4</span><div><strong>左手 / 右手都可以</strong><em>一次只上传一只手，保持掌心完整。</em></div></div>
-              <div class="tip-item"><span>5</span><div><strong>格式和大小</strong><em>JPG / PNG / WebP，单张 10MB 以内。</em></div></div>
+              <div class="tip-item"><span>5</span><div><strong>格式和大小</strong><em>JPG / PNG / WebP，单张 8MB 以内。</em></div></div>
             </div>
 
-            <p class="privacy-note">隐私提示：当前页面只在浏览器本地预览图片，不会上传到服务器，也不会调用真实识别接口。</p>
+            <p class="privacy-note">隐私提示：图片只用于本次分析请求；服务端不长期保存原图，浏览器本地上传状态最多保留 24 小时。</p>
           </aside>
         </div>
       </div>

@@ -376,7 +376,7 @@ async function runFullPageFlow(browser, serverInfo, imagePath) {
   const { page, signals, state: analyzeState } = await runUploadAnalyze(browser, serverInfo, imagePath);
   try {
     assert.equal(analyzeState.analysisState, "done");
-    assert.equal(analyzeState.hasUpload, true);
+    assert.equal(analyzeState.hasUpload, false);
     assert.equal(analyzeState.hasAnalysisResult, true);
     assert.equal(analyzeState.hasAnalyzeError, false);
     assert.equal(analyzeState.hasDevice, true);

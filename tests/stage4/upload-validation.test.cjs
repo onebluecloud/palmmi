@@ -5,9 +5,9 @@ function file({ name, type, size }) {
   return { name, type, size };
 }
 
-const tenMb = 10 * 1024 * 1024;
+const eightMb = 8 * 1024 * 1024;
 
-assert.equal(MAX_UPLOAD_BYTES, tenMb, "Stage 4C upload limit should stay at 10MB");
+assert.equal(MAX_UPLOAD_BYTES, eightMb, "Stage 6D upload limit should stay aligned with the server 8MB limit");
 
 assert.deepEqual(validateUploadFile(null), {
   ok: false,
@@ -21,14 +21,14 @@ assert.deepEqual(validateUploadFile(file({ name: "notes.txt", type: "text/plain"
   message: "图片格式不支持，请上传 JPG / PNG / WebP。"
 });
 
-assert.deepEqual(validateUploadFile(file({ name: "large.jpg", type: "image/jpeg", size: tenMb + 1 })), {
+assert.deepEqual(validateUploadFile(file({ name: "large.jpg", type: "image/jpeg", size: eightMb + 1 })), {
   ok: false,
   code: "too_large",
-  message: "图片太大，请换一张 10MB 以内的图片。"
+  message: "图片太大，请换一张 8MB 以内的图片。"
 });
 
 for (const type of ["image/jpeg", "image/png", "image/webp"]) {
-  assert.deepEqual(validateUploadFile(file({ name: `palm.${type.split("/")[1]}`, type, size: tenMb })), {
+  assert.deepEqual(validateUploadFile(file({ name: `palm.${type.split("/")[1]}`, type, size: eightMb })), {
     ok: true,
     code: "accepted",
     message: "图片已选择，可以预览。"

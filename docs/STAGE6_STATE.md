@@ -2,11 +2,11 @@
 
 ## 当前阶段
 
-Stage 6C：Cloudflare Pages Preview 部署 Dry Run
+Stage 6D：图片上传与临时缓存策略
 
-## Stage 6C 是否完成
+## Stage 6D 是否完成
 
-已完成，当前状态：PASS。
+进行中，当前状态：本地验证 PASS，等待本次提交部署后完成线上复验。
 
 ## Cloudflare Pages 链接
 
@@ -42,15 +42,26 @@ Stage 6C：Cloudflare Pages Preview 部署 Dry Run
 - 线上 `/api/analyze` POST：PASS，mock 返回 `ok: true`
 - 真实 Qwen / VLM：未开启，未配置真实 Key
 
+## 图片上传与缓存策略
+
+- 原图服务端落盘：否
+- 浏览器临时缓存：`sessionStorage` 的 `palmmi:lastUpload`
+- 上传状态 TTL：最多 24 小时
+- 分析成功后是否清理上传原图 data URL：是
+- 长期图片 URL：无
+- Cloudflare KV / R2 / D1 / Durable Object：未使用
+- 海报服务端保存：否
+- 结果页依赖长期图片存储：否
+- 上传限制：JPG / PNG / WebP，最大 8MB
+
 ## 当前阻塞项
 
-- Stage 6C：无阻塞
-- Stage 6D：待开始图片上传与临时缓存策略验证
+- Stage 6D：等待本次提交部署后完成线上复验
 - Stage 6E：仍阻塞，需先完成 Stage 6D，并在平台环境变量中由用户手动配置真实 Qwen Key 后再验证
 
 ## 下一步
 
-进入 Stage 6D：图片上传与临时缓存策略验证。
+完成 Stage 6D 线上复验；如通过，再进入 Stage 6E 准备。
 
 ## 人工待办
 

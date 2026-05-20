@@ -2,6 +2,7 @@
   const UPLOAD_STORAGE_KEY = "palmmi:lastUpload";
   const ANALYSIS_RESULT_STORAGE_KEY = "palmmi:lastAnalysisResult";
   const ANALYZE_ERROR_STORAGE_KEY = "palmmi:lastAnalyzeError";
+  const UPLOAD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
   const ANALYSIS_STATES = Object.freeze({
     IDLE: "idle",
     ANALYZING: "analyzing",
@@ -38,6 +39,19 @@
       Number.isFinite(value.fileSize) &&
       value.fileSize > 0
     );
+  }
+
+  function isUploadExpired(upload, nowMs = () => Date.now()) {
+    const expiresAtMs = Date.parse(upload && upload.expiresAt);
+    if (Number.isFinite(expiresAtMs)) {
+      return nowMs() > expiresAtMs;
+    }
+
+    const uploadedAtMs = Date.parse(upload && upload.uploadedAt);
+    if (!Number.isFinite(uploadedAtMs)) {
+      return false;
+    }
+    return nowMs() - uploadedAtMs > UPLOAD_CACHE_TTL_MS;
   }
 
   function createProblemViewModel(state, messageOverride) {
@@ -92,7 +106,7 @@
     return allowed.has(state) ? state : null;
   }
 
-  function readUploadState(storage = getDefaultStorage()) {
+  function readUploadState(storage = getDefaultStorage(), options = {}) {
     if (!storage || typeof storage.getItem !== "function") {
       return {
         ok: false,
@@ -117,6 +131,15 @@
           ok: false,
           state: ANALYSIS_STATES.INVALID_UPLOAD,
           message: "本次上传状态不完整，请重新上传一张掌心照片。",
+        };
+      }
+
+      if (isUploadExpired(upload, options.nowMs)) {
+        removeStorageItem(storage, UPLOAD_STORAGE_KEY);
+        return {
+          ok: false,
+          state: ANALYSIS_STATES.INVALID_UPLOAD,
+          message: "本次上传状态已超过 24 小时，请重新上传一张掌心照片。",
         };
       }
 
@@ -560,6 +583,7 @@
             renderProblem(getStage5BProblemState(response), message);
             return;
           }
+          removeStorageItem(storage, UPLOAD_STORAGE_KEY);
           renderDone(response.recognition_result);
         } catch (error) {
           renderProblem(ANALYSIS_STATES.ERROR, "分析流程暂时没有完成，请重新上传后再试。");
@@ -587,6 +611,7 @@
     ANALYSIS_RESULT_STORAGE_KEY,
     ANALYSIS_STATES,
     ANALYSIS_STEPS,
+    UPLOAD_CACHE_TTL_MS,
     UPLOAD_STORAGE_KEY,
     createStage4DMockRecognitionResult,
     createProblemViewModel,

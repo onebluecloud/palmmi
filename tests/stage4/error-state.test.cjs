@@ -73,7 +73,7 @@ function createAnalyzeDoc() {
   };
 }
 
-const tenMb = 10 * 1024 * 1024;
+const eightMb = 8 * 1024 * 1024;
 
 {
   const storage = createMemoryStorage();
@@ -91,7 +91,7 @@ const tenMb = 10 * 1024 * 1024;
 }
 
 assert.equal(upload.validateUploadFile(file({ name: "notes.txt", type: "text/plain", size: 1024 })).code, "invalid_type");
-assert.equal(upload.validateUploadFile(file({ name: "large.jpg", type: "image/jpeg", size: tenMb + 1 })).code, "too_large");
+assert.equal(upload.validateUploadFile(file({ name: "large.jpg", type: "image/jpeg", size: eightMb + 1 })).code, "too_large");
 assert.equal(upload.createPreviewReadFailureResult().message, "这张图片暂时无法读取，请重新选择。");
 
 assert.deepEqual(Object.values(analyze.ANALYSIS_STATES), [

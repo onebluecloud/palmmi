@@ -2,7 +2,8 @@
   const UPLOAD_SCHEMA_VERSION = "stage4d_upload_v1";
   const UPLOAD_STORAGE_KEY = "palmmi:lastUpload";
   const ANALYSIS_RESULT_STORAGE_KEY = "palmmi:lastAnalysisResult";
-  const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+  const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+  const UPLOAD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
   const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
   function validateUploadFile(file) {
@@ -26,7 +27,7 @@
       return {
         ok: false,
         code: "too_large",
-        message: "图片太大，请换一张 10MB 以内的图片。"
+        message: "图片太大，请换一张 8MB 以内的图片。"
       };
     }
 
@@ -50,6 +51,12 @@
   }
 
   function buildUploadState({ file, previewDataUrl = "", handSide = null, now = () => new Date().toISOString() }) {
+    const uploadedAt = now();
+    const uploadedAtMs = Date.parse(uploadedAt);
+    const expiresAt = Number.isFinite(uploadedAtMs)
+      ? new Date(uploadedAtMs + UPLOAD_CACHE_TTL_MS).toISOString()
+      : null;
+
     return {
       schemaVersion: UPLOAD_SCHEMA_VERSION,
       fileName: file && file.name ? file.name : "手掌照片",
@@ -57,7 +64,9 @@
       fileSize: file && Number.isFinite(file.size) ? file.size : 0,
       fileSizeLabel: formatBytes(file && Number.isFinite(file.size) ? file.size : 0),
       previewDataUrl: typeof previewDataUrl === "string" ? previewDataUrl : "",
-      uploadedAt: now(),
+      uploadedAt,
+      expiresAt,
+      retentionTtlHours: 24,
       handSide,
     };
   }
@@ -333,6 +342,7 @@
     ACCEPTED_TYPES,
     ANALYSIS_RESULT_STORAGE_KEY,
     MAX_UPLOAD_BYTES,
+    UPLOAD_CACHE_TTL_MS,
     UPLOAD_SCHEMA_VERSION,
     UPLOAD_STORAGE_KEY,
     buildUploadState,

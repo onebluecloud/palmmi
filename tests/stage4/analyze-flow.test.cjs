@@ -51,7 +51,9 @@ assert.deepEqual(Object.values(analyze.ANALYSIS_STATES), [
   const storage = createMemoryStorage();
   storage.setItem(analyze.UPLOAD_STORAGE_KEY, JSON.stringify(uploadState));
 
-  const read = analyze.readUploadState(storage);
+  const read = analyze.readUploadState(storage, {
+    nowMs: () => Date.parse("2026-05-17T00:00:10.000Z"),
+  });
 
   assert.equal(read.ok, true);
   assert.equal(read.state, "idle");
@@ -107,6 +109,25 @@ assert.deepEqual(Object.values(analyze.ANALYSIS_STATES), [
   assert.equal(state.fileSizeLabel, "1 KB");
   assert.equal(state.previewDataUrl, "data:image/webp;base64,stage4d");
   assert.equal(state.uploadedAt, "2026-05-17T00:00:02.000Z");
+  assert.equal(state.expiresAt, "2026-05-18T00:00:02.000Z");
+  assert.equal(state.retentionTtlHours, 24);
+}
+
+{
+  const storage = createMemoryStorage();
+  storage.setItem(analyze.UPLOAD_STORAGE_KEY, JSON.stringify({
+    ...uploadState,
+    uploadedAt: "2026-05-17T00:00:00.000Z",
+  }));
+
+  const read = analyze.readUploadState(storage, {
+    nowMs: () => Date.parse("2026-05-18T00:00:01.000Z"),
+  });
+
+  assert.equal(read.ok, false);
+  assert.equal(read.state, "invalid-upload");
+  assert.match(read.message, /24 小时/);
+  assert.equal(storage.getItem(analyze.UPLOAD_STORAGE_KEY), null);
 }
 
 {
