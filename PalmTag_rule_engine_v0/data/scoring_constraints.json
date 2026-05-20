@@ -1,0 +1,37 @@
+{
+  "primary_mother_min_core_support": 2,
+  "low_confidence_cannot_decide_primary_mother": true,
+  "mother_score_cap": 100,
+  "secondary_mother_gap": 15,
+  "adjacent_close_threshold_percent": 15,
+  "source_constraints": [
+    {
+      "constraint_id": "C01",
+      "description": "主母型核心字段最低命中数",
+      "condition": "核心字段命中(取值>=1)的数量 < 2",
+      "action": "该母型降级为副母型或仅文案修饰",
+      "scope": "全部 8 母型"
+    },
+    {
+      "constraint_id": "C02",
+      "description": "母型评分上限",
+      "condition": "score > 100",
+      "action": "min(score, 100)",
+      "scope": "全部 8 母型"
+    },
+    {
+      "constraint_id": "C03",
+      "description": "低置信字段不可独立决定主母型",
+      "condition": "主母型仅由低置信字段支撑",
+      "action": "降级为副母型",
+      "scope": "M6 M7 重点关注"
+    },
+    {
+      "constraint_id": "C04",
+      "description": "副母型阈值",
+      "condition": "score >= 40",
+      "action": "标记为副母型,用于文案补充",
+      "scope": "全部 8 母型"
+    }
+  ]
+}

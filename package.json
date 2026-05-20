@@ -1,0 +1,9 @@
+{
+  "name": "palmmi",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "node scripts/build-cloudflare-pages.cjs",
+    "test:stage5p": "node tests/stage5/stage5p-provider-boundary.test.cjs"
+  }
+}

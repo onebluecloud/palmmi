@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Palmmi · 分析中</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../styles/palmmi.css" />
+  <script src="../scripts/palmmi-analyze-api-client.js" defer></script>
+  <script src="../scripts/palmmi-stage5.js" defer></script>
+  <script src="../scripts/palmmi-analyze.js" defer></script>
+</head>
+<body data-page="analyze">
+  <div class="page">
+    <header class="topbar">
+      <div class="shell topbar__inner">
+        <a class="brand" href="../index.html" aria-label="Palmmi 首页">
+          <span class="brand-mark" aria-hidden="true"></span>
+          Palmmi
+        </a>
+        <a class="top-link" href="../upload/index.html">返回上传</a>
+      </div>
+    </header>
+
+    <main class="analyze-main" id="analysisApp" data-state="idle">
+      <div class="shell analyze-shell">
+        <section class="analysis-hero-panel" aria-labelledby="analysisTitle">
+          <div class="analysis-head">
+            <div class="eyebrow">Palmmi Analysis</div>
+            <span class="analysis-pill" id="analysisStatusPill">准备中</span>
+          </div>
+
+          <h1 class="analysis-title" id="analysisTitle">正在生成掌纹人格</h1>
+          <p class="analysis-copy" id="analysisCopy">正在读取掌纹结构</p>
+
+          <div class="scan-visual" id="analysisRunning" aria-label="分析中视觉">
+            <div class="scan-orbit" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <i></i>
+            </div>
+            <div class="scan-line" aria-hidden="true"></div>
+          </div>
+
+          <div class="analysis-done" id="analysisDone" hidden>
+            <span aria-hidden="true">✓</span>
+            <div>
+              <strong>结果数据已准备</strong>
+              <p>可以进入结果页查看本次 Palmmi 人格标签。</p>
+            </div>
+          </div>
+
+          <div class="analysis-problem" id="analysisProblem" hidden>
+            <strong id="analysisProblemTitle">需要重新上传</strong>
+            <p id="analysisProblemCopy">请返回上传页，重新选择一张清晰的掌心照片。</p>
+          </div>
+
+          <div class="analysis-actions">
+            <a class="btn btn--primary" id="viewResult" href="../result/index.html" hidden>查看结果</a>
+            <a class="btn btn--primary" href="../upload/index.html">重新上传</a>
+            <a class="btn" href="../index.html">返回首页</a>
+          </div>
+        </section>
+
+        <aside class="analysis-side-panel" aria-label="上传状态和分析步骤">
+          <div class="upload-thumb">
+            <img id="analysisPreviewImage" alt="本次上传照片缩略预览" hidden />
+            <div class="upload-thumb__fallback" id="analysisPreviewFallback">
+              <span aria-hidden="true"></span>
+              <p>缩略预览不可用时，Palmmi 仍会保留本次上传的基础信息。</p>
+            </div>
+          </div>
+
+          <div class="analysis-file">
+            <span>本次照片</span>
+            <strong id="analysisFileName">等待读取</strong>
+            <em id="analysisFileMeta">本地上传状态</em>
+          </div>
+
+          <ol class="analysis-steps" aria-label="分析流程进度">
+            <li data-analysis-step class="is-active"><span>01</span>正在读取掌纹结构</li>
+            <li data-analysis-step><span>02</span>正在匹配人格标签</li>
+            <li data-analysis-step><span>03</span>正在生成专属结果</li>
+            <li data-analysis-step><span>04</span>正在整理人格档案</li>
+          </ol>
+
+          <p class="privacy-note">Palmmi 当前只做娱乐人格标签。本阶段不会上传图片到服务器，也不会调用真实识别接口。</p>
+        </aside>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

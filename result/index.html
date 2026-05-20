@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Palmmi · 结果</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../styles/palmmi.css" />
+  <script src="../src/stage5/analysis-result-read-adapter.js" defer></script>
+  <script src="../src/stage5/analysis-result-storage-reader.js" defer></script>
+  <script src="../src/stage5/page-analysis-reader.js" defer></script>
+  <script src="../src/stage5/page-analysis-state-mapper.js" defer></script>
+  <script src="../scripts/palmmi-result.js" defer></script>
+</head>
+<body data-page="result">
+  <div class="page">
+    <header class="topbar">
+      <div class="shell topbar__inner">
+        <a class="brand" href="../index.html" aria-label="Palmmi 首页">
+          <span class="brand-mark" aria-hidden="true"></span>
+          Palmmi
+        </a>
+        <a class="top-link" href="../upload/index.html">重新测试</a>
+      </div>
+    </header>
+
+    <main class="result-main" id="resultApp" data-state="loading">
+      <div class="shell result-shell">
+        <section class="result-ready" id="resultReady" hidden aria-labelledby="resultTitle">
+          <div class="result-card">
+            <div class="id-row">
+              <span>Palmmi</span>
+              <span id="resultPill">结果已生成</span>
+            </div>
+
+            <div class="result-card__body">
+              <div class="eyebrow">Palmmi Result</div>
+              <p class="result-code" id="personaCode">结果待完善</p>
+              <h1 class="result-name" id="personaName">未知人格</h1>
+              <p class="result-hook" id="resultHook">人格结果已生成，但部分字段暂时缺失。</p>
+              <div class="result-summary-panel" aria-label="结果说明">
+                <span>结果说明</span>
+                <p id="resultSummary">当前结果基于可识别的掌纹结构生成。</p>
+              </div>
+              <div class="result-quality-hint" id="resultQualityHint" hidden>
+                <span>参考提示</span>
+                <p id="resultQualityHintCopy">这次图片可读性一般，结果更适合作为娱乐参考。</p>
+              </div>
+              <ul class="result-tags chips" id="resultTags" aria-label="结果标签"></ul>
+            </div>
+
+            <div class="result-actions">
+              <a class="btn btn--primary" href="../upload/index.html">重新测试</a>
+              <a class="btn" href="../index.html">返回首页</a>
+              <div class="result-poster-slot">
+                <a class="btn result-poster-button" id="resultPosterLink" href="../poster/index.html">生成分享海报</a>
+                <p class="poster-note" id="posterNote">进入基础海报预览页，保存图片和分享文案仍为占位。</p>
+              </div>
+            </div>
+          </div>
+
+          <aside class="result-detail" aria-label="结果说明">
+            <div>
+              <div class="eyebrow">Result Detail</div>
+              <h2 id="resultTitle">你的 Palmmi 结果</h2>
+              <p class="result-description" id="resultDescription">暂无详细描述。</p>
+            </div>
+
+            <div class="result-detail__block">
+              <span>识别依据</span>
+              <p id="resultMotherSummary">当前结果基于可识别的掌纹结构生成。</p>
+            </div>
+
+            <div class="result-detail__block">
+              <span>匹配特征</span>
+              <ul class="result-evidence" id="resultEvidence"></ul>
+            </div>
+
+            <div class="result-detail__block">
+              <span>匹配说明</span>
+              <p id="resultConfidence">结果数据已生成。</p>
+            </div>
+
+            <div class="result-detail__block">
+              <span>候选结果</span>
+              <ol class="result-candidates" id="resultTopCandidates"></ol>
+            </div>
+          </aside>
+        </section>
+
+        <section class="result-problem" id="resultProblem" hidden aria-labelledby="resultProblemTitle">
+          <div>
+            <div class="eyebrow">Palmmi Result</div>
+            <span class="analysis-pill" id="resultProblemPill">等待结果</span>
+          </div>
+          <h1 id="resultProblemTitle">还没有可查看的结果</h1>
+          <p id="resultProblemCopy">请先上传手掌照片并完成分析，再查看结果页。</p>
+          <p class="result-problem__hint" id="resultProblemHint">重新测试会回到上传页，你也可以返回首页重新开始。</p>
+          <div class="result-problem__actions">
+            <a class="btn btn--primary" id="resultProblemPrimary" href="../upload/index.html">重新测试</a>
+            <a class="btn" id="resultProblemSecondary" href="../index.html">返回首页</a>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

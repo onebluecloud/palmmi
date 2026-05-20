@@ -1,0 +1,15 @@
+{
+  "image": {
+    "file_hash": "stage3j-back-of-hand",
+    "mime_type": "image/jpeg",
+    "file_size": 500000,
+    "width": 1280,
+    "height": 1600,
+    "is_palm": true,
+    "is_palm_side": false,
+    "is_single_hand": true,
+    "is_clear_enough": true,
+    "quality_score": 0.86
+  },
+  "mock_features_fixture": "../distribution/p01-target.json"
+}

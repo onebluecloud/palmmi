@@ -1,0 +1,805 @@
+{
+  "input_features": {
+    "PALM_LENGTH_RATIO": 0,
+    "INDEX_RING_RATIO": 0,
+    "THUMB_LENGTH_RATIO": 0,
+    "INDEX_LENGTH_RATIO": 0,
+    "PINKY_LENGTH_RATIO": 0,
+    "FINGER_SPREAD": 0,
+    "HAND_ASPECT_RATIO": 0,
+    "OVERALL_PROPORTION_FLAG": 1,
+    "FINGERTIP_SHAPE": 0,
+    "LIFE_LINE_DEPTH": 0,
+    "LIFE_LINE_LENGTH": 0,
+    "LIFE_LINE_CURVE": 0,
+    "HEAD_LINE_LENGTH": 3,
+    "HEAD_LINE_DEPTH": 3,
+    "HEAD_LINE_SLOPE": 0,
+    "HEAD_LIFE_GAP": 0,
+    "HEAD_LINE_END_FORK": 0,
+    "HEART_LINE_DEPTH": 1,
+    "HEART_LINE_LENGTH": 0,
+    "HEART_LINE_CURVE": 0,
+    "HEART_LINE_END_FORK": 0,
+    "SIMIAN_LINE": 0,
+    "CHUAN_PALM": 0,
+    "LINE_COMPLEXITY": 0,
+    "OVERALL_CLARITY": 2,
+    "FATE_LINE_CLARITY": 2,
+    "SUN_LINE_PRESENCE": 0,
+    "MOUNT_VENUS": 0,
+    "MOUNT_JUPITER": 1,
+    "MOUNT_SATURN": 0,
+    "MOUNT_APOLLO": 0,
+    "MOUNT_MERCURY": 0,
+    "MOUNT_LUNA": 0
+  },
+  "primary_mother": "M1",
+  "secondary_mother": null,
+  "persona_id": "P01",
+  "persona_name": "人生排位赛选手",
+  "score_trace": {
+    "mother_scores": {
+      "M1": 100.0,
+      "M2": 12.0,
+      "M3": 7.0,
+      "M4": 15.0,
+      "M5": 14.0,
+      "M6": 48.0,
+      "M7": 4.0,
+      "M8": 0.0
+    },
+    "core_support_trace": {
+      "M1": {
+        "count": 4,
+        "fields": [
+          "HEAD_LINE_DEPTH",
+          "HEAD_LINE_LENGTH",
+          "OVERALL_CLARITY",
+          "LINE_COMPLEXITY"
+        ],
+        "details": [
+          {
+            "field_key": "HEAD_LINE_DEPTH",
+            "value": 3.0,
+            "operator": "*12",
+            "weight": 12,
+            "score": 36.0,
+            "is_core_support": true,
+            "expression": "HEAD_LINE_DEPTH * 12"
+          },
+          {
+            "field_key": "HEAD_LINE_LENGTH",
+            "value": 3.0,
+            "operator": "*10",
+            "weight": 10,
+            "score": 30.0,
+            "is_core_support": true,
+            "expression": "HEAD_LINE_LENGTH * 10"
+          },
+          {
+            "field_key": "OVERALL_CLARITY",
+            "value": 2.0,
+            "operator": "*8",
+            "weight": 8,
+            "score": 16.0,
+            "is_core_support": true,
+            "expression": "OVERALL_CLARITY * 8"
+          },
+          {
+            "field_key": "LINE_COMPLEXITY",
+            "value": 0.0,
+            "operator": "(3-f)*5",
+            "weight": 5,
+            "score": 15.0,
+            "is_core_support": true,
+            "expression": "(3 - LINE_COMPLEXITY) * 5"
+          }
+        ],
+        "eligible_for_primary": true,
+        "mother_name": "钢线型"
+      },
+      "M2": {
+        "count": 1,
+        "fields": [
+          "HEART_LINE_DEPTH"
+        ],
+        "details": [
+          {
+            "field_key": "HEART_LINE_DEPTH",
+            "value": 1.0,
+            "operator": "*12",
+            "weight": 12,
+            "score": 12.0,
+            "is_core_support": true,
+            "expression": "HEART_LINE_DEPTH * 12"
+          }
+        ],
+        "eligible_for_primary": false,
+        "mother_name": "暖纹型"
+      },
+      "M3": {
+        "count": 1,
+        "fields": [
+          "HEART_LINE_DEPTH"
+        ],
+        "details": [
+          {
+            "field_key": "HEART_LINE_DEPTH",
+            "value": 1.0,
+            "operator": "*7",
+            "weight": 7,
+            "score": 7.0,
+            "is_core_support": true,
+            "expression": "HEART_LINE_DEPTH * 7"
+          }
+        ],
+        "eligible_for_primary": false,
+        "mother_name": "密纹型"
+      },
+      "M4": {
+        "count": 1,
+        "fields": [
+          "FINGER_SPREAD"
+        ],
+        "details": [
+          {
+            "field_key": "FINGER_SPREAD",
+            "value": 0.0,
+            "operator": "(3-f)*5",
+            "weight": 5,
+            "score": 15.0,
+            "is_core_support": true,
+            "expression": "(3 - FINGER_SPREAD) * 5"
+          }
+        ],
+        "eligible_for_primary": false,
+        "mother_name": "川字型"
+      },
+      "M5": {
+        "count": 0,
+        "fields": [],
+        "details": [],
+        "eligible_for_primary": false,
+        "mother_name": "贯纹型"
+      },
+      "M6": {
+        "count": 1,
+        "fields": [
+          "OVERALL_CLARITY"
+        ],
+        "details": [
+          {
+            "field_key": "OVERALL_CLARITY",
+            "value": 2.0,
+            "operator": "*6",
+            "weight": 6,
+            "score": 12.0,
+            "is_core_support": true,
+            "expression": "OVERALL_CLARITY * 6"
+          }
+        ],
+        "eligible_for_primary": false,
+        "mother_name": "轨道型"
+      },
+      "M7": {
+        "count": 1,
+        "fields": [
+          "HEART_LINE_DEPTH"
+        ],
+        "details": [
+          {
+            "field_key": "HEART_LINE_DEPTH",
+            "value": 1.0,
+            "operator": "*4",
+            "weight": 4,
+            "score": 4.0,
+            "is_core_support": true,
+            "expression": "HEART_LINE_DEPTH * 4"
+          }
+        ],
+        "eligible_for_primary": false,
+        "mother_name": "月相型"
+      },
+      "M8": {
+        "count": 0,
+        "fields": [],
+        "details": [],
+        "eligible_for_primary": false,
+        "mother_name": "复纹型"
+      }
+    },
+    "mother_score_trace": {
+      "M1": [
+        {
+          "field_key": "HEAD_LINE_DEPTH",
+          "value": 3.0,
+          "operator": "*12",
+          "weight": 12,
+          "score": 36.0,
+          "is_core_support": true,
+          "expression": "HEAD_LINE_DEPTH * 12"
+        },
+        {
+          "field_key": "HEAD_LINE_LENGTH",
+          "value": 3.0,
+          "operator": "*10",
+          "weight": 10,
+          "score": 30.0,
+          "is_core_support": true,
+          "expression": "HEAD_LINE_LENGTH * 10"
+        },
+        {
+          "field_key": "OVERALL_CLARITY",
+          "value": 2.0,
+          "operator": "*8",
+          "weight": 8,
+          "score": 16.0,
+          "is_core_support": true,
+          "expression": "OVERALL_CLARITY * 8"
+        },
+        {
+          "field_key": "LINE_COMPLEXITY",
+          "value": 0.0,
+          "operator": "(3-f)*5",
+          "weight": 5,
+          "score": 15.0,
+          "is_core_support": true,
+          "expression": "(3 - LINE_COMPLEXITY) * 5"
+        },
+        {
+          "field_key": "MOUNT_JUPITER",
+          "value": 1.0,
+          "operator": "*6",
+          "weight": 6,
+          "score": 6.0,
+          "is_core_support": false,
+          "expression": "MOUNT_JUPITER * 6"
+        }
+      ],
+      "M2": [
+        {
+          "field_key": "HEART_LINE_DEPTH",
+          "value": 1.0,
+          "operator": "*12",
+          "weight": 12,
+          "score": 12.0,
+          "is_core_support": true,
+          "expression": "HEART_LINE_DEPTH * 12"
+        },
+        {
+          "field_key": "HEART_LINE_LENGTH",
+          "value": 0.0,
+          "operator": "*10",
+          "weight": 10,
+          "score": 0.0,
+          "is_core_support": true,
+          "expression": "HEART_LINE_LENGTH * 10"
+        },
+        {
+          "field_key": "HEART_LINE_CURVE",
+          "value": 0.0,
+          "operator": "*8",
+          "weight": 8,
+          "score": 0.0,
+          "is_core_support": true,
+          "expression": "HEART_LINE_CURVE * 8"
+        },
+        {
+          "field_key": "MOUNT_VENUS",
+          "value": 0.0,
+          "operator": "*8",
+          "weight": 8,
+          "score": 0.0,
+          "is_core_support": false,
+          "expression": "MOUNT_VENUS * 8"
+        },
+        {
+          "field_key": "HEART_LINE_END_FORK",
+          "value": 0.0,
+          "operator": "*6",
+          "weight": 6,
+          "score": 0.0,
+          "is_core_support": false,
+          "expression": "HEART_LINE_END_FORK * 6"
+        }
+      ],
+      "M3": [
+        {
+          "field_key": "LINE_COMPLEXITY",
+          "value": 0.0,
+          "operator": "*15",
+          "weight": 15,
+          "score": 0.0,
+          "is_core_support": true,
+          "expression": "LINE_COMPLEXITY * 15"
+        },
+        {
+          "field_key": "MOUNT_LUNA",
+          "value": 0.0,
+          "operator": "*10",
+          "weight": 10,
+          "score": 0.0,
+          "is_core_support": false,
+          "expression": "MOUNT_LUNA * 10"
+        },
+        {
+          "field_key": "HEART_LINE_DEPTH",
+          "value": 1.0,
+          "operator": "*7",
+          "weight": 7,
+          "score": 7.0,
+          "is_core_support": true,
+          "expression": "HEART_LINE_DEPTH * 7"
+        },
+        {
+          "field_key": "MOUNT_MERCURY",
+          "value": 0.0,
+          "operator": "*7",
+          "weight": 7,
+          "score": 0.0,
+          "is_core_support": false,
+          "expression": "MOUNT_MERCURY * 7"
+        }
+      ],
+      "M4": [
+        {
+          "field_key": "CHUAN_PALM",
+          "value": 0.0,
+          "operator": "if_eq_1_bonus",
+          "weight": 50,
+          "score": 0,
+          "is_core_support": true,
+          "expression": "CHUAN_PALM == 1"
+        },
+        {
+          "field_key": "HEAD_LIFE_GAP",
+          "value": 0.0,
+          "operator": "*10",
+          "weight": 10,
+          "score": 0.0,
+          "is_core_support": false,
+          "expression": "HEAD_LIFE_GAP * 10"
+        },
+        {
+          "field_key": "FINGER_SPREAD",
+          "value": 0.0,
+          "operator": "(3-f)*5",
+          "weight": 5,
+          "score": 15.0,
+          "is_core_support": true,
+          "expression": "(3 - FINGER_SPREAD) * 5"
+        },
+        {
+          "field_key": "MOUNT_SATURN",
+          "value": 0.0,
+          "operator": "*5",
+          "weight": 5,
+          "score": 0.0,
+          "is_core_support": false,
+          "expression": "MOUNT_SATURN * 5"
+        }
+      ],
+      "M5": [
+        {
+          "field_key": "SIMIAN_LINE",
+          "value": 0.0,
+          "operator": "if_eq_1_bonus",
+          "weight": 50,
+          "score": 0,
+          "is_core_support": true,
+          "expression": "SIMIAN_LINE == 1"
+        },
+        {
+          "field_key": "THUMB_LENGTH_RATIO",
+          "value": 0.0,
+          "operator": "*8",
+          "weight": 8,
+          "score": 0.0,
+          "is_core_support": true,
+          "expression": "THUMB_LENGTH_RATIO * 8"
+        },
+        {
+          "field_key": "FATE_LINE_CLARITY",
+          "value": 2.0,
+          "operator": "*7",
+          "weight": 7,
+          "score": 14.0,
+          "is_core_support": false,
+          "expression": "FATE_LINE_CLARITY * 7"
+        },
+        {
+          "field_key": "LIFE_LINE_DEPTH",
+          "value": 0.0,
+          "operator": "*5",
+          "weight": 5,
+          "score": 0.0,
+          "is_core_support": true,
+          "expression": "LIFE_LINE_DEPTH * 5"
+        }
+      ],
+      "M6": [
+        {
+          "field_key": "FATE_LINE_CLARITY",
+          "value": 2.0,
+          "operator": "*18",
+          "weight": 18,
+          "score": 36.0,
+          "is_core_support": false,
+          "expression": "FATE_LINE_CLARITY * 18"
+        },
+        {
+          "field_key": "SUN_LINE_PRESENCE",
+          "value": 0.0,
+          "operator": "*15",
+          "weight": 15,
+          "score": 0.0,
+          "is_core_support": false,
+          "expression": "SUN_LINE_PRESENCE * 15"
+        },
+        {
+          "field_key": "OVERALL_CLARITY",
+          "value": 2.0,
+          "operator": "*6",
+          "weight": 6,
+          "score": 12.0,
+          "is_core_support": true,
+          "expression": "OVERALL_CLARITY * 6"
+        },
+        {
+          "field_key": "THUMB_LENGTH_RATIO",
+          "value": 0.0,
+          "operator": "*4",
+          "weight": 4,
+          "score": 0.0,
+          "is_core_support": true,
+          "expression": "THUMB_LENGTH_RATIO * 4"
+        }
+      ],
+      "M7": [
+        {
+          "field_key": "MOUNT_LUNA",
+          "value": 0.0,
+          "operator": "*18",
+          "weight": 18,
+          "score": 0.0,
+          "is_core_support": false,
+          "expression": "MOUNT_LUNA * 18"
+        },
+        {
+          "field_key": "HEAD_LINE_SLOPE",
+          "value": 0.0,
+          "operator": "*12",
+          "weight": 12,
+          "score": 0.0,
+          "is_core_support": true,
+          "expression": "HEAD_LINE_SLOPE * 12"
+        },
+        {
+          "field_key": "FINGERTIP_SHAPE",
+          "value": 0.0,
+          "operator": "in_set_2_3_bonus_15",
+          "weight": 15,
+          "score": 0,
+          "is_core_support": false,
+          "expression": "FINGERTIP_SHAPE in [2, 3]"
+        },
+        {
+          "field_key": "HEART_LINE_DEPTH",
+          "value": 1.0,
+          "operator": "*4",
+          "weight": 4,
+          "score": 4.0,
+          "is_core_support": true,
+          "expression": "HEART_LINE_DEPTH * 4"
+        }
+      ],
+      "M8": [
+        {
+          "field_key": "[OTHER_M_SCORES>=60]",
+          "value": 1,
+          "operator": "count",
+          "weight": 0,
+          "score": 0,
+          "is_core_support": true,
+          "expression": "count(other mother scores >= 60)"
+        },
+        {
+          "field_key": "HEAD_LINE_END_FORK",
+          "value": 0.0,
+          "operator": "if_eq_1_bonus",
+          "weight": 15,
+          "score": 0,
+          "is_core_support": false,
+          "expression": "HEAD_LINE_END_FORK == 1"
+        },
+        {
+          "field_key": "CHUAN_PALM & HEART_LINE_DEPTH",
+          "value": false,
+          "operator": "compound_bonus_15",
+          "weight": 15,
+          "score": 0,
+          "is_core_support": true,
+          "expression": "CHUAN_PALM == 1 AND HEART_LINE_DEPTH >= 2"
+        }
+      ]
+    },
+    "persona_scores": {
+      "P01": 75.0,
+      "P12": 0,
+      "P25": 60.0,
+      "P06": 60.0,
+      "P31": 0
+    },
+    "persona_match_trace": {
+      "P01": {
+        "persona_name": "人生排位赛选手",
+        "raw_score": 75.0,
+        "final_score": 75.0,
+        "required_failed": [],
+        "rules": [
+          {
+            "field_key": "HEAD_LINE_LENGTH",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 3,
+            "matched": true,
+            "weight": 25,
+            "is_required": true
+          },
+          {
+            "field_key": "HEAD_LINE_DEPTH",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 3,
+            "matched": true,
+            "weight": 20,
+            "is_required": true
+          },
+          {
+            "field_key": "HEART_LINE_DEPTH",
+            "operator": "<=",
+            "threshold": 1,
+            "value": 1,
+            "matched": true,
+            "weight": 15,
+            "is_required": true
+          },
+          {
+            "field_key": "FATE_LINE_CLARITY",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 2,
+            "matched": true,
+            "weight": 10,
+            "is_required": false
+          },
+          {
+            "field_key": "MOUNT_JUPITER",
+            "operator": ">=",
+            "threshold": 1,
+            "value": 1,
+            "matched": true,
+            "weight": 5,
+            "is_required": false
+          }
+        ]
+      },
+      "P12": {
+        "persona_name": "低调战略家",
+        "raw_score": 50.0,
+        "final_score": 0,
+        "required_failed": [
+          "HEAD_LIFE_GAP"
+        ],
+        "rules": [
+          {
+            "field_key": "HEAD_LINE_DEPTH",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 3,
+            "matched": true,
+            "weight": 25,
+            "is_required": true
+          },
+          {
+            "field_key": "HEAD_LINE_LENGTH",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 3,
+            "matched": true,
+            "weight": 20,
+            "is_required": true
+          },
+          {
+            "field_key": "HEAD_LIFE_GAP",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 0,
+            "matched": false,
+            "weight": 15,
+            "is_required": true
+          },
+          {
+            "field_key": "THUMB_LENGTH_RATIO",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 0,
+            "matched": false,
+            "weight": 10,
+            "is_required": false
+          },
+          {
+            "field_key": "OVERALL_CLARITY",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 2,
+            "matched": true,
+            "weight": 5,
+            "is_required": false
+          }
+        ]
+      },
+      "P25": {
+        "persona_name": "老干部",
+        "raw_score": 60.0,
+        "final_score": 60.0,
+        "required_failed": [],
+        "rules": [
+          {
+            "field_key": "OVERALL_CLARITY",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 2,
+            "matched": true,
+            "weight": 25,
+            "is_required": true
+          },
+          {
+            "field_key": "LINE_COMPLEXITY",
+            "operator": "<=",
+            "threshold": 1,
+            "value": 0,
+            "matched": true,
+            "weight": 20,
+            "is_required": true
+          },
+          {
+            "field_key": "HEAD_LINE_DEPTH",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 3,
+            "matched": true,
+            "weight": 15,
+            "is_required": true
+          }
+        ]
+      },
+      "P06": {
+        "persona_name": "混乱过敏体",
+        "raw_score": 60.0,
+        "final_score": 60.0,
+        "required_failed": [],
+        "rules": [
+          {
+            "field_key": "OVERALL_CLARITY",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 2,
+            "matched": true,
+            "weight": 25,
+            "is_required": true
+          },
+          {
+            "field_key": "LINE_COMPLEXITY",
+            "operator": "<=",
+            "threshold": 1,
+            "value": 0,
+            "matched": true,
+            "weight": 20,
+            "is_required": true
+          },
+          {
+            "field_key": "HEAD_LINE_DEPTH",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 3,
+            "matched": true,
+            "weight": 15,
+            "is_required": true
+          },
+          {
+            "field_key": "FINGERTIP_SHAPE",
+            "operator": ">=",
+            "threshold": 1,
+            "value": 0,
+            "matched": false,
+            "weight": 10,
+            "is_required": false
+          },
+          {
+            "field_key": "MOUNT_SATURN",
+            "operator": ">=",
+            "threshold": 1,
+            "value": 0,
+            "matched": false,
+            "weight": 5,
+            "is_required": false
+          }
+        ]
+      },
+      "P31": {
+        "persona_name": "留一手",
+        "raw_score": 50.0,
+        "final_score": 0,
+        "required_failed": [
+          "FATE_LINE_CLARITY"
+        ],
+        "rules": [
+          {
+            "field_key": "HEAD_LINE_LENGTH",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 3,
+            "matched": true,
+            "weight": 25,
+            "is_required": true
+          },
+          {
+            "field_key": "HEAD_LINE_DEPTH",
+            "operator": ">=",
+            "threshold": 2,
+            "value": 3,
+            "matched": true,
+            "weight": 20,
+            "is_required": true
+          },
+          {
+            "field_key": "FATE_LINE_CLARITY",
+            "operator": "<=",
+            "threshold": 1,
+            "value": 2,
+            "matched": false,
+            "weight": 15,
+            "is_required": true
+          },
+          {
+            "field_key": "THUMB_LENGTH_RATIO",
+            "operator": ">=",
+            "threshold": 1,
+            "value": 0,
+            "matched": false,
+            "weight": 10,
+            "is_required": false
+          },
+          {
+            "field_key": "FINGER_SPREAD",
+            "operator": "<=",
+            "threshold": 1,
+            "value": 0,
+            "matched": true,
+            "weight": 5,
+            "is_required": false
+          }
+        ]
+      }
+    },
+    "resolver_used": false,
+    "resolver_trace": {
+      "resolver_used": false,
+      "before": "P01",
+      "after": "P01",
+      "reason": "Score gap 20.00% >= 15%."
+    }
+  },
+  "display_content": {
+    "persona_code": "S01",
+    "hook": "你的世界比一般人安静，因为你早把没必要想的事筛出去了",
+    "quote": "我不是不在乎，我只是更在乎自己最后站在哪。",
+    "final_judgement": "人生排位赛选手不是那种靠热血、冲动和情绪爆发往前走的人。你更像是一直开着后台计算的人：这一步值不值得走，这段关系会不会消耗，这个机会能不能让自己上一个段位。你不一定时时刻刻表现得很有野心，甚至看起来很冷静、很省电，但你心里其实一直有一条路线。你不喜欢乱，也不喜欢被情绪拖着跑。你真正关心的不是当下赢不赢嘴上这一口气，而是几年后自己站在什么位置、有没有拿到更高的主动权。你不是没有情绪，你只是不会把情绪浪费在没收益的地方。你的底层逻辑很简单：人生是长期排位，情绪可以低耗运行，但段位必须慢慢打上去。",
+    "poster_title": "人生排位赛选手",
+    "poster_subtitle": "我不是不在乎，我只是更在乎自己最后站在哪。",
+    "three_keywords": "底层逻辑很简单：人生是长期排位，情绪可以低耗运行，但段位必须慢慢打上去",
+    "share_copy": "我的掌纹人格是「人生排位赛选手」——我不是不在乎，我只是更在乎自己最后站在哪。"
+  }
+}

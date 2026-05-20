@@ -1,0 +1,30 @@
+{
+  "image": {
+    "file_hash": "stage3j-invalid-schema-missing",
+    "mime_type": "image/jpeg",
+    "file_size": 700000,
+    "width": 1280,
+    "height": 1600,
+    "is_palm": true,
+    "is_palm_side": true,
+    "is_single_hand": true,
+    "is_clear_enough": true,
+    "quality_score": 0.84
+  },
+  "mock_features": {
+    "PALM_LENGTH_RATIO": 1,
+    "INDEX_RING_RATIO": 1,
+    "THUMB_LENGTH_RATIO": 0,
+    "INDEX_LENGTH_RATIO": 0,
+    "PINKY_LENGTH_RATIO": 1,
+    "FINGER_SPREAD": 2,
+    "HAND_ASPECT_RATIO": 1,
+    "OVERALL_PROPORTION_FLAG": 1,
+    "FINGERTIP_SHAPE": 1,
+    "LIFE_LINE_DEPTH": 0,
+    "HEAD_LINE_LENGTH": null,
+    "HEAD_LINE_DEPTH": null,
+    "HEART_LINE_DEPTH": null,
+    "LINE_COMPLEXITY": null
+  }
+}

@@ -1,0 +1,455 @@
+[
+  {
+    "mother_id": "M1",
+    "mother_name": "钢线型",
+    "field_key": "HEAD_LINE_DEPTH",
+    "operator": "*12",
+    "threshold": null,
+    "weight": 12,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-36"
+  },
+  {
+    "mother_id": "M1",
+    "mother_name": "钢线型",
+    "field_key": "HEAD_LINE_LENGTH",
+    "operator": "*10",
+    "threshold": null,
+    "weight": 10,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-30"
+  },
+  {
+    "mother_id": "M1",
+    "mother_name": "钢线型",
+    "field_key": "OVERALL_CLARITY",
+    "operator": "*8",
+    "threshold": null,
+    "weight": 8,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-24"
+  },
+  {
+    "mother_id": "M1",
+    "mother_name": "钢线型",
+    "field_key": "LINE_COMPLEXITY",
+    "operator": "(3-f)*5",
+    "threshold": null,
+    "weight": 5,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "反向加分;0-15"
+  },
+  {
+    "mother_id": "M1",
+    "mother_name": "钢线型",
+    "field_key": "MOUNT_JUPITER",
+    "operator": "*6",
+    "threshold": null,
+    "weight": 6,
+    "confidence_tier": "low_confidence",
+    "is_core_support": false,
+    "notes": "0-12;加分项"
+  },
+  {
+    "mother_id": "M2",
+    "mother_name": "暖纹型",
+    "field_key": "HEART_LINE_DEPTH",
+    "operator": "*10",
+    "threshold": null,
+    "weight": 10,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-36; V0.2: mild HEART_LINE_DEPTH reduction."
+  },
+  {
+    "mother_id": "M2",
+    "mother_name": "暖纹型",
+    "field_key": "HEART_LINE_LENGTH",
+    "operator": "*10",
+    "threshold": null,
+    "weight": 10,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-30"
+  },
+  {
+    "mother_id": "M2",
+    "mother_name": "暖纹型",
+    "field_key": "HEART_LINE_CURVE",
+    "operator": "*8",
+    "threshold": null,
+    "weight": 8,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-24"
+  },
+  {
+    "mother_id": "M2",
+    "mother_name": "暖纹型",
+    "field_key": "MOUNT_VENUS",
+    "operator": "*8",
+    "threshold": null,
+    "weight": 8,
+    "confidence_tier": "low_confidence",
+    "is_core_support": false,
+    "notes": "0-16;加分项"
+  },
+  {
+    "mother_id": "M2",
+    "mother_name": "暖纹型",
+    "field_key": "HEART_LINE_END_FORK",
+    "operator": "*6",
+    "threshold": null,
+    "weight": 6,
+    "confidence_tier": "auxiliary",
+    "is_core_support": false,
+    "notes": "0-6;加分项"
+  },
+  {
+    "mother_id": "M3",
+    "mother_name": "密纹型",
+    "field_key": "LINE_COMPLEXITY",
+    "operator": "*15",
+    "threshold": null,
+    "weight": 15,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-45"
+  },
+  {
+    "mother_id": "M3",
+    "mother_name": "密纹型",
+    "field_key": "MOUNT_LUNA",
+    "operator": "*10",
+    "threshold": null,
+    "weight": 10,
+    "confidence_tier": "low_confidence",
+    "is_core_support": false,
+    "notes": "0-20;加分项"
+  },
+  {
+    "mother_id": "M3",
+    "mother_name": "密纹型",
+    "field_key": "HEART_LINE_DEPTH",
+    "operator": "*5",
+    "threshold": null,
+    "weight": 5,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-21; V0.2: mild HEART_LINE_DEPTH reduction."
+  },
+  {
+    "mother_id": "M3",
+    "mother_name": "密纹型",
+    "field_key": "MOUNT_MERCURY",
+    "operator": "*7",
+    "threshold": null,
+    "weight": 7,
+    "confidence_tier": "low_confidence",
+    "is_core_support": false,
+    "notes": "0-14;加分项"
+  },
+  {
+    "mother_id": "M4",
+    "mother_name": "川字型",
+    "field_key": "CHUAN_PALM",
+    "operator": "if_eq_1_bonus",
+    "threshold": 1,
+    "weight": 50,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "一票高加成"
+  },
+  {
+    "mother_id": "M4",
+    "mother_name": "川字型",
+    "field_key": "HEAD_LIFE_GAP",
+    "operator": "*10",
+    "threshold": null,
+    "weight": 10,
+    "confidence_tier": "auxiliary",
+    "is_core_support": false,
+    "notes": "0-30"
+  },
+  {
+    "mother_id": "M4",
+    "mother_name": "川字型",
+    "field_key": "FINGER_SPREAD",
+    "operator": "(3-f)*5",
+    "threshold": null,
+    "weight": 5,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "反向;指紧加分;0-15"
+  },
+  {
+    "mother_id": "M4",
+    "mother_name": "川字型",
+    "field_key": "MOUNT_SATURN",
+    "operator": "*5",
+    "threshold": null,
+    "weight": 5,
+    "confidence_tier": "low_confidence",
+    "is_core_support": false,
+    "notes": "0-10;加分项"
+  },
+  {
+    "mother_id": "M5",
+    "mother_name": "贯纹型",
+    "field_key": "SIMIAN_LINE",
+    "operator": "if_eq_1_bonus",
+    "threshold": 1,
+    "weight": 50,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "一票高加成"
+  },
+  {
+    "mother_id": "M5",
+    "mother_name": "贯纹型",
+    "field_key": "THUMB_LENGTH_RATIO",
+    "operator": "*8",
+    "threshold": null,
+    "weight": 8,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-24"
+  },
+  {
+    "mother_id": "M5",
+    "mother_name": "贯纹型",
+    "field_key": "FATE_LINE_CLARITY",
+    "operator": "*7",
+    "threshold": null,
+    "weight": 7,
+    "confidence_tier": "auxiliary",
+    "is_core_support": false,
+    "notes": "0-21;辅助加分"
+  },
+  {
+    "mother_id": "M5",
+    "mother_name": "贯纹型",
+    "field_key": "LIFE_LINE_DEPTH",
+    "operator": "*5",
+    "threshold": null,
+    "weight": 5,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-15"
+  },
+  {
+    "mother_id": "M6",
+    "mother_name": "轨道型",
+    "field_key": "FATE_LINE_CLARITY",
+    "operator": "*18",
+    "threshold": null,
+    "weight": 18,
+    "confidence_tier": "auxiliary",
+    "is_core_support": false,
+    "notes": "0-54;权重高但辅助"
+  },
+  {
+    "mother_id": "M6",
+    "mother_name": "轨道型",
+    "field_key": "SUN_LINE_PRESENCE",
+    "operator": "*15",
+    "threshold": null,
+    "weight": 15,
+    "confidence_tier": "auxiliary",
+    "is_core_support": false,
+    "notes": "0-15"
+  },
+  {
+    "mother_id": "M6",
+    "mother_name": "轨道型",
+    "field_key": "OVERALL_CLARITY",
+    "operator": "*6",
+    "threshold": null,
+    "weight": 6,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-18"
+  },
+  {
+    "mother_id": "M6",
+    "mother_name": "轨道型",
+    "field_key": "THUMB_LENGTH_RATIO",
+    "operator": "*4",
+    "threshold": null,
+    "weight": 4,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-12"
+  },
+  {
+    "mother_id": "M7",
+    "mother_name": "月相型",
+    "field_key": "MOUNT_LUNA",
+    "operator": "*10",
+    "threshold": null,
+    "weight": 10,
+    "confidence_tier": "low_confidence",
+    "is_core_support": false,
+    "notes": "0-36;低置信; V0.2: reduce low-confidence M7 dependency."
+  },
+  {
+    "mother_id": "M7",
+    "mother_name": "月相型",
+    "field_key": "HEAD_LINE_SLOPE",
+    "operator": "*16",
+    "threshold": null,
+    "weight": 16,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "0-36; V0.2: strengthen M7 core entry."
+  },
+  {
+    "mother_id": "M7",
+    "mother_name": "月相型",
+    "field_key": "FINGERTIP_SHAPE",
+    "operator": "in_set_2_3_bonus_15",
+    "threshold": [
+      2,
+      3
+    ],
+    "weight": 8,
+    "confidence_tier": "low_confidence",
+    "is_core_support": false,
+    "notes": "0-15;低置信; V0.2: reduce low-confidence M7 dependency.",
+    "allowed_values": [
+      2,
+      3
+    ]
+  },
+  {
+    "mother_id": "M7",
+    "mother_name": "月相型",
+    "field_key": "HEART_LINE_DEPTH",
+    "operator": "*2",
+    "threshold": null,
+    "weight": 2,
+    "confidence_tier": "auxiliary",
+    "is_core_support": false,
+    "notes": "0-12; V0.2: reduce duplicated HEART_LINE_DEPTH influence; V0.2: no longer counts as M7 core support."
+  },
+  {
+    "mother_id": "M7",
+    "mother_name": "月相型",
+    "field_key": "LINE_COMPLEXITY",
+    "operator": "*6",
+    "threshold": null,
+    "weight": 6,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "V0.2: allow HEAD_LINE_SLOPE + LINE_COMPLEXITY to support M7 without HEART_LINE_DEPTH."
+  },
+  {
+    "mother_id": "M7",
+    "mother_name": "???",
+    "field_key": "HEAD_LINE_SLOPE & LINE_COMPLEXITY",
+    "operator": "compound_bonus_14",
+    "threshold": null,
+    "weight": 14,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "V0.9: preserve M7/P29 when sloped head line and multi-layer line complexity appear together.",
+    "special_rule": "compound",
+    "conditions": [
+      {
+        "field_key": "HEAD_LINE_SLOPE",
+        "operator": ">=",
+        "threshold": 2
+      },
+      {
+        "field_key": "LINE_COMPLEXITY",
+        "operator": ">=",
+        "threshold": 2
+      }
+    ]
+  },
+  {
+    "mother_id": "M8",
+    "mother_name": "复纹型",
+    "field_key": "[OTHER_M_SCORES>=60]",
+    "operator": "count",
+    "threshold": 3,
+    "weight": 0,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "????????; V0.9: keep three strong mother scores as M8 base, with explicit compound support preventing loose fallback.",
+    "special_rule": "other_m_scores_ge_60"
+  },
+  {
+    "mother_id": "M8",
+    "mother_name": "复纹型",
+    "field_key": "HEAD_LINE_END_FORK",
+    "operator": "if_eq_1_bonus",
+    "threshold": 1,
+    "weight": 6,
+    "confidence_tier": "low_confidence",
+    "is_core_support": false,
+    "notes": "加分项; V0.2: reduce one-off fork bonus."
+  },
+  {
+    "mother_id": "M8",
+    "mother_name": "复纹型",
+    "field_key": "CHUAN_PALM & HEART_LINE_DEPTH",
+    "operator": "compound_bonus_15",
+    "threshold": null,
+    "weight": 8,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "联合加分; V0.2: reduce M8 compound bonus and require stronger heart-line signal.",
+    "special_rule": "compound",
+    "conditions": [
+      {
+        "field_key": "CHUAN_PALM",
+        "operator": "==",
+        "threshold": 1
+      },
+      {
+        "field_key": "HEART_LINE_DEPTH",
+        "operator": ">=",
+        "threshold": 3
+      }
+    ]
+  },
+  {
+    "mother_id": "M8",
+    "mother_name": "???",
+    "field_key": "FATE_LINE_CLARITY & LIFE_LINE_DEPTH & OVERALL_CLARITY & HEAD_LINE_SLOPE<=1",
+    "operator": "compound_bonus_20",
+    "threshold": null,
+    "weight": 20,
+    "confidence_tier": "core",
+    "is_core_support": true,
+    "notes": "V0.9: M8 compound evidence applies when clear fate/life/clarity combines with non-M7 head-line slope, preventing M7/P29 samples from being swallowed.",
+    "special_rule": "compound",
+    "conditions": [
+      {
+        "field_key": "FATE_LINE_CLARITY",
+        "operator": ">=",
+        "threshold": 2
+      },
+      {
+        "field_key": "LIFE_LINE_DEPTH",
+        "operator": ">=",
+        "threshold": 2
+      },
+      {
+        "field_key": "OVERALL_CLARITY",
+        "operator": ">=",
+        "threshold": 2
+      },
+      {
+        "field_key": "HEAD_LINE_SLOPE",
+        "operator": "<=",
+        "threshold": 1
+      }
+    ]
+  }
+]

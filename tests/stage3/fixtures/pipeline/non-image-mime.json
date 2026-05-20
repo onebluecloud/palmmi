@@ -1,0 +1,15 @@
+{
+  "image": {
+    "file_hash": "stage3j-non-image-mime",
+    "mime_type": "application/pdf",
+    "file_size": 200000,
+    "width": 1280,
+    "height": 1600,
+    "is_palm": true,
+    "is_palm_side": true,
+    "is_single_hand": true,
+    "is_clear_enough": true,
+    "quality_score": 0.9
+  },
+  "mock_features_fixture": "../distribution/p01-target.json"
+}

@@ -1,0 +1,289 @@
+[
+  {
+    "persona_a": "P01",
+    "persona_b": "P12",
+    "resolver_field": "MOUNT_JUPITER",
+    "operator": ">=",
+    "threshold": 1,
+    "output_persona": "P01",
+    "else_persona": "P12",
+    "conditions": [
+      {
+        "field_key": "MOUNT_JUPITER",
+        "operator": ">=",
+        "threshold": 1
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": null
+  },
+  {
+    "persona_a": "P04",
+    "persona_b": "P17",
+    "resolver_field": "INDEX_LENGTH_RATIO",
+    "operator": ">=",
+    "threshold": 2,
+    "output_persona": "P17",
+    "else_persona": "P04",
+    "conditions": [
+      {
+        "field_key": "INDEX_LENGTH_RATIO",
+        "operator": ">=",
+        "threshold": 2
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": null
+  },
+  {
+    "persona_a": "P05",
+    "persona_b": "P07",
+    "resolver_field": "LIFE_LINE_DEPTH",
+    "operator": ">=",
+    "threshold": 3,
+    "output_persona": "P07",
+    "else_persona": "P05",
+    "conditions": [
+      {
+        "field_key": "LIFE_LINE_DEPTH",
+        "operator": ">=",
+        "threshold": 3
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": null
+  },
+  {
+    "persona_a": "P02",
+    "persona_b": "P22",
+    "resolver_field": "HEART_LINE_DEPTH",
+    "operator": ">=",
+    "threshold": 3,
+    "output_persona": "P22",
+    "else_persona": "P02",
+    "conditions": [
+      {
+        "field_key": "HEART_LINE_DEPTH",
+        "operator": ">=",
+        "threshold": 3
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": null
+  },
+  {
+    "persona_a": "P15",
+    "persona_b": "P33",
+    "resolver_field": "LINE_COMPLEXITY<=1 AND OVERALL_CLARITY",
+    "operator": "compound",
+    "threshold": null,
+    "output_persona": "P33",
+    "else_persona": "P15",
+    "conditions": [
+      {
+        "field_key": "LINE_COMPLEXITY",
+        "operator": "<=",
+        "threshold": 1
+      },
+      {
+        "field_key": "OVERALL_CLARITY",
+        "operator": ">=",
+        "threshold": 2
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": "Compound resolver normalized from split Excel columns."
+  },
+  {
+    "persona_a": "P09",
+    "persona_b": "P34",
+    "resolver_field": "HEART_LINE_DEPTH",
+    "operator": ">=",
+    "threshold": 2,
+    "output_persona": "P34",
+    "else_persona": "P09",
+    "conditions": [
+      {
+        "field_key": "HEART_LINE_DEPTH",
+        "operator": ">=",
+        "threshold": 2
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": null
+  },
+  {
+    "persona_a": "P14",
+    "persona_b": "P35",
+    "resolver_field": "INDEX_LENGTH_RATIO",
+    "operator": ">=",
+    "threshold": 2,
+    "output_persona": "P35",
+    "else_persona": "P14",
+    "conditions": [
+      {
+        "field_key": "INDEX_LENGTH_RATIO",
+        "operator": ">=",
+        "threshold": 2
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": null
+  },
+  {
+    "persona_a": "P27",
+    "persona_b": "P35",
+    "resolver_field": "HEART_LINE_DEPTH>=3 AND INDEX_LENGTH_RATIO",
+    "operator": "compound",
+    "threshold": null,
+    "output_persona": "P35",
+    "else_persona": "P27",
+    "conditions": [
+      {
+        "field_key": "HEART_LINE_DEPTH",
+        "operator": ">=",
+        "threshold": 3
+      },
+      {
+        "field_key": "INDEX_LENGTH_RATIO",
+        "operator": ">=",
+        "threshold": 2
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": "Compound resolver normalized from split Excel columns."
+  },
+  {
+    "persona_a": "P11",
+    "persona_b": "P21",
+    "resolver_field": "HEAD_LINE_END_FORK",
+    "operator": "==",
+    "threshold": 1,
+    "output_persona": "P11",
+    "else_persona": "P21",
+    "conditions": [
+      {
+        "field_key": "HEAD_LINE_END_FORK",
+        "operator": "==",
+        "threshold": 1
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": "Condition was blank in Excel; normalized to == 1 for binary field."
+  },
+  {
+    "persona_a": "P25",
+    "persona_b": "P33",
+    "resolver_field": "CHUAN_PALM",
+    "operator": "==",
+    "threshold": 1,
+    "output_persona": "P33",
+    "else_persona": "P25",
+    "conditions": [
+      {
+        "field_key": "CHUAN_PALM",
+        "operator": "==",
+        "threshold": 1
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": "Condition was blank in Excel; normalized to == 1 for binary field."
+  },
+  {
+    "persona_a": "P10",
+    "persona_b": "P29",
+    "resolver_field": "MOUNT_LUNA>=1 AND HEAD_LINE_SLOPE",
+    "operator": "compound",
+    "threshold": null,
+    "output_persona": "P10",
+    "else_persona": "P29",
+    "conditions": [
+      {
+        "field_key": "MOUNT_LUNA",
+        "operator": ">=",
+        "threshold": 1
+      },
+      {
+        "field_key": "HEAD_LINE_SLOPE",
+        "operator": ">=",
+        "threshold": 2
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": "Compound resolver normalized from split Excel columns."
+  },
+  {
+    "persona_a": "P03",
+    "persona_b": "P36",
+    "resolver_field": "MOUNT_JUPITER>=1 AND INDEX_LENGTH_RATIO",
+    "operator": "compound",
+    "threshold": null,
+    "output_persona": "P03",
+    "else_persona": "P36",
+    "conditions": [
+      {
+        "field_key": "MOUNT_JUPITER",
+        "operator": ">=",
+        "threshold": 1
+      },
+      {
+        "field_key": "INDEX_LENGTH_RATIO",
+        "operator": ">=",
+        "threshold": 2
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": "Compound resolver normalized from split Excel columns."
+  },
+  {
+    "persona_a": "P25",
+    "persona_b": "P31",
+    "resolver_field": "LINE_COMPLEXITY<=1 AND OVERALL_CLARITY>=2",
+    "operator": "compound",
+    "threshold": null,
+    "output_persona": "P25",
+    "else_persona": "P31",
+    "conditions": [
+      {
+        "field_key": "LINE_COMPLEXITY",
+        "operator": "<=",
+        "threshold": 1
+      },
+      {
+        "field_key": "OVERALL_CLARITY",
+        "operator": ">=",
+        "threshold": 2
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": "V0.9: if P25 and P31 are close, clear low-noise M1 samples should stay P25; otherwise retain P31."
+  },
+  {
+    "persona_a": "P20",
+    "persona_b": "P31",
+    "resolver_field": "LINE_COMPLEXITY>=2 AND HEART_LINE_DEPTH>=2 AND HEAD_LINE_DEPTH>=2",
+    "operator": "compound",
+    "threshold": null,
+    "output_persona": "P20",
+    "else_persona": "P31",
+    "conditions": [
+      {
+        "field_key": "LINE_COMPLEXITY",
+        "operator": ">=",
+        "threshold": 2
+      },
+      {
+        "field_key": "HEART_LINE_DEPTH",
+        "operator": ">=",
+        "threshold": 2
+      },
+      {
+        "field_key": "HEAD_LINE_DEPTH",
+        "operator": ">=",
+        "threshold": 2
+      }
+    ],
+    "close_threshold_percent": 15,
+    "notes": "V0.10: when P20 and P31 are close, high complexity plus head/heart depth restores P20 replay-brain boundary."
+  }
+]

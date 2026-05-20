@@ -1,0 +1,18 @@
+[
+  {
+    "sampleId": "sample-001",
+    "imagePath": "E:/example/Palmmi/local-samples/example-left.jpg",
+    "side": "left",
+    "handLabel": "real-human-palm",
+    "expectedValidity": "valid",
+    "notes": "example only; replace with a local ignored manifest for real samples"
+  },
+  {
+    "sampleId": "sample-002",
+    "imagePath": "E:/example/Palmmi/local-samples/example-unknown.webp",
+    "side": "unknown",
+    "handLabel": "real-human-palm",
+    "expectedValidity": "valid",
+    "notes": "example only; do not commit real private image paths"
+  }
+]

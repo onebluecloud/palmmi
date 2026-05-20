@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Palmmi · 分享海报</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../styles/palmmi.css" />
+  <script src="../src/stage5/analysis-result-read-adapter.js" defer></script>
+  <script src="../src/stage5/analysis-result-storage-reader.js" defer></script>
+  <script src="../src/stage5/page-analysis-reader.js" defer></script>
+  <script src="../src/stage5/page-analysis-state-mapper.js" defer></script>
+  <script src="../scripts/palmmi-poster.js" defer></script>
+</head>
+<body data-page="poster">
+  <div class="page">
+    <header class="topbar">
+      <div class="shell topbar__inner">
+        <a class="brand" href="../index.html" aria-label="Palmmi 首页">
+          <span class="brand-mark" aria-hidden="true"></span>
+          Palmmi
+        </a>
+        <a class="top-link" href="../result/index.html">返回结果页</a>
+      </div>
+    </header>
+
+    <main class="poster-main" id="posterApp" data-state="loading">
+      <div class="shell poster-shell">
+        <section class="poster-ready" id="posterReady" hidden aria-labelledby="posterTitle">
+          <div class="poster-preview-panel">
+            <div class="poster-preview-head">
+              <div class="eyebrow">Palmmi Poster</div>
+              <span class="analysis-pill" id="posterPill">基础预览</span>
+            </div>
+
+            <article class="poster-frame" id="posterPreview" aria-label="分享海报预览">
+              <div class="id-row">
+                <span>Palmmi</span>
+                <span>PALM PERSONALITY</span>
+              </div>
+
+              <div class="poster-frame__main">
+                <p class="poster-code" id="posterPersonaCode">结果待完善</p>
+                <h1 class="poster-name" id="posterPersonaName">未知人格</h1>
+                <p class="poster-hook" id="posterHook">暂无金句</p>
+                <ul class="poster-tags chips" id="posterTags" aria-label="海报标签"></ul>
+              </div>
+
+              <div class="poster-frame__footer">
+                <p id="posterSummary">这份结果适合作为娱乐参考</p>
+                <div class="poster-meta">
+                  <span id="posterPrimaryMother">结果待完善</span>
+                  <span id="posterStatusMeta">SUCCESS</span>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <aside class="poster-side-panel" aria-label="海报数据说明">
+            <div>
+              <div class="eyebrow">Share Kit</div>
+              <h2 id="posterTitle">你的分享海报</h2>
+              <p class="poster-side-copy">这是一张适合手机截图的人格身份卡。保存图片和分享文案入口仍为占位。</p>
+            </div>
+
+            <div class="poster-detail-block">
+              <span>参考提醒</span>
+              <p id="posterQualityHint">这份结果适合作为娱乐参考。</p>
+            </div>
+
+            <div class="poster-detail-block">
+              <span>人格底色</span>
+              <p id="posterMotherDetail">结果待完善</p>
+            </div>
+
+            <div class="poster-detail-block">
+              <span>掌纹线索</span>
+              <ul class="poster-evidence" id="posterMatchedFeatures"></ul>
+            </div>
+
+            <div class="poster-detail-block">
+              <span>相关人格</span>
+              <ol class="poster-candidates" id="posterTopCandidates"></ol>
+            </div>
+
+            <div class="poster-actions">
+              <a class="btn btn--primary" href="../result/index.html">返回结果页</a>
+              <a class="btn" href="../upload/index.html">重新测试</a>
+              <button class="btn poster-placeholder-button" id="posterSavePlaceholder" type="button" disabled aria-disabled="true">保存图片</button>
+              <p class="poster-note">保存图片将在后续阶段开放</p>
+              <button class="btn poster-placeholder-button" id="posterCopyPlaceholder" type="button" disabled aria-disabled="true">复制分享文案</button>
+              <p class="poster-note">分享文案将在后续阶段开放</p>
+            </div>
+          </aside>
+        </section>
+
+        <section class="poster-problem" id="posterProblem" hidden aria-labelledby="posterProblemTitle">
+          <div>
+            <div class="eyebrow">Palmmi Poster</div>
+            <span class="analysis-pill" id="posterProblemPill">等待结果</span>
+          </div>
+          <h1 id="posterProblemTitle">还没有可生成的海报</h1>
+          <p id="posterProblemCopy">请先完成一次 Palmmi 测试，再查看分享海报预览。</p>
+          <p class="poster-problem__hint" id="posterProblemHint">你可以返回结果页查看当前状态，或重新测试生成新的结果。</p>
+          <div class="poster-problem__actions">
+            <a class="btn btn--primary" id="posterProblemBackResult" href="../result/index.html">返回结果页</a>
+            <a class="btn" id="posterProblemRetest" href="../upload/index.html">重新测试</a>
+            <a class="btn" id="posterProblemUpload" href="../upload/index.html">返回上传页</a>
+            <a class="btn" id="posterProblemHome" href="../index.html">返回首页</a>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

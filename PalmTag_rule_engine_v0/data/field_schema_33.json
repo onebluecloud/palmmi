@@ -1,0 +1,332 @@
+[
+  {
+    "field_key": "PALM_LENGTH_RATIO",
+    "chinese_name": "掌长比",
+    "value_range": "0-3",
+    "source": "MediaPipe",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": "掌长/掌宽"
+  },
+  {
+    "field_key": "INDEX_RING_RATIO",
+    "chinese_name": "食指无名指比",
+    "value_range": "0-3",
+    "source": "MediaPipe",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": "2D:4D"
+  },
+  {
+    "field_key": "THUMB_LENGTH_RATIO",
+    "chinese_name": "拇指相对长度",
+    "value_range": "0-3",
+    "source": "MediaPipe",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": "拇指/食指"
+  },
+  {
+    "field_key": "INDEX_LENGTH_RATIO",
+    "chinese_name": "食指相对长度",
+    "value_range": "0-3",
+    "source": "MediaPipe",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": "食指/掌长"
+  },
+  {
+    "field_key": "PINKY_LENGTH_RATIO",
+    "chinese_name": "小指相对长度",
+    "value_range": "0-3",
+    "source": "MediaPipe",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": "是否过中指第一节"
+  },
+  {
+    "field_key": "FINGER_SPREAD",
+    "chinese_name": "手指自然张开度",
+    "value_range": "0-3",
+    "source": "MediaPipe",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": "五指根角度均值"
+  },
+  {
+    "field_key": "HAND_ASPECT_RATIO",
+    "chinese_name": "手掌整体长宽比",
+    "value_range": "0-3",
+    "source": "MediaPipe",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": "用于手型分类"
+  },
+  {
+    "field_key": "OVERALL_PROPORTION_FLAG",
+    "chinese_name": "整体协调度标记",
+    "value_range": "0/1",
+    "source": "MediaPipe",
+    "confidence_tier": "core",
+    "can_decide_persona": "no",
+    "default_value": 1,
+    "notes": "质量门控"
+  },
+  {
+    "field_key": "FINGERTIP_SHAPE",
+    "chinese_name": "指尖形态",
+    "value_range": "0-3离散",
+    "source": "MediaPipe+轮廓",
+    "confidence_tier": "low_confidence",
+    "can_decide_persona": "no",
+    "default_value": 1,
+    "notes": "0方/1圆/2锥/3尖;只参与文案润色"
+  },
+  {
+    "field_key": "LIFE_LINE_DEPTH",
+    "chinese_name": "生命线深度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "LIFE_LINE_LENGTH",
+    "chinese_name": "生命线长度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "LIFE_LINE_CURVE",
+    "chinese_name": "生命线弧度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "HEAD_LINE_LENGTH",
+    "chinese_name": "智慧线长度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "HEAD_LINE_DEPTH",
+    "chinese_name": "智慧线深度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "HEAD_LINE_SLOPE",
+    "chinese_name": "智慧线下垂度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "HEAD_LIFE_GAP",
+    "chinese_name": "智慧线生命线分离度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 1,
+    "notes": null
+  },
+  {
+    "field_key": "HEAD_LINE_END_FORK",
+    "chinese_name": "智慧线末端分叉",
+    "value_range": "0/1",
+    "source": "VLM",
+    "confidence_tier": "low_confidence",
+    "can_decide_persona": "no",
+    "default_value": 0,
+    "notes": "只参与文案润色"
+  },
+  {
+    "field_key": "HEART_LINE_DEPTH",
+    "chinese_name": "感情线深度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "HEART_LINE_LENGTH",
+    "chinese_name": "感情线长度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "HEART_LINE_CURVE",
+    "chinese_name": "感情线弧度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "HEART_LINE_END_FORK",
+    "chinese_name": "感情线末端分叉",
+    "value_range": "0/1",
+    "source": "VLM",
+    "confidence_tier": "auxiliary",
+    "can_decide_persona": "no",
+    "default_value": 0,
+    "notes": "辅助加分项"
+  },
+  {
+    "field_key": "SIMIAN_LINE",
+    "chinese_name": "断掌",
+    "value_range": "0/1",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 0,
+    "notes": null
+  },
+  {
+    "field_key": "CHUAN_PALM",
+    "chinese_name": "川字掌",
+    "value_range": "0/1",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 0,
+    "notes": null
+  },
+  {
+    "field_key": "LINE_COMPLEXITY",
+    "chinese_name": "整体纹路复杂度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "OVERALL_CLARITY",
+    "chinese_name": "主线整体清晰度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "core",
+    "can_decide_persona": "yes",
+    "default_value": 2,
+    "notes": null
+  },
+  {
+    "field_key": "FATE_LINE_CLARITY",
+    "chinese_name": "命运线清晰度",
+    "value_range": "0-3",
+    "source": "VLM",
+    "confidence_tier": "auxiliary",
+    "can_decide_persona": "auxiliary",
+    "default_value": 1,
+    "notes": "权重受限"
+  },
+  {
+    "field_key": "SUN_LINE_PRESENCE",
+    "chinese_name": "太阳线存在",
+    "value_range": "0/1",
+    "source": "VLM",
+    "confidence_tier": "auxiliary",
+    "can_decide_persona": "no",
+    "default_value": 0,
+    "notes": "辅助加分项"
+  },
+  {
+    "field_key": "MOUNT_VENUS",
+    "chinese_name": "金星丘饱满度",
+    "value_range": "0-2",
+    "source": "VLM",
+    "confidence_tier": "low_confidence",
+    "can_decide_persona": "no",
+    "default_value": 1,
+    "notes": "VLM方差大"
+  },
+  {
+    "field_key": "MOUNT_JUPITER",
+    "chinese_name": "木星丘饱满度",
+    "value_range": "0-2",
+    "source": "VLM",
+    "confidence_tier": "low_confidence",
+    "can_decide_persona": "no",
+    "default_value": 1,
+    "notes": "VLM方差大"
+  },
+  {
+    "field_key": "MOUNT_SATURN",
+    "chinese_name": "土星丘饱满度",
+    "value_range": "0-2",
+    "source": "VLM",
+    "confidence_tier": "low_confidence",
+    "can_decide_persona": "no",
+    "default_value": 1,
+    "notes": "V4.1新增"
+  },
+  {
+    "field_key": "MOUNT_APOLLO",
+    "chinese_name": "太阳丘饱满度",
+    "value_range": "0-2",
+    "source": "VLM",
+    "confidence_tier": "low_confidence",
+    "can_decide_persona": "no",
+    "default_value": 1,
+    "notes": "V4.1新增"
+  },
+  {
+    "field_key": "MOUNT_MERCURY",
+    "chinese_name": "水星丘饱满度",
+    "value_range": "0-2",
+    "source": "VLM",
+    "confidence_tier": "low_confidence",
+    "can_decide_persona": "no",
+    "default_value": 1,
+    "notes": "V4.1新增"
+  },
+  {
+    "field_key": "MOUNT_LUNA",
+    "chinese_name": "月丘饱满度",
+    "value_range": "0-2",
+    "source": "VLM",
+    "confidence_tier": "low_confidence",
+    "can_decide_persona": "no",
+    "default_value": 1,
+    "notes": "VLM方差大"
+  }
+]

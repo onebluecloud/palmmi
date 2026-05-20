@@ -1,0 +1,15 @@
+{
+  "image": {
+    "file_hash": "stage3j-valid-m2",
+    "mime_type": "image/png",
+    "file_size": 650000,
+    "width": 1200,
+    "height": 1500,
+    "is_palm": true,
+    "is_palm_side": true,
+    "is_single_hand": true,
+    "is_clear_enough": true,
+    "quality_score": 0.88
+  },
+  "mock_features_fixture": "../distribution/p35-target.json"
+}

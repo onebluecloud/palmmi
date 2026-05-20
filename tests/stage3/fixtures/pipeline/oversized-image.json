@@ -1,0 +1,15 @@
+{
+  "image": {
+    "file_hash": "stage3j-oversized",
+    "mime_type": "image/jpeg",
+    "file_size": 16000000,
+    "width": 3200,
+    "height": 4200,
+    "is_palm": true,
+    "is_palm_side": true,
+    "is_single_hand": true,
+    "is_clear_enough": true,
+    "quality_score": 0.9
+  },
+  "mock_features_fixture": "../distribution/p01-target.json"
+}

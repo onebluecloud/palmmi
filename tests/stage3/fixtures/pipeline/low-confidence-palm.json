@@ -1,0 +1,15 @@
+{
+  "image": {
+    "file_hash": "stage3j-low-confidence-palm",
+    "mime_type": "image/jpeg",
+    "file_size": 500000,
+    "width": 900,
+    "height": 1200,
+    "is_palm": true,
+    "is_palm_side": true,
+    "is_single_hand": true,
+    "is_clear_enough": true,
+    "quality_score": 0.65
+  },
+  "mock_features_fixture": "../distribution/dual-mother-low-confidence-boundary.json"
+}
