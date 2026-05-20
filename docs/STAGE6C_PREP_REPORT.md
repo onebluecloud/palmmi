@@ -3,11 +3,11 @@
 ## 1. 当前 Git 状态
 
 - 当前路径：`C:\Users\zhang\Documents\New project 8`
-- 当前分支：准备切换为 `main`
-- git status 摘要：首次提交前为 `No commits yet on master`，项目文件未跟踪；已确认忽略规则会排除本地环境变量、Stage 5 本地结果和掌纹样本原图
+- 当前分支：`main`
+- git status 摘要：首次提交前为 `No commits yet on master`，项目文件未跟踪；已确认忽略规则会排除本地环境变量、Stage 5 本地结果、掌纹样本原图和真实 Qwen 批测 raw text 输出
 - git remote：`origin https://github.com/onebluecloud/palmmi.git`
-- 是否已 commit：本次 Stage 6C-Prep 将创建首次 commit：`chore: prepare Palmmi for stage 6 deployment`
-- 是否已 push 到 GitHub：本次 Stage 6C-Prep 将 push 到 `origin/main`
+- 是否已 commit：已完成首次 commit：`chore: prepare Palmmi for stage 6 deployment`
+- 是否已 push 到 GitHub：已 push 到 `origin/main`
 - GitHub 仓库地址：`https://github.com/onebluecloud/palmmi`
 
 ## 2. 提交安全检查
@@ -23,9 +23,9 @@
 ## 3. GitHub 推送结果
 
 - 是否添加 remote：是，已添加 `origin https://github.com/onebluecloud/palmmi.git`
-- 是否完成首次 commit：本次执行将完成首次 commit
-- 是否 push 到 main：本次执行将 push 到 `main`
-- 如果失败，失败原因是什么：如 push 失败，优先原因会是本地 GitHub 凭据未授权；不需要也不允许把 GitHub Token 发到聊天
+- 是否完成首次 commit：是，已完成首次 commit
+- 是否 push 到 main：是，已 push 到 `main`
+- 如果失败，失败原因是什么：未失败；GitHub push 已通过本机凭据完成
 - 如果远程仓库不为空，如何处理：已通过 `git ls-remote` 检查远程仓库无分支输出，按空仓库处理；如果后续发现远程存在初始化文件，应先 fetch 再安全合并，不暴力覆盖历史
 
 ## 4. Cloudflare Pages Functions / Worker 适配判断
@@ -96,7 +96,7 @@
 | 真实 Key 未泄露 | PASS | 未发现明显真实 Key / Token；未写入任何真实密钥 |
 | Cloudflare Pages 入口已明确 | PASS | 新增 `functions/api/analyze.js` |
 | Preview mock 链路可部署 | PASS | 默认 `mock-only`，并已提供静态 `build` 输出 |
-| Cloudflare/GitHub 授权已完成或可手动完成 | BLOCKED | Git push 可验证 GitHub 凭据；Cloudflare 页面授权仍需用户后续在浏览器中确认 |
+| Cloudflare/GitHub 授权已完成或可手动完成 | PASS | GitHub push 已完成；Cloudflare 页面授权仍需用户在 Stage 6C 的浏览器流程中确认 |
 | 不需要域名 | PASS | Stage 6C 继续使用 Cloudflare Pages Preview / `*.pages.dev` |
 | 不需要 Production 发布 | PASS | 本阶段不创建 Cloudflare Production 发布 |
 
