@@ -6,7 +6,7 @@ Stage 6D：图片上传与临时缓存策略
 
 ## Stage 6D 是否完成
 
-进行中，当前状态：本地验证 PASS，等待本次提交部署后完成线上复验。
+已完成，当前状态：PASS。
 
 ## Cloudflare Pages 链接
 
@@ -40,6 +40,8 @@ Stage 6D：图片上传与临时缓存策略
 - 海报页 `/poster/`：PASS
 - 静态资源：PASS
 - 线上 `/api/analyze` POST：PASS，mock 返回 `ok: true`
+- 线上超大图片：PASS，返回 `FILE_TOO_LARGE`
+- 线上错误格式：PASS，返回 `FILE_TYPE_UNSUPPORTED`
 - 真实 Qwen / VLM：未开启，未配置真实 Key
 
 ## 图片上传与缓存策略
@@ -56,12 +58,12 @@ Stage 6D：图片上传与临时缓存策略
 
 ## 当前阻塞项
 
-- Stage 6D：等待本次提交部署后完成线上复验
-- Stage 6E：仍阻塞，需先完成 Stage 6D，并在平台环境变量中由用户手动配置真实 Qwen Key 后再验证
+- Stage 6D：无阻塞
+- Stage 6E：真实链路验证仍阻塞，需在平台环境变量中由用户手动配置真实 Qwen Key 后再验证
 
 ## 下一步
 
-完成 Stage 6D 线上复验；如通过，再进入 Stage 6E 准备。
+进入 Stage 6E 准备，但不要执行真实 Qwen 链路，直到用户在 Cloudflare 平台手动配置真实 Qwen Key。
 
 ## 人工待办
 

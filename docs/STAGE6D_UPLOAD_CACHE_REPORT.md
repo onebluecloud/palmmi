@@ -130,11 +130,22 @@
 
 ## 14. 线上测试结果
 
-待本次提交部署后复验并补齐。
+| 测试项 | 结果 | 说明 |
+|---|---|---|
+| Cloudflare deployment `a7207d05` | PASS | commit `6d7286f` 构建和 deploy 均 success |
+| 线上首页 `/` | PASS | 200，标题 `Palmmi · 掌纹人格标签` |
+| 线上上传页 `/upload/` | PASS | 200，标题 `Palmmi · 上传掌纹`，显示 8MB，未发现 10MB 文案 |
+| 线上结果页 `/result/` | PASS | 200，标题 `Palmmi · 结果` |
+| 线上海报页 `/poster/` | PASS | 200，标题 `Palmmi · 分享海报` |
+| 线上 POST `/api/analyze` 正常图片 | PASS | 200，`ok: true`、`provider: mock`、`status: SUCCESS` |
+| 线上 POST `/api/analyze` 超大图片 | PASS | 400，`FILE_TOO_LARGE` |
+| 线上 POST `/api/analyze` 错误格式 | PASS | 400，`FILE_TYPE_UNSUPPORTED` |
+| 线上 API 响应泄露检查 | PASS | 未发现 base64、Key、Token、raw response |
+| Cloudflare 构建日志泄露检查 | PASS | 未发现 API Key、Token、`.env`、base64、provider raw response |
 
 ## 15. 是否可以进入 Stage 6E
 
-当前判断：6D 可完成；6E 需要用户后续在 Cloudflare 平台手动配置真实 Qwen Key 后才能执行真实链路验证。
+6D 可完成；6E 需要用户后续在 Cloudflare 平台手动配置真实 Qwen Key 后才能执行真实链路验证。
 
 ## 16. 仍需用户人工完成的事项
 
@@ -163,10 +174,10 @@
 | 是否确认上传大小限制 | PASS | 8MB，前端和服务端一致 |
 | 是否确认上传格式限制 | PASS | JPG / PNG / WebP |
 | 是否确认 mock 链路仍可用 | PASS | 本地 POST `/api/analyze` 返回 mock SUCCESS |
-| 是否确认页面仍可访问 | PASS | 本地四页 200 |
+| 是否确认页面仍可访问 | PASS | 本地和线上四页均 200 |
 | 是否确认没有新增支付 / 打赏 / 登录 / 宣发功能 | PASS | 未新增 |
 | 是否确认没有修改 Stage 3 人格规则、权重、阈值 | PASS | 未修改 Stage 3 数据 / 规则文件 |
 | 是否确认没有重做 Stage 4 UI 主风格 | PASS | 仅更新上传文案和限制 |
 | 是否确认没有重写 Stage 5 VLM 主逻辑 | PASS | 未修改 provider 主逻辑 |
 | 是否确认没有写入真实 Qwen Key | PASS | 未写入 |
-| 是否可以进入 Stage 6E | BLOCKED | 需先完成线上复验并由用户后续手动配置真实 Qwen Key |
+| 是否可以进入 Stage 6E | BLOCKED | 6D 已通过；真实链路验证需用户后续手动配置真实 Qwen Key |
