@@ -188,6 +188,13 @@ function upstreamDiagnostics(response, responseText) {
   };
 }
 
+function callFetch(fetchImpl, endpoint, init) {
+  if (fetchImpl === globalThis.fetch && typeof globalThis.fetch === "function") {
+    return globalThis.fetch(endpoint, init);
+  }
+  return fetchImpl(endpoint, init);
+}
+
 class QwenVlmProvider {
   constructor(options = {}) {
     const config = resolveQwenConfig(options.env || process.env, options);
@@ -240,7 +247,7 @@ class QwenVlmProvider {
     try {
       const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
       const timeout = controller ? setTimeout(() => controller.abort(), this.timeoutMs) : null;
-      const response = await this.fetchImpl(this.endpoint, {
+      const response = await callFetch(this.fetchImpl, this.endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
