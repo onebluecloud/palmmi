@@ -1,12 +1,9 @@
-const path = require("node:path");
-
-const root = path.resolve(__dirname, "..", "..");
 const {
   findMissingFields,
-} = require(path.join(root, "lib", "recognition", "recognitionTypes.ts"));
+} = require("../../lib/recognition/recognitionTypes.ts");
 const {
   matchPersona,
-} = require(path.join(root, "lib", "recognition", "personaMatcher.ts"));
+} = require("../../lib/recognition/personaMatcher.ts");
 const {
   normalizeVlmToPalmFeatureSet,
 } = require("./normalize-vlm-to-palm-feature-set.js");

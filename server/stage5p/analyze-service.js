@@ -1,16 +1,13 @@
-const path = require("node:path");
-
-const root = path.resolve(__dirname, "..", "..");
-const stage5 = require(path.join(root, "scripts", "palmmi-stage5.js"));
+const stage5 = require("../../scripts/palmmi-stage5.js");
 const {
   runPalmmiRecognitionPipeline,
-} = require(path.join(root, "src", "stage5", "palmmi-recognition-pipeline.js"));
+} = require("../../src/stage5/palmmi-recognition-pipeline.js");
 const {
   runPalmmiAnalysisBridge,
-} = require(path.join(root, "src", "stage5", "palmmi-analysis-bridge.js"));
+} = require("../../src/stage5/palmmi-analysis-bridge.js");
 const {
   buildAnalysisResultContract,
-} = require(path.join(root, "src", "stage5", "analysis-result-contract.js"));
+} = require("../../src/stage5/analysis-result-contract.js");
 const {
   ERROR_CODES,
   createErrorResponse,

@@ -1,9 +1,6 @@
-const path = require("node:path");
-
-const root = path.resolve(__dirname, "..", "..");
 const {
   FIELD_NAMES,
-} = require(path.join(root, "lib", "recognition", "recognitionTypes.ts"));
+} = require("../../lib/recognition/recognitionTypes.ts");
 const {
   clampConfidence,
 } = require("./palm-feature-set.js");

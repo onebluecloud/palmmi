@@ -1,10 +1,7 @@
-const path = require("node:path");
-
-const root = path.resolve(__dirname, "..", "..", "..");
 const {
   normalizeParsedPalmFeatures,
   parseJsonObject,
-} = require(path.join(root, "scripts", "palmmi-stage5c-runner.js"));
+} = require("./qwen-response-parser.js");
 const {
   ERROR_CODES,
   createProviderError,

@@ -1,7 +1,6 @@
 const path = require("node:path");
 
-const root = path.resolve(__dirname, "..", "..");
-const stage5 = require(path.join(root, "scripts", "palmmi-stage5.js"));
+const stage5 = require("../../scripts/palmmi-stage5.js");
 const {
   recognitionResultToAnalysisInput,
 } = require("./recognition-result-to-analysis-input.js");

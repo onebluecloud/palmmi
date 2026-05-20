@@ -2,85 +2,92 @@
 
 ## 当前阶段
 
-Stage 6D：图片上传与临时缓存策略
+Stage 6E：公网真实 Qwen 链路验证
 
-## Stage 6D 是否完成
+## Stage 6E 是否完成
 
-已完成，当前状态：PASS。
+BLOCKED。
+本地真实 Qwen provider 已跑通，但 Cloudflare Production 真实 Secret 未配置，公网 real Qwen 链路尚未完成。
 
-## Cloudflare Pages 链接
+## 已完成
 
-- Pages 默认链接：`https://palmmi.pages.dev`
-- Deployment 链接：`https://a980c977.palmmi.pages.dev`
-- workers.dev 兼容链接：`https://palmmi.onebluecloud723.workers.dev`
-- 链接用途：仅用于 Stage 6 内测，不公开传播
+- Stage 1–5 已完成 / 冻结。
+- Stage 6A：部署方案确认已完成。
+- Stage 6B：环境变量与密钥管理已完成。
+- Stage 6C：Cloudflare Pages Preview / Dry Run 已完成。
+- Stage 6D：图片上传与临时缓存策略已完成。
+- Stage 6E 本地检查：
+  - 已确认项目真实读取的环境变量名。
+  - 已确认本机存在 Qwen Key，未输出值。
+  - 已完成本地 real Qwen provider 测试。
+  - 已完成 Pages Function 入口从 mock-only 到 Stage 5P 服务的最小适配。
+  - 已完成 Cloudflare runtime `__dirname` 兼容修复。
 
-## Cloudflare 插件能力判断
+## 当前线上链接
 
-- Cloudflare MCP / API 插件：可用
-- 是否具备账号操作能力：具备，已创建 Pages 项目、触发构建、查询构建日志、替换错误 Worker 入口
-- Pages 项目创建：PASS
-- GitHub 仓库连接：PASS，使用 `onebluecloud/palmmi`
-- Worker 修复：PASS，原 Hello World Worker 已替换为 Pages 兼容代理
+- Pages：`https://palmmi.pages.dev`
+- workers.dev：`https://palmmi.onebluecloud723.workers.dev`
+- 当前用途：Stage 6 内测，不公开传播
+- 正式域名：未绑定
+- DNS：未修改
 
-## 构建结果
+## 当前 Cloudflare 环境变量状态
 
-- 本地 `npm run build`：PASS
-- Cloudflare 远端构建：PASS
-- 构建命令：`npm run build`
-- 输出目录：`dist`
-- Functions 目录：`functions`
-- 构建日志敏感信息检查：PASS，未发现 API Key、Token、`.env`、base64、provider raw response
+| 变量名 | Production | Preview |
+|---|---|---|
+| `PALMMI_QWEN_API_KEY` | 未配置 | 未配置 |
+| `PALMMI_VLM_PROVIDER` | 未配置 | 已配置 |
+| `PALMMI_VLM_MODE` | 未配置 | 已配置 |
+| `PALMMI_QWEN_MODEL` | 未配置 | 未配置 |
+| `PALMMI_QWEN_ENDPOINT` | 未配置 | 未配置 |
+| `PALMMI_VLM_TIMEOUT_MS` | 未配置 | 未配置 |
+| `PALMMI_VLM_MAX_IMAGE_BYTES` | 未配置 | 未配置 |
 
-## API / Function 验证结果
+## 当前 provider 状态
 
-- 首页 `/`：PASS
-- 上传页 `/upload/`：PASS
-- 结果页 `/result/`：PASS
-- 海报页 `/poster/`：PASS
-- 静态资源：PASS
-- 线上 `/api/analyze` POST：PASS，mock 返回 `ok: true`
-- 线上超大图片：PASS，返回 `FILE_TOO_LARGE`
-- 线上错误格式：PASS，返回 `FILE_TYPE_UNSUPPORTED`
-- 真实 Qwen / VLM：未开启，未配置真实 Key
+- 本地 Node：real / qwen 可用。
+- 本地 Pages Functions：mock 可用。
+- Cloudflare Production：默认 mock，未切 real。
+- Cloudflare Preview：已有 Preview 变量，但本轮未配置真实 Qwen Key。
 
-## 图片上传与缓存策略
+## 当前禁止修改
 
-- 原图服务端落盘：否
-- 浏览器临时缓存：`sessionStorage` 的 `palmmi:lastUpload`
-- 上传状态 TTL：最多 24 小时
-- 分析成功后是否清理上传原图 data URL：是
-- 长期图片 URL：无
-- Cloudflare KV / R2 / D1 / Durable Object：未使用
-- 海报服务端保存：否
-- 结果页依赖长期图片存储：否
-- 上传限制：JPG / PNG / WebP，最大 8MB
+- Stage 3 人格规则。
+- Stage 3 权重阈值。
+- 36 型人格数据。
+- Stage 4 UI 主风格。
+- Stage 5 真实 Qwen / VLM 主逻辑。
+- 支付 / 打赏。
+- 登录系统。
+- 宣发功能。
+- 正式域名绑定。
+- Cloudflare DNS。
+- 真实 Key 明文文件。
 
-## 当前阻塞项
+## 当前人工待办
 
-- Stage 6D：无阻塞
-- Stage 6E：真实链路验证仍阻塞，需在平台环境变量中由用户手动配置真实 Qwen Key 后再验证
+- 不要把 Qwen API Key、Cloudflare Token、GitHub Token 发到聊天。
+- 在 Cloudflare Dashboard 的 Pages 项目 `palmmi` 中手动配置 Production Secret：`PALMMI_QWEN_API_KEY`。
+- 在 Cloudflare Dashboard 的 Production 环境中配置真实链路变量：`PALMMI_VLM_PROVIDER`、`PALMMI_VLM_MODE`。
+- 可选配置：`PALMMI_QWEN_MODEL`、`PALMMI_QWEN_ENDPOINT`、`PALMMI_VLM_TIMEOUT_MS`、`PALMMI_VLM_MAX_IMAGE_BYTES`。
+- 配置后重新触发一次 Pages Production 部署。
+- 准备正常掌纹、左手、右手、偏暗、模糊、裁切不完整、无效、超大、错误格式测试样本。
 
-## 下一步
+## 当前 Codex 待办
 
-进入 Stage 6E 准备，但不要执行真实 Qwen 链路，直到用户在 Cloudflare 平台手动配置真实 Qwen Key。
-
-## 人工待办
-
-- 不要把 Qwen API Key、Cloudflare Token、GitHub Token 发到聊天
-- 不要公开分享 `*.pages.dev` 或 `*.workers.dev` 链接
-- 准备 3–10 张测试图片
-- 准备 iPhone / 安卓微信测试设备
-- 暂时不要买域名
-- 暂时不要绑定正式域名
-- 暂时不要修改 DNS
-- 暂时不要接支付 / 打赏 / 登录
+- 用户完成 Cloudflare Production Secret 配置后，重新执行 Stage 6E 公网 real Qwen 链路验证。
+- 验证 `upload -> analyze -> Qwen -> result`。
+- 验证 `upload -> analyze -> Qwen -> result -> poster`。
+- 检查构建日志、运行日志、API 返回是否泄露 Key / Token / base64 / provider raw response。
 
 ## 当前风险
 
-- 图片上传 body size 风险尚需 Stage 6D 在线验证
-- 图片 / base64 / provider raw response 日志泄露风险需持续复查
-- Preview 链接外泄导致访问不可控风险
-- 真实 Qwen API Key 泄露风险
-- 真实 Qwen 成本失控风险
-- 国内访问速度和备案策略尚未进入正式发布决策
+- Cloudflare Production Secret 未配置，公网 real Qwen 尚未验证。
+- 真实 Qwen 成本需要限制测试样本数量。
+- 偏暗 / 模糊 / 裁切不完整样本不足。
+- Preview / Production 配置错误可能导致 mock 与 real 状态混淆。
+- 测试链接外泄可能导致真实模型成本失控。
+
+## 下一步
+
+Stage 6E 修复轮：用户先在 Cloudflare Dashboard 手动配置 Production Secret 和真实链路变量，然后 Codex 重新执行公网 real Qwen 验证。Stage 6F 仍然 BLOCKED。
