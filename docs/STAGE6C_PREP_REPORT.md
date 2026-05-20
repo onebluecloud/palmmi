@@ -106,3 +106,5 @@
 - 如果不能，阻塞项是什么：当前无代码侧阻塞；Cloudflare 页面授权和 Preview 配置仍需 Stage 6C 执行
 - 如果可以，下一步 Codex 应该做什么：进入 Stage 6C，连接 GitHub 仓库到 Cloudflare Pages，使用 `npm run build`，输出目录 `dist`，先以 mock 链路创建 Preview Dry Run
 - 用户需要手动做什么：保持 GitHub / Cloudflare 登录；如 Cloudflare 要求授权 GitHub 仓库，用户只在浏览器中确认授权；不要输入或发送任何真实 API Key 到聊天
+- Cloudflare 页面操作记录：本阶段未使用 Chrome / Computer Use 操作 Cloudflare，未创建 Cloudflare Pages 项目，未修改 DNS，未绑定域名，未填写任何真实 Qwen API Key
+- Stage 6C 页面操作提示：后续在 Cloudflare Dashboard 进入 Workers & Pages / Pages，连接 GitHub 仓库 `onebluecloud/palmmi`；如出现 GitHub 授权页面，由用户在浏览器中确认授权
