@@ -249,7 +249,9 @@ async function runAnalyzeApi(payload = {}, options = {}) {
     const code = mapProviderErrorCode(providerResult && providerResult.error
       ? providerResult.error.code
       : providerResult && providerResult.errorCode);
-    return createErrorResponse(code, requestId);
+    return createErrorResponse(code, requestId, {
+      diagnostics: providerResult && providerResult.diagnostics,
+    });
   }
 
   try {

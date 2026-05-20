@@ -28,9 +28,43 @@ function publicMessageFor(code) {
   return USER_MESSAGES[code] || USER_MESSAGES[ERROR_CODES.UNKNOWN_ERROR];
 }
 
+function sanitizeDiagnostics(diagnostics) {
+  if (!diagnostics || typeof diagnostics !== "object" || Array.isArray(diagnostics)) {
+    return null;
+  }
+  const allowed = new Set([
+    "providerStage",
+    "endpointHost",
+    "endpointPath",
+    "model",
+    "requestMethod",
+    "contentType",
+    "hasAuthHeader",
+    "bodyFormat",
+    "upstreamStatus",
+    "upstreamErrorCode",
+    "upstreamRequestId",
+    "isTimeout",
+    "isFetchFailed",
+    "errorType",
+  ]);
+  const output = {};
+  for (const [key, value] of Object.entries(diagnostics)) {
+    if (!allowed.has(key)) {
+      continue;
+    }
+    if (typeof value === "string") {
+      output[key] = value.slice(0, 160);
+    } else if (typeof value === "number" || typeof value === "boolean" || value === null) {
+      output[key] = value;
+    }
+  }
+  return Object.keys(output).length > 0 ? output : null;
+}
+
 function createErrorResponse(code, requestId, overrides = {}) {
   const stableCode = USER_MESSAGES[code] ? code : ERROR_CODES.UNKNOWN_ERROR;
-  return {
+  const response = {
     ok: false,
     request_id: requestId || null,
     status: overrides.status || "RETRY_REQUIRED",
@@ -41,6 +75,11 @@ function createErrorResponse(code, requestId, overrides = {}) {
       retryable: overrides.retryable !== false,
     },
   };
+  const diagnostics = sanitizeDiagnostics(overrides.diagnostics);
+  if (diagnostics) {
+    response.diagnostics = diagnostics;
+  }
+  return response;
 }
 
 function createProviderError(code, requestId, provider, model, overrides = {}) {

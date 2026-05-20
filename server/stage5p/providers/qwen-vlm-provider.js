@@ -127,6 +127,67 @@ function buildProviderRequest({ model, prompt, image, imageBuffer }) {
   };
 }
 
+function endpointDiagnostics(endpoint, model, overrides = {}) {
+  let endpointHost = "invalid-endpoint";
+  let endpointPath = "invalid-endpoint";
+  try {
+    const url = new URL(endpoint);
+    endpointHost = url.host;
+    endpointPath = url.pathname;
+  } catch (error) {
+    // Keep the default redacted endpoint diagnostics.
+  }
+  return {
+    providerStage: "qwen_fetch",
+    endpointHost,
+    endpointPath,
+    model,
+    requestMethod: "POST",
+    contentType: "application/json",
+    hasAuthHeader: true,
+    bodyFormat: "openai-compatible-chat-completions-image_url-data-url",
+    ...overrides,
+  };
+}
+
+function firstSafeString(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim().slice(0, 160);
+    }
+  }
+  return null;
+}
+
+function upstreamDiagnostics(response, responseText) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(responseText);
+  } catch (error) {
+    parsed = null;
+  }
+  const errorObject = parsed && typeof parsed === "object" && parsed.error && typeof parsed.error === "object"
+    ? parsed.error
+    : {};
+  return {
+    upstreamStatus: response.status,
+    upstreamErrorCode: firstSafeString(
+      errorObject.code,
+      errorObject.type,
+      parsed && parsed.code,
+      parsed && parsed.error_code
+    ),
+    upstreamRequestId: firstSafeString(
+      response.headers && response.headers.get("x-request-id"),
+      response.headers && response.headers.get("x-acs-request-id"),
+      response.headers && response.headers.get("x-dashscope-request-id"),
+      parsed && parsed.request_id,
+      parsed && parsed.RequestId
+    ),
+    errorType: "upstream_non_2xx",
+  };
+}
+
 class QwenVlmProvider {
   constructor(options = {}) {
     const config = resolveQwenConfig(options.env || process.env, options);
@@ -143,9 +204,11 @@ class QwenVlmProvider {
     ].join("\n");
   }
 
-  fail(code, requestId, start) {
+  fail(code, requestId, start, diagnostics = {}) {
     return {
-      ...createProviderError(code, requestId, this.name, this.model),
+      ...createProviderError(code, requestId, this.name, this.model, {
+        diagnostics: endpointDiagnostics(this.endpoint, this.model, diagnostics),
+      }),
       latencyMs: elapsedMs(start),
     };
   }
@@ -191,13 +254,24 @@ class QwenVlmProvider {
       }
       responseText = await response.text();
       if (!response.ok) {
-        return this.fail(ERROR_CODES.VLM_API_REQUEST_FAILED, requestId, start);
+        return this.fail(
+          ERROR_CODES.VLM_API_REQUEST_FAILED,
+          requestId,
+          start,
+          upstreamDiagnostics(response, responseText)
+        );
       }
     } catch (error) {
       if (error && error.name === "AbortError") {
-        return this.fail(ERROR_CODES.VLM_API_TIMEOUT, requestId, start);
+        return this.fail(ERROR_CODES.VLM_API_TIMEOUT, requestId, start, {
+          isTimeout: true,
+          errorType: "timeout",
+        });
       }
-      return this.fail(ERROR_CODES.VLM_API_REQUEST_FAILED, requestId, start);
+      return this.fail(ERROR_CODES.VLM_API_REQUEST_FAILED, requestId, start, {
+        isFetchFailed: true,
+        errorType: error && error.name ? error.name : "fetch_failed",
+      });
     }
 
     try {
@@ -234,7 +308,9 @@ class QwenVlmProvider {
         response_ref: "qwen:redacted",
       };
     } catch (error) {
-      return this.fail(ERROR_CODES.VLM_API_INVALID_RESPONSE, requestId, start);
+      return this.fail(ERROR_CODES.VLM_API_INVALID_RESPONSE, requestId, start, {
+        errorType: "response_parse_failed",
+      });
     }
   }
 }
