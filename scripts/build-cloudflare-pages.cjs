@@ -17,6 +17,10 @@ const files = [
   "scripts/palmmi-analyze.js",
   "scripts/palmmi-result.js",
   "scripts/palmmi-poster.js",
+  "src/stage5/analysis-result-read-adapter.js",
+  "src/stage5/analysis-result-storage-reader.js",
+  "src/stage5/page-analysis-reader.js",
+  "src/stage5/page-analysis-state-mapper.js",
   "assets/palmtag-topology.svg",
 ];
 
