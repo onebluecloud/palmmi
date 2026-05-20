@@ -26,7 +26,7 @@ BLOCKED。
 ## 当前线上链接
 
 - Pages：`https://palmmi.pages.dev`
-- 最新 Production deployment：`https://c6fc5632.palmmi.pages.dev`
+- Stage 6E runtime compatibility deployment：`https://c6fc5632.palmmi.pages.dev`
 - workers.dev：`https://palmmi.onebluecloud723.workers.dev`
 - 当前用途：Stage 6 内测，不公开传播
 - 正式域名：未绑定
@@ -48,7 +48,7 @@ BLOCKED。
 
 - 本地 Node：real / qwen 可用。
 - 本地 Pages Functions：mock 可用。
-- Cloudflare Production：默认 mock，未切 real；最新部署 `c6fc5632-f167-489b-a44b-814f4cd0a744` 成功。
+- Cloudflare Production：默认 mock，未切 real；Stage 6E runtime compatibility deployment `c6fc5632-f167-489b-a44b-814f4cd0a744` 成功。
 - Cloudflare Preview：已有 Preview 变量，但本轮未配置真实 Qwen Key。
 
 ## 当前禁止修改
