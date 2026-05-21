@@ -2,6 +2,45 @@
 
 Date: 2026-05-21
 
+## Stage 6F-Fix-4 追加记录
+
+用户确认 Cloudflare Production 已部署到 `aa51bf5bdfe1822cb98059878ab3c74f6cb5e708` 后，在安卓微信真机复测非手掌啤酒 / 饮料图：
+
+- “检查照片”显示基础检查通过。
+- 点击“开始分析”后未再显示 `P25 老干部`。
+- 最终显示 `REQUEST_TIMEOUT`。
+
+判断：Fix-3 已基本阻断默认人格兜底，但 `NOT_PALM` gate 仍不稳定；非手掌图不应进入完整人格分析流程直到超时。本轮进入 Stage 6F-Fix-4，不进入 Stage 6G。
+
+Stage 6F-Fix-4 结论：`CODE_FIXED_MANUAL_RETEST_REQUIRED`
+
+```text
+Android WeChat: MANUAL_RETEST_REQUIRED
+iOS WeChat: MANUAL_REQUIRED
+Stage 6G: BLOCKED
+```
+
+### Stage 6F-Fix-4 修复内容
+
+| 修复项 | 状态 | 修复方式 |
+|---|---|---|
+| 非手掌图返回 `REQUEST_TIMEOUT` | CODE_FIXED_AUTOMATED_PASS | Qwen provider 改为先发极简有效性预检；非手掌只跑预检并直接返回 `NOT_PALM` |
+| 非手掌进入人格分析 | CODE_FIXED_AUTOMATED_PASS | 只有预检确认清晰单手掌心后才发第二阶段人格分析请求 |
+| `validity` 缺失 | CODE_FIXED_AUTOMATED_PASS | parser 记录 `hasValidity`；缺失时返回 `ANALYSIS_UNRELIABLE`，不补人格 |
+| 真实 fetch timeout | CODE_FIXED_AUTOMATED_PASS | 只有 `AbortError` / 真实请求超时返回 `REQUEST_TIMEOUT` |
+| 前端错误码区分 | PASS | 现有上传页映射保留 `NOT_PALM` / `IMAGE_NOT_CLEAR` / `ANALYSIS_UNRELIABLE` / `REQUEST_TIMEOUT` 独立文案 |
+
+### Fix-4 自动化复测结果
+
+| 场景 | 结果 | 说明 |
+|---|---|---|
+| 非手掌图片不应超时 | PASS | mock 饮料图只触发 1 次有效性请求，返回 `NOT_PALM`，不返回 `REQUEST_TIMEOUT` |
+| validity 缺失测试 | PASS | 返回 `ANALYSIS_UNRELIABLE`，不返回 P25 / `REQUEST_TIMEOUT` |
+| fetch timeout 测试 | PASS | 模拟真实 abort 时返回 `REQUEST_TIMEOUT` |
+| `npm run test:stage6f` | PASS | Fix-4 子项全部通过；测试仍记录当前线上真实上传旧链路状态，等待本次部署后真机复测 |
+
+Codex 没有把安卓微信真机结果写成 PASS。Fix-4 部署后仍需要用户在安卓微信复测非手掌图片是否稳定显示 `NOT_PALM`。
+
 ## Stage 6F-Fix-3 追加记录
 
 用户在 Stage 6F-Fix-2 后进行了安卓微信真机复测，发现仍有严重问题。本轮进入 Stage 6F-Fix-3，不进入 Stage 6G。
@@ -453,7 +492,7 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 
 是否可以进入 Stage 6G: BLOCKED
 
-条件：本次 Fix-3 部署后，必须补充安卓微信拍照上传、相册上传、非手掌拒绝、多手掌不塌缩 P25、海报生成和 iPhone 微信真机测试；在用户提供真实复测通过结果前，不允许进入 Stage 6G。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
+条件：本次 Fix-4 部署后，必须补充安卓微信拍照上传、相册上传、非手掌稳定 `NOT_PALM` 且不超时、多手掌不塌缩 P25、海报生成和 iPhone 微信真机测试；在用户提供真实复测通过结果前，不允许进入 Stage 6G。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
 
 ## 17. 当前阻塞项
 
@@ -526,4 +565,4 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 | 没有修改 Stage 3 规则 / 权重 / 阈值 | PASS | 未修改相关文件 |
 | 没有重做 Stage 4 UI | PASS | 未修改 UI 主风格 |
 | 没有重写 Stage 5 VLM 主逻辑 | PASS | 未修改 VLM 主逻辑 |
-| 是否可以进入 Stage 6G | FAIL | Stage 6F-Fix-2 后安卓微信复测失败；Fix-3 部署后仍需人工复测 |
+| 是否可以进入 Stage 6G | FAIL | Stage 6F-Fix-3 后安卓微信复测仍发现 NOT_PALM gate 不稳定；Fix-4 部署后仍需人工复测 |

@@ -48,6 +48,94 @@ const DOM_LEAK_MARKERS = [
   "AnalysisInput",
 ];
 
+class Stage6FetchResponse {
+  constructor(status, body) {
+    this.status = status;
+    this.ok = status >= 200 && status < 300;
+    this.body = body;
+  }
+
+  async text() {
+    return this.body;
+  }
+
+  async json() {
+    return JSON.parse(this.body);
+  }
+}
+
+function powershellFetch(url, options = {}) {
+  const payload = {
+    url,
+    method: options.method || "GET",
+    headers: options.headers || {},
+    body: typeof options.body === "string" ? options.body : "",
+  };
+  const encodedPayload = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
+  const script = `
+$ErrorActionPreference = 'Stop'
+$payloadJson = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedPayload}'))
+$payload = $payloadJson | ConvertFrom-Json
+$headers = @{}
+if ($payload.headers) {
+  foreach ($item in $payload.headers.PSObject.Properties) {
+    $headers[$item.Name] = [string]$item.Value
+  }
+}
+$params = @{
+  Uri = [string]$payload.url
+  Method = [string]$payload.method
+  Headers = $headers
+  TimeoutSec = 60
+  SkipHttpErrorCheck = $true
+}
+if ($payload.body) {
+  $params.Body = [string]$payload.body
+}
+$response = $null
+$lastError = $null
+for ($attempt = 0; $attempt -lt 3; $attempt++) {
+  try {
+    $response = Invoke-WebRequest @params
+    break
+  } catch {
+    $lastError = $_
+    Start-Sleep -Milliseconds 500
+  }
+}
+if ($null -eq $response) {
+  throw $lastError
+}
+$result = @{
+  status = [int]$response.StatusCode
+  body = [string]$response.Content
+} | ConvertTo-Json -Compress
+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($result))
+`;
+  const output = childProcess.execFileSync(process.env.PWSH || "pwsh", [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-Command",
+    script,
+  ], {
+    encoding: "utf8",
+    windowsHide: true,
+    maxBuffer: 1024 * 1024 * 4,
+  }).trim();
+  const decoded = Buffer.from(output, "base64").toString("utf8");
+  const result = JSON.parse(decoded);
+  return new Stage6FetchResponse(result.status, result.body);
+}
+
+async function stage6Fetch(url, options = {}) {
+  try {
+    return await fetch(url, options);
+  } catch (error) {
+    return powershellFetch(url, options);
+  }
+}
+
 function newestDirectory(directories) {
   return directories
     .map((directory) => ({ directory, mtimeMs: fs.statSync(directory).mtimeMs }))
@@ -1461,14 +1549,167 @@ async function validateStage6FFix3ServerValidityContract() {
   };
 }
 
+async function validateStage6FFix4NotPalmGateDoesNotTimeout() {
+  const { runAnalyzeApi } = require(path.join(root, "server", "stage5p", "analyze-service.js"));
+  const env = {
+    PALMMI_VLM_PROVIDER: "qwen",
+    PALMMI_VLM_MODE: "real-only",
+    PALMMI_QWEN_API_KEY: "stage6f-test-key",
+    QWEN_API_KEY: "",
+  };
+  let fetchCount = 0;
+  const response = await runAnalyzeApi({
+    request_id: "req_stage6f_fix4_not_palm_no_timeout",
+    anonymous_device_id: "anon_stage6f_fix4",
+    locale: "zh-CN",
+    image: {
+      file_name: "not-palm-beverage.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+      side: "unknown",
+    },
+  }, {
+    env,
+    fetchImpl: async (endpoint, init) => {
+      fetchCount += 1;
+      const body = JSON.parse(init.body);
+      const prompt = body.messages[0].content[0].text || "";
+      assert.doesNotMatch(prompt, /personality_id|candidate_results|majorLines/, "non-palm validation request must not ask for personality analysis fields");
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              validity: {
+                is_palm_photo: false,
+                is_single_hand: false,
+                is_palm_side_visible: false,
+                palm_lines_visible: false,
+                image_quality: "not_palm",
+                reject_reason: "beverage",
+              },
+              palm_features: null,
+              result: null,
+            }),
+          },
+        }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    },
+  });
+
+  assert.equal(fetchCount, 1, "non-palm image must stop after validity request");
+  assert.equal(response.ok, false, "non-palm response must be rejected");
+  assert.equal(response.error.code, "NOT_PALM", "non-palm image must return NOT_PALM");
+  assert.notEqual(response.error.code, "REQUEST_TIMEOUT", "non-palm image must not be reported as REQUEST_TIMEOUT");
+  assert.doesNotMatch(JSON.stringify(response), /P25|老干部/, "non-palm response must not contain a personality result");
+  assertNoResponseLeaks(response, "stage6f fix4 NOT_PALM no-timeout response");
+
+  return {
+    status: "PASS",
+    code: response.error.code,
+    fetch_count: fetchCount,
+  };
+}
+
+async function validateStage6FFix4ValidityMissingIsUnreliable() {
+  const { runAnalyzeApi } = require(path.join(root, "server", "stage5p", "analyze-service.js"));
+  const env = {
+    PALMMI_VLM_PROVIDER: "qwen",
+    PALMMI_VLM_MODE: "real-only",
+    PALMMI_QWEN_API_KEY: "stage6f-test-key",
+    QWEN_API_KEY: "",
+  };
+  const response = await runAnalyzeApi({
+    request_id: "req_stage6f_fix4_missing_validity",
+    anonymous_device_id: "anon_stage6f_fix4",
+    locale: "zh-CN",
+    image: {
+      file_name: "missing-validity.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+      side: "unknown",
+    },
+  }, {
+    env,
+    fetchImpl: async () => new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            palm_features: null,
+            result: {
+              personality_id: "P25",
+              candidate_results: [{ personality_id: "P25" }],
+            },
+          }),
+        },
+      }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }),
+  });
+
+  assert.equal(response.ok, false, "missing validity must be rejected");
+  assert.equal(response.error.code, "ANALYSIS_UNRELIABLE", "missing validity must return ANALYSIS_UNRELIABLE");
+  assert.notEqual(response.error.code, "REQUEST_TIMEOUT", "missing validity must not be reported as REQUEST_TIMEOUT");
+  assert.doesNotMatch(JSON.stringify(response), /P25|老干部/, "missing validity response must not expose default personality");
+  assertNoResponseLeaks(response, "stage6f fix4 missing validity response");
+
+  return {
+    status: "PASS",
+    code: response.error.code,
+  };
+}
+
+async function validateStage6FFix4FetchTimeoutOnlyForRealTimeout() {
+  const { runAnalyzeApi } = require(path.join(root, "server", "stage5p", "analyze-service.js"));
+  const env = {
+    PALMMI_VLM_PROVIDER: "qwen",
+    PALMMI_VLM_MODE: "real-only",
+    PALMMI_QWEN_API_KEY: "stage6f-test-key",
+    PALMMI_VLM_TIMEOUT_MS: "10",
+    QWEN_API_KEY: "",
+  };
+  const response = await runAnalyzeApi({
+    request_id: "req_stage6f_fix4_fetch_timeout",
+    anonymous_device_id: "anon_stage6f_fix4",
+    locale: "zh-CN",
+    image: {
+      file_name: "timeout.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+      side: "unknown",
+    },
+  }, {
+    env,
+    fetchImpl: async (endpoint, init) => new Promise((resolve, reject) => {
+      if (init && init.signal) {
+        init.signal.addEventListener("abort", () => {
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        });
+      }
+    }),
+  });
+
+  assert.equal(response.ok, false, "true fetch timeout must fail");
+  assert.equal(response.error.code, "REQUEST_TIMEOUT", "true fetch timeout must return REQUEST_TIMEOUT");
+  assertNoResponseLeaks(response, "stage6f fix4 fetch timeout response");
+
+  return {
+    status: "PASS",
+    code: response.error.code,
+  };
+}
+
 async function validateApiEndpoint() {
-  const getResponse = await fetch(API_URL, { method: "GET" });
+  const getResponse = await stage6Fetch(API_URL, { method: "GET" });
   const getJson = await getResponse.json();
   assert.equal(getResponse.status, 405, "GET /api/analyze should return a stable method error");
   assert.equal(getJson.ok, false);
   assertNoResponseLeaks(getJson, "GET /api/analyze");
 
-  const emptyResponse = await fetch(API_URL, {
+  const emptyResponse = await stage6Fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
@@ -1496,7 +1737,7 @@ async function validateApiEndpoint() {
 async function validateStage5Assets() {
   const results = [];
   for (const assetPath of EXPECTED_STAGE5_ASSETS) {
-    const response = await fetch(new URL(assetPath, BASE_URL).href);
+    const response = await stage6Fetch(new URL(assetPath, BASE_URL).href);
     const text = await response.text();
     assert.equal(response.status, 200, `${assetPath} must exist in production build output`);
     assert.doesNotMatch(text.slice(0, 80), /<!doctype html>|<html/i, `${assetPath} must not be HTML fallback`);
@@ -1737,6 +1978,7 @@ async function main() {
     stage6f_fix: {},
     stage6f_fix2: {},
     stage6f_fix3: {},
+    stage6f_fix4: {},
     abnormal_inputs: {},
     simulated_qwen_errors: null,
     missing_fixtures: [],
@@ -1747,6 +1989,9 @@ async function main() {
     summary.stage5_assets = await validateStage5Assets();
     summary.stage6f_fix.storage_contract = await validateStage6FFixStorageContract();
     summary.stage6f_fix3.server_validity_contract = await validateStage6FFix3ServerValidityContract();
+    summary.stage6f_fix4.not_palm_no_timeout = await validateStage6FFix4NotPalmGateDoesNotTimeout();
+    summary.stage6f_fix4.validity_missing = await validateStage6FFix4ValidityMissingIsUnreliable();
+    summary.stage6f_fix4.fetch_timeout = await validateStage6FFix4FetchTimeoutOnlyForRealTimeout();
 
     for (const device of deviceMatrix(playwright)) {
       const context = await browser.newContext(device.options);

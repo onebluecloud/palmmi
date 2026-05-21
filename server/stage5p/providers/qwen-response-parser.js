@@ -2,6 +2,10 @@ function normalizeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function isPlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
+}
+
 function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -43,6 +47,9 @@ function normalizeCandidateResults(value) {
 
 function normalizeParsedPalmFeatures(parsed) {
   const source = normalizeObject(parsed);
+  const hasValidityObject = isPlainObject(source.validity);
+  const hasPalmFeaturesObject = isPlainObject(source.palm_features);
+  const hasResultObject = isPlainObject(source.result);
   const validity = normalizeObject(source.validity);
   const palmFeatures = normalizeObject(source.palm_features);
   const result = normalizeObject(source.result);
@@ -67,6 +74,9 @@ function normalizeParsedPalmFeatures(parsed) {
   );
 
   return {
+    hasValidity: hasValidityObject || legacyExplicitValid,
+    hasPalmFeatures: hasPalmFeaturesObject,
+    hasResult: hasResultObject,
     validity: normalizedValidity,
     isValidPalmImage,
     isSingleHand: normalizedValidity.is_single_hand,

@@ -25,6 +25,24 @@ const VALID_PERSONA_IDS = new Set(
     : []
 );
 const MIN_PROVIDER_CONFIDENCE = 0.45;
+const DEFAULT_VALIDATION_PROMPT = [
+  "Return strict JSON only.",
+  "Task: decide whether the image is a clear, front-facing, complete, single human palm photo.",
+  "Do not analyze personality. Do not extract detailed palm lines.",
+  "Reject drinks, cups, objects, pets, landscapes, faces, hand backs, multiple hands, screenshots, AI images, severely blurry images, severely cropped palms, or images where palm lines are not visible.",
+  "Return exactly this shape: {\"validity\":{\"is_palm_photo\":false,\"is_single_hand\":false,\"is_palm_side_visible\":false,\"palm_lines_visible\":false,\"image_quality\":\"not_palm\",\"reject_reason\":\"\"},\"palm_features\":null,\"result\":null}.",
+  "If and only if the image is a clear single palm, set all four validity booleans true, image_quality to clear, reject_reason to an empty string, and keep palm_features and result null.",
+].join("\n");
+const DEFAULT_ANALYSIS_PROMPT = [
+  "The image has passed the initial palm validity check.",
+  "Return one strict JSON object only. Do not include markdown or natural language outside JSON.",
+  "If the image is actually not a clear single palm after closer inspection, return invalid validity and do not output a personality result.",
+  "For a valid palm, extract observable palm features and choose the best Palmmi entertainment-only personality id from the frozen P01-P36 set.",
+  "Use this schema exactly:",
+  "{\"validity\":{\"is_palm_photo\":true,\"is_single_hand\":true,\"is_palm_side_visible\":true,\"palm_lines_visible\":true,\"image_quality\":\"clear\",\"reject_reason\":\"\"},\"palm_features\":{\"main_line_type\":\"\",\"visible_features\":[\"OVERALL_CLARITY\"],\"confidence\":0.0},\"majorLines\":{\"lifeLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"curvature\":\"medium\",\"breaks\":\"none\",\"confidence\":0.0},\"headLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"slope\":\"flat\",\"breaks\":\"none\",\"confidence\":0.0},\"heartLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"curvature\":\"medium\",\"ending\":\"unknown\",\"breaks\":\"none\",\"confidence\":0.0}},\"minorLines\":{\"fateLine\":{\"visibility\":\"unknown\",\"strength\":\"unknown\",\"continuity\":\"unknown\",\"confidence\":0.0}},\"palmShape\":{\"palmWidth\":\"medium\",\"palmLength\":\"medium\",\"fingerLength\":\"medium\",\"confidence\":0.0},\"result\":{\"personality_id\":\"\",\"main_line_type\":\"\",\"candidate_results\":[{\"personality_id\":\"\",\"main_line_type\":\"\",\"confidence\":0.0,\"reason\":\"observable palm features only\"}]}}",
+  "Never choose P25, M1, or any personality as a fallback. If unsure, return low confidence or null result instead of guessing.",
+  "Do not infer health, wealth, lifespan, marriage, fate, fortune, or any sensitive trait.",
+].join("\n");
 
 function nowMs() {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -189,19 +207,36 @@ function validationDiagnostics(reason, parsed) {
   };
 }
 
-function validateParsedForAnalysis(parsed) {
-  if (!parsed || parsed.isValidPalmImage !== true) {
-    if (parsed && parsed.validity && parsed.validity.is_palm_photo === true && parsed.validity.is_palm_side_visible === true) {
-      return {
-        ok: false,
-        code: ERROR_CODES.IMAGE_NOT_CLEAR,
-        diagnostics: validationDiagnostics("palm_lines_not_clear", parsed),
-      };
-    }
+function validateParsedPalmValidity(parsed) {
+  if (!parsed || parsed.hasValidity !== true) {
+    return {
+      ok: false,
+      code: ERROR_CODES.ANALYSIS_UNRELIABLE,
+      diagnostics: validationDiagnostics("validity_missing", parsed || {}),
+    };
+  }
+
+  if (parsed.validity.is_palm_photo !== true || parsed.validity.is_palm_side_visible !== true) {
     return {
       ok: false,
       code: ERROR_CODES.NOT_PALM,
-      diagnostics: validationDiagnostics("not_palm", parsed || {}),
+      diagnostics: validationDiagnostics("not_palm", parsed),
+    };
+  }
+
+  if (parsed.validity.is_single_hand !== true) {
+    return {
+      ok: false,
+      code: ERROR_CODES.NOT_PALM,
+      diagnostics: validationDiagnostics("not_single_hand", parsed),
+    };
+  }
+
+  if (parsed.validity.palm_lines_visible !== true) {
+    return {
+      ok: false,
+      code: ERROR_CODES.IMAGE_NOT_CLEAR,
+      diagnostics: validationDiagnostics("palm_lines_not_clear", parsed),
     };
   }
 
@@ -218,6 +253,23 @@ function validateParsedForAnalysis(parsed) {
       ok: false,
       code: ERROR_CODES.IMAGE_NOT_CLEAR,
       diagnostics: validationDiagnostics("image_quality_not_clear", parsed),
+    };
+  }
+
+  return { ok: true };
+}
+
+function validateParsedForAnalysis(parsed) {
+  const validity = validateParsedPalmValidity(parsed);
+  if (!validity.ok) {
+    return validity;
+  }
+
+  if (parsed.hasPalmFeatures !== true || parsed.hasResult !== true) {
+    return {
+      ok: false,
+      code: ERROR_CODES.ANALYSIS_UNRELIABLE,
+      diagnostics: validationDiagnostics("analysis_payload_missing", parsed),
     };
   }
 
@@ -350,17 +402,8 @@ class QwenVlmProvider {
     this.endpoint = config.endpoint;
     this.timeoutMs = config.timeoutMs;
     this.fetchImpl = options.fetchImpl || options.fetch || globalThis.fetch;
-    this.prompt = options.prompt || [
-      "You are validating a Palmmi palm photo before entertainment-only palm feature matching.",
-      "Return one strict JSON object only. Do not include markdown or natural language outside JSON.",
-      "First reject invalid images. A valid image must show one human palm, palm side visible, and visible palm lines.",
-      "Reject drinks, cups, objects, pets, landscapes, faces, hand backs, multiple hands, cropped palms, dark images, or blurry palm lines.",
-      "Use this schema exactly:",
-      "{\"validity\":{\"is_palm_photo\":true,\"is_single_hand\":true,\"is_palm_side_visible\":true,\"palm_lines_visible\":true,\"image_quality\":\"clear\",\"reject_reason\":\"\"},\"palm_features\":{\"main_line_type\":\"\",\"visible_features\":[\"OVERALL_CLARITY\"],\"confidence\":0.0},\"majorLines\":{\"lifeLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"curvature\":\"medium\",\"breaks\":\"none\",\"confidence\":0.0},\"headLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"slope\":\"flat\",\"breaks\":\"none\",\"confidence\":0.0},\"heartLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"curvature\":\"medium\",\"ending\":\"unknown\",\"breaks\":\"none\",\"confidence\":0.0}},\"minorLines\":{\"fateLine\":{\"visibility\":\"unknown\",\"strength\":\"unknown\",\"continuity\":\"unknown\",\"confidence\":0.0}},\"palmShape\":{\"palmWidth\":\"medium\",\"palmLength\":\"medium\",\"fingerLength\":\"medium\",\"confidence\":0.0},\"result\":{\"personality_id\":\"\",\"main_line_type\":\"\",\"candidate_results\":[{\"personality_id\":\"\",\"main_line_type\":\"\",\"confidence\":0.0,\"reason\":\"observable palm features only\"}]}}",
-      "If the image is invalid, set validity booleans false as appropriate, image_quality to not_palm/blurry/dark/cropped, reject_reason briefly, palm_features.visible_features to [], confidence to 0, and result.personality_id to null.",
-      "Never choose P25, M1, or any personality as a fallback. If unsure, return a low confidence invalid or unreliable response instead of guessing.",
-      "Do not infer health, wealth, lifespan, marriage, fate, fortune, or any sensitive trait.",
-    ].join("\n");
+    this.validationPrompt = options.validationPrompt || DEFAULT_VALIDATION_PROMPT;
+    this.prompt = options.prompt || DEFAULT_ANALYSIS_PROMPT;
   }
 
   fail(code, requestId, start, diagnostics = {}) {
@@ -370,6 +413,83 @@ class QwenVlmProvider {
       }),
       latencyMs: elapsedMs(start),
     };
+  }
+
+  async fetchAndParse({ prompt, image, imageBuffer, requestId, start, stage }) {
+    const body = buildProviderRequest({
+      model: this.model,
+      prompt,
+      image,
+      imageBuffer,
+    });
+
+    let responseText = "";
+    let timeout = null;
+    try {
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      timeout = controller ? setTimeout(() => controller.abort(), this.timeoutMs) : null;
+      const response = await callFetch(this.fetchImpl, this.endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller ? controller.signal : undefined,
+      });
+      responseText = await response.text();
+      if (!response.ok) {
+        return {
+          ok: false,
+          response: this.fail(
+            ERROR_CODES.VLM_API_REQUEST_FAILED,
+            requestId,
+            start,
+            upstreamDiagnostics(response, responseText)
+          ),
+        };
+      }
+    } catch (error) {
+      if (error && error.name === "AbortError") {
+        return {
+          ok: false,
+          response: this.fail(ERROR_CODES.REQUEST_TIMEOUT, requestId, start, {
+            isTimeout: true,
+            errorType: "timeout",
+            providerStage: stage,
+          }),
+        };
+      }
+      return {
+        ok: false,
+        response: this.fail(ERROR_CODES.VLM_API_REQUEST_FAILED, requestId, start, {
+          isFetchFailed: true,
+          errorType: error && error.name ? error.name : "fetch_failed",
+          providerStage: stage,
+        }),
+      };
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    }
+
+    try {
+      const responseJson = JSON.parse(responseText);
+      const messageContent = extractQwenMessageContent(responseJson);
+      return {
+        ok: true,
+        parsed: normalizeParsedPalmFeatures(parseJsonObject(messageContent)),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        response: this.fail(ERROR_CODES.VLM_API_INVALID_RESPONSE, requestId, start, {
+          errorType: "response_parse_failed",
+          providerStage: stage,
+        }),
+      };
+    }
   }
 
   async analyze(input = {}) {
@@ -388,95 +508,71 @@ class QwenVlmProvider {
       return this.fail(ERROR_CODES.VLM_API_INVALID_RESPONSE, requestId, start);
     }
 
-    const body = buildProviderRequest({
-      model: this.model,
+    const validityResponse = await this.fetchAndParse({
+      prompt: this.validationPrompt,
+      image,
+      imageBuffer,
+      requestId,
+      start,
+      stage: "qwen_validity_fetch",
+    });
+    if (!validityResponse.ok) {
+      return validityResponse.response;
+    }
+    const validity = validateParsedPalmValidity(validityResponse.parsed);
+    if (!validity.ok) {
+      return this.fail(validity.code, requestId, start, validity.diagnostics);
+    }
+
+    const analysisResponse = await this.fetchAndParse({
       prompt: this.prompt,
       image,
       imageBuffer,
+      requestId,
+      start,
+      stage: "qwen_analysis_fetch",
     });
-
-    let responseText = "";
-    try {
-      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const timeout = controller ? setTimeout(() => controller.abort(), this.timeoutMs) : null;
-      const response = await callFetch(this.fetchImpl, this.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(body),
-        signal: controller ? controller.signal : undefined,
-      });
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      responseText = await response.text();
-      if (!response.ok) {
-        return this.fail(
-          ERROR_CODES.VLM_API_REQUEST_FAILED,
-          requestId,
-          start,
-          upstreamDiagnostics(response, responseText)
-        );
-      }
-    } catch (error) {
-      if (error && error.name === "AbortError") {
-        return this.fail(ERROR_CODES.VLM_API_TIMEOUT, requestId, start, {
-          isTimeout: true,
-          errorType: "timeout",
-        });
-      }
-      return this.fail(ERROR_CODES.VLM_API_REQUEST_FAILED, requestId, start, {
-        isFetchFailed: true,
-        errorType: error && error.name ? error.name : "fetch_failed",
-      });
+    if (!analysisResponse.ok) {
+      return analysisResponse.response;
     }
 
-    try {
-      const responseJson = JSON.parse(responseText);
-      const messageContent = extractQwenMessageContent(responseJson);
-      const parsed = normalizeParsedPalmFeatures(parseJsonObject(messageContent));
-      const validation = validateParsedForAnalysis(parsed);
-      if (!validation.ok) {
-        return this.fail(validation.code, requestId, start, validation.diagnostics);
-      }
-      const latencyMs = elapsedMs(start);
-      return {
-        ok: true,
-        request_id: requestId,
-        provider: this.name,
-        model: this.model,
-        status: "OK",
-        parsed,
-        features: buildVlmFeatures(parsed),
-        quality: {
-          palm_detected: parsed.validity.is_palm_photo === true,
-          single_hand: parsed.validity.is_single_hand === true,
-          image_usable: parsed.isValidPalmImage === true,
-          confidence: parsed.confidence,
-          reasons: parsed.uncertainty,
-        },
+    const parsed = analysisResponse.parsed;
+    const validation = validateParsedForAnalysis(parsed);
+    if (!validation.ok) {
+      return this.fail(validation.code, requestId, start, validation.diagnostics);
+    }
+    const latencyMs = elapsedMs(start);
+    return {
+      ok: true,
+      request_id: requestId,
+      provider: this.name,
+      model: this.model,
+      status: "OK",
+      parsed,
+      features: buildVlmFeatures(parsed),
+      quality: {
+        palm_detected: parsed.validity.is_palm_photo === true,
+        single_hand: parsed.validity.is_single_hand === true,
+        image_usable: parsed.isValidPalmImage === true,
         confidence: parsed.confidence,
-        warnings: parsed.uncertainty.length > 0 ? ["UNCERTAINTY_REPORTED"] : [],
-        latencyMs,
-        performance: {
-          latency_ms: latencyMs,
-          estimated_cost_usd: null,
-        },
-        error_codes: [],
-        response_ref: "qwen:redacted",
-      };
-    } catch (error) {
-      return this.fail(ERROR_CODES.VLM_API_INVALID_RESPONSE, requestId, start, {
-        errorType: "response_parse_failed",
-      });
-    }
+        reasons: parsed.uncertainty,
+      },
+      confidence: parsed.confidence,
+      warnings: parsed.uncertainty.length > 0 ? ["UNCERTAINTY_REPORTED"] : [],
+      latencyMs,
+      performance: {
+        latency_ms: latencyMs,
+        estimated_cost_usd: null,
+      },
+      error_codes: [],
+      response_ref: "qwen:redacted",
+    };
   }
 }
 
 module.exports = {
   QwenVlmProvider,
   buildVlmFeatures,
+  validateParsedPalmValidity,
   validateParsedForAnalysis,
 };

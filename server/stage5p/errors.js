@@ -2,6 +2,7 @@ const ERROR_CODES = Object.freeze({
   VLM_PROVIDER_NOT_CONFIGURED: "VLM_PROVIDER_NOT_CONFIGURED",
   VLM_API_KEY_MISSING: "VLM_API_KEY_MISSING",
   VLM_API_TIMEOUT: "VLM_API_TIMEOUT",
+  REQUEST_TIMEOUT: "REQUEST_TIMEOUT",
   VLM_API_REQUEST_FAILED: "VLM_API_REQUEST_FAILED",
   VLM_API_INVALID_RESPONSE: "VLM_API_INVALID_RESPONSE",
   VLM_PROVIDER_UNAVAILABLE: "VLM_PROVIDER_UNAVAILABLE",
@@ -18,6 +19,7 @@ const USER_MESSAGES = Object.freeze({
   [ERROR_CODES.VLM_PROVIDER_NOT_CONFIGURED]: "当前分析服务暂不可用，请稍后再试。",
   [ERROR_CODES.VLM_API_KEY_MISSING]: "当前分析服务暂不可用，请稍后再试。",
   [ERROR_CODES.VLM_API_TIMEOUT]: "当前分析服务响应超时，请稍后再试。",
+  [ERROR_CODES.REQUEST_TIMEOUT]: "当前分析服务响应超时，请稍后重试，或换一张更清晰、文件更小的照片。",
   [ERROR_CODES.VLM_API_REQUEST_FAILED]: "当前分析服务暂不可用，请稍后再试。",
   [ERROR_CODES.VLM_API_INVALID_RESPONSE]: "当前分析结果暂时无法读取，请重新上传后再试。",
   [ERROR_CODES.VLM_PROVIDER_UNAVAILABLE]: "当前分析服务暂不可用，请稍后再试。",
@@ -105,8 +107,8 @@ function mapProviderErrorCode(code) {
   if (code === "API_KEY_MISSING") {
     return ERROR_CODES.VLM_API_KEY_MISSING;
   }
-  if (code === "TIMEOUT") {
-    return ERROR_CODES.VLM_API_TIMEOUT;
+  if (code === "TIMEOUT" || code === "VLM_API_TIMEOUT") {
+    return ERROR_CODES.REQUEST_TIMEOUT;
   }
   if (code === "NOT_PALM") {
     return ERROR_CODES.NOT_PALM;
