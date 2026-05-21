@@ -2,12 +2,13 @@
 
 ## 当前阶段
 
-Stage 6E：公网真实 Qwen 链路验证重跑
+Stage 6E-Fix：公网 Qwen 请求失败修复已完成。
 
 ## Stage 6E 是否完成
 
-未完成，当前状态：FAIL / BLOCKED。
-Cloudflare Production 已配置关键变量并重新部署，线上已进入 real Qwen 请求路径，但正常掌纹图返回 `VLM_API_REQUEST_FAILED`，公网真实链路未跑通。
+已完成，当前状态：PASS。
+
+公网真实 Qwen 链路已跑通，结果页和海报页均可展示真实分析结果。当前只允许进入 Stage 6F 准备，不在本轮执行 Stage 6F。
 
 ## 已完成
 
@@ -16,18 +17,18 @@ Cloudflare Production 已配置关键变量并重新部署，线上已进入 rea
 - Stage 6B：环境变量与密钥管理已完成。
 - Stage 6C：Cloudflare Pages Preview / Dry Run 已完成。
 - Stage 6D：图片上传与临时缓存策略已完成。
-- Stage 6E 前置：
-  - `PALMMI_QWEN_API_KEY` Production Secret 已存在。
-  - `PALMMI_VLM_PROVIDER` Production 变量已存在。
-  - `PALMMI_VLM_MODE` Production 变量已存在。
-  - 已触发 Production redeploy：`a67e8a48-50ac-4e94-9a56-8da13fbf5b73`。
-  - 本地 real Qwen 5 张 fixture 仍可跑通。
+- Stage 6E：公网真实 Qwen 链路验证已完成。
+- Stage 6E-Fix：
+  - 修复 Cloudflare runtime 下 Qwen `fetch` 调用绑定问题。
+  - 补齐 Cloudflare Pages 构建产物中的 Stage 5 页面读取模块。
+  - 公网 API 返回 `provider: qwen`。
+  - `/result/` 和 `/poster/` 可展示真实分析结果。
 
 ## 当前线上链接
 
 - Pages：`https://palmmi.pages.dev`
 - workers.dev：`https://palmmi.onebluecloud723.workers.dev`
-- Stage 6E redeploy：`https://a67e8a48.palmmi.pages.dev`
+- 最新修复部署：`https://932aab1a.palmmi.pages.dev`
 - 链接用途：仅用于 Stage 6 内测，不公开传播
 
 ## 当前 Cloudflare 环境变量状态
@@ -45,8 +46,9 @@ Cloudflare Production 已配置关键变量并重新部署，线上已进入 rea
 ## 当前 provider 状态
 
 - 本地 Node：real / qwen 可用。
-- Cloudflare Production：已离开 mock 路径，进入 real Qwen 请求路径。
-- Cloudflare Production 正常掌纹图：FAIL，返回 `VLM_API_REQUEST_FAILED`。
+- Cloudflare Production：real / qwen 可用。
+- Pages API：正常掌纹图返回 HTTP 200，`provider: qwen`。
+- workers.dev API：正常掌纹图返回 HTTP 200，`provider: qwen`。
 
 ## 当前禁止修改
 
@@ -73,17 +75,18 @@ Cloudflare Production 已配置关键变量并重新部署，线上已进入 rea
 
 ## 当前 Codex 待办
 
-- Stage 6E 修复轮：定位公网 `VLM_API_REQUEST_FAILED`。
-- 只允许做脱敏诊断，不输出 Key / Token / raw response。
-- 可能需要检查 Secret 值是否粘贴正确、模型权限是否可用、Cloudflare 到 Qwen endpoint 的请求是否被拒绝。
+- 等待用户提供 Stage 6F 指令。
+- Stage 6F 前继续保持链接不公开，并准备成本控制 / 限流 / 监控相关验收。
 
 ## 当前风险
 
-- 公网真实 Qwen 链路未跑通。
-- 多次公网 real 请求可能产生成本。
-- 真实 provider 错误被正确脱敏，但也降低了诊断信息，需要下一轮安全诊断。
-- 测试链接仍需保持不公开。
+- 测试链接外泄仍可能带来 Qwen API 成本风险。
+- 当前尚未做正式限流系统。
+- 当前尚未绑定正式域名，也不应公开推广。
+- 偏暗 / 模糊 / 裁切不完整样本仍缺少明确 fixture，需要后续补测。
 
 ## 下一步
 
-不要进入 Stage 6F。先执行 Stage 6E 修复轮，定位并修复公网 `VLM_API_REQUEST_FAILED`。
+可以进入 Stage 6F，但本轮不进入。
+
+推荐下一步：Stage 6F，重点处理真实链路上线前的成本控制、限流、监控、灰度和内测边界。

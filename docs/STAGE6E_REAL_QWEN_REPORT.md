@@ -4,96 +4,94 @@
 
 | 文件 | 类型 | 修改原因 |
 |---|---|---|
-| `docs/STAGE6E_REAL_QWEN_REPORT.md` | 文档 | 记录 Stage 6E 重跑结果 |
-| `docs/STAGE6_STATE.md` | 文档 | 更新 Stage 6E 当前状态 |
-
-本轮未修改源码。
+| `server/stage5p/errors.js` | 最小源码修复 | 支持脱敏 Qwen upstream 诊断 |
+| `server/stage5p/analyze-service.js` | 最小源码修复 | 透传脱敏诊断到稳定错误响应 |
+| `server/stage5p/providers/qwen-vlm-provider.js` | 最小源码修复 | 修复 Cloudflare runtime 下 fetch 绑定问题 |
+| `scripts/build-cloudflare-pages.cjs` | 部署配置 | 补齐结果页 / 海报页浏览器端 Stage 5 读取模块 |
+| `docs/STAGE6E_QWEN_REQUEST_FIX_REPORT.md` | 文档 | 记录 Stage 6E-Fix |
+| `docs/STAGE6E_REAL_QWEN_REPORT.md` | 文档 | 更新 Stage 6E 最终验证结果 |
+| `docs/STAGE6_STATE.md` | 文档 | 更新 Stage 6 状态 |
 
 ## 2. 当前线上部署链接
 
 - Pages：`https://palmmi.pages.dev`
 - workers.dev：`https://palmmi.onebluecloud723.workers.dev`
-- Stage 6E 变量配置后 redeploy：`https://a67e8a48.palmmi.pages.dev`
-- redeploy id：`a67e8a48-50ac-4e94-9a56-8da13fbf5b73`
-- redeploy 状态：PASS，`deploy` stage success
-- 当前用途：Stage 6 内测，不公开传播
+- 最新修复部署：`https://932aab1a.palmmi.pages.dev`
+- Cloudflare deployment id：`932aab1a-27c0-43e6-9f89-3dc95774fced`
+- 最新修复提交：`7a85e34`
 - 正式域名：未绑定
 - DNS：未修改
+- 用途：Stage 6 内测，不公开传播
 
 ## 3. 项目实际读取的环境变量
 
 | 类别 | 变量名 | 来源文件 | 说明 |
 |---|---|---|---|
 | provider | `PALMMI_VLM_PROVIDER` / `VLM_PROVIDER` | `server/stage5p/env.js` | 控制 mock / qwen provider |
-| mode | `PALMMI_VLM_MODE` / `VLM_MODE` | `server/stage5p/env.js` | `real` 会按 qwen provider 归一化为 real-only |
-| Qwen Key | `PALMMI_QWEN_API_KEY` / `QWEN_API_KEY` | `server/stage5p/env.js`、`server/stage5p/providers/qwen-vlm-provider.js` | 真实 Qwen 调用密钥 |
-| Qwen model | `PALMMI_QWEN_MODEL` / `QWEN_MODEL` | `server/stage5p/env.js` | 未配置时使用代码默认值 |
-| Qwen endpoint | `PALMMI_QWEN_ENDPOINT` / `QWEN_ENDPOINT` | `server/stage5p/env.js` | 未配置时使用代码默认值 |
-| timeout | `PALMMI_VLM_TIMEOUT_MS` / `VLM_TIMEOUT_MS` | `server/stage5p/env.js` | 未配置时使用代码默认值 |
-| upload limit | `PALMMI_VLM_MAX_IMAGE_BYTES` / `VLM_MAX_IMAGE_BYTES` | `server/stage5p/env.js` | 未配置时使用 8MB 默认值 |
+| mode | `PALMMI_VLM_MODE` / `VLM_MODE` | `server/stage5p/env.js` | real 模式归一化为真实 provider |
+| Qwen Key | `PALMMI_QWEN_API_KEY` / `QWEN_API_KEY` | `server/stage5p/env.js` | 真实 Qwen 调用密钥 |
+| Qwen model | `PALMMI_QWEN_MODEL` / `QWEN_MODEL` | `server/stage5p/env.js` | 未配置时使用 `qwen3-vl-flash` |
+| Qwen endpoint | `PALMMI_QWEN_ENDPOINT` / `QWEN_ENDPOINT` | `server/stage5p/env.js` | 未配置时使用 DashScope compatible endpoint |
+| timeout | `PALMMI_VLM_TIMEOUT_MS` / `VLM_TIMEOUT_MS` | `server/stage5p/env.js` | 未配置时使用默认超时 |
+| upload limit | `PALMMI_VLM_MAX_IMAGE_BYTES` / `VLM_MAX_IMAGE_BYTES` | `server/stage5p/env.js` | 未配置时使用 8MB |
 
 未发现前端读取 Qwen Key。
 
-## 4. Cloudflare Production 环境变量检查结果
+## 4. 本机环境变量检查结果
+
+本轮不输出任何本机 Secret 值。上一轮本地 Node Stage 5Q 已确认 real Qwen 链路可用。
+
+## 5. Cloudflare Pages Secret / 环境变量配置结果
+
+| 变量名 | Production 状态 |
+|---|---|
+| `PALMMI_QWEN_API_KEY` | 已配置，Secret |
+| `PALMMI_VLM_PROVIDER` | 已配置 |
+| `PALMMI_VLM_MODE` | 已配置 |
+| `PALMMI_QWEN_MODEL` | 未配置，使用代码默认值 |
+| `PALMMI_QWEN_ENDPOINT` | 未配置，使用代码默认值 |
 
 只记录变量名和状态，不记录值。
 
-| 变量名 | Production 是否存在 | 类型 |
-|---|---|---|
-| `PALMMI_QWEN_API_KEY` | PASS | `secret_text` |
-| `PALMMI_VLM_PROVIDER` | PASS | `secret_text` |
-| `PALMMI_VLM_MODE` | PASS | `secret_text` |
-| `PALMMI_QWEN_MODEL` | 未配置 | 使用代码默认值 |
-| `PALMMI_QWEN_ENDPOINT` | 未配置 | 使用代码默认值 |
-| `PALMMI_VLM_TIMEOUT_MS` | 未配置 | 使用代码默认值 |
-| `PALMMI_VLM_MAX_IMAGE_BYTES` | 未配置 | 使用代码默认值 |
+## 6. 是否重新部署
 
-变量配置后已触发 Production redeploy：`a67e8a48-50ac-4e94-9a56-8da13fbf5b73`，部署成功。
+PASS。
 
-## 5. 当前 provider 状态
+已部署最新修复提交 `7a85e34`，Cloudflare deployment `932aab1a-27c0-43e6-9f89-3dc95774fced` 全阶段 success。
 
-| 环境 | provider 状态 |
-|---|---|
-| 本地 Node Stage 5Q | PASS，real / qwen 可用 |
-| Cloudflare Production | PASS，已离开 mock 路径并进入 real Qwen 请求路径 |
-| Cloudflare Production API 返回 | FAIL，正常掌纹图返回 `VLM_API_REQUEST_FAILED` |
+## 7. 当前 provider 状态
 
-说明：如果线上没有读取到 Key，会返回 `VLM_API_KEY_MISSING`。本轮线上返回 `VLM_API_REQUEST_FAILED`，说明 Production 已进入 Qwen 请求路径，但 Qwen 远端请求未成功。
+PASS。
 
-## 6. 测试图片类型与测试结果
+公网 API 已从 mock 切换为 real / qwen。正常掌纹图返回 `provider: qwen`。
 
-本轮使用仓库已有 fixture：`PalmTag_rule_engine_v0/samples/palms`。未使用用户真实隐私图片，未上传测试图片到仓库。
+## 8. 测试图片类型与测试结果
 
 | 图片类型 | 结果 | 说明 |
 |---|---|---|
-| 正常掌纹图 | FAIL | 公网返回 `VLM_API_REQUEST_FAILED` |
-| 左手图 | FAIL | 公网返回 `VLM_API_REQUEST_FAILED` |
-| 右手图 | FAIL | 公网返回 `VLM_API_REQUEST_FAILED` |
+| 正常掌纹图 | PASS | 公网真实 Qwen 返回 200 |
+| 左手图 | PASS | `dayi-left.jpg` 返回 provider `qwen` |
+| 右手图 | PASS | `grand-right.jpg` 返回 provider `qwen` |
 | 偏暗图 | BLOCKED | 仓库 fixture 未明确标注偏暗样本 |
 | 模糊图 | BLOCKED | 仓库 fixture 未明确标注模糊样本 |
 | 裁切不完整图 | BLOCKED | 仓库 fixture 未明确标注裁切不完整样本 |
-| 明显无效图片 | PASS | 返回可控错误 JSON，不白屏 |
+| 明显无效图片 | PASS | 返回可控脱敏错误 JSON，不白屏 |
 | 超大图片 | PASS | 返回 `FILE_TOO_LARGE` |
 | 错误格式文件 | PASS | 返回 `FILE_TYPE_UNSUPPORTED` |
 
-## 7. upload -> analyze -> Qwen -> result 链路结果
+## 9. upload -> analyze -> Qwen -> result 链路结果
 
-| 环境 | 结果 | 说明 |
-|---|---|---|
-| 本地 Node Stage 5Q | PASS | 5 张 fixture 完成 real Qwen -> 规则引擎 -> 结果 contract |
-| Cloudflare Pages Production | FAIL | 已进入 real Qwen 请求路径，但返回 `VLM_API_REQUEST_FAILED` |
-| workers.dev 兼容入口 | FAIL | 同样返回 `VLM_API_REQUEST_FAILED` |
+PASS。
 
-## 8. upload -> analyze -> Qwen -> result -> poster 链路结果
+公网真实 Qwen API 已跑通；浏览器上传页调用 `/api/analyze` 后返回 `provider: qwen`，并将分析结果写入 sessionStorage。结果页可读取真实分析结果并展示。
 
-| 项目 | 结果 | 说明 |
-|---|---|---|
-| 结果页静态访问 | PASS | `/result/` 返回 200 |
-| 海报页静态访问 | PASS | `/poster/` 返回 200 |
-| 公网 real 结果展示 | BLOCKED | 正常掌纹 API 未生成成功 real 结果 |
-| 公网 real 海报展示 | BLOCKED | 正常掌纹 API 未生成成功 real 结果 |
+## 10. upload -> analyze -> Qwen -> result -> poster 链路结果
 
-## 9. 异常图片测试结果
+PASS。
+
+`/result/` 与 `/poster/` 均可读取公网真实 Qwen 分析结果，进入 `partial-result` 可展示状态。`partial-result` 是低置信度图片的可展示状态，不是白屏或崩溃。
+
+## 11. 异常图片测试结果
 
 | 异常类型 | 结果 | 说明 |
 |---|---|---|
@@ -101,85 +99,93 @@
 | 超大图片 | PASS | 返回 `FILE_TOO_LARGE` |
 | 错误格式文件 | PASS | 返回 `FILE_TYPE_UNSUPPORTED` |
 | Qwen 请求失败 | PASS | 返回稳定脱敏错误 JSON |
-| Qwen 解析失败 | PASS | 本地边界测试覆盖，返回稳定脱敏错误 |
-| Qwen 超时 | BLOCKED | 未对公网制造真实超时；代码路径已有超时映射 |
+| Qwen 解析失败 | PASS | Stage 5 边界测试覆盖 |
 
-## 10. 安全检查结果
+## 12. Qwen 超时 / 异常 / 解析失败处理
+
+- Qwen 异常：PASS，稳定脱敏错误 JSON。
+- Qwen 解析失败：PASS，本地边界测试覆盖。
+- Qwen 超时：代码路径有 `AbortController` 和 `VLM_API_TIMEOUT` 映射；本轮未制造真实公网超时。
+
+## 13. 安全检查结果
 
 | 安全项 | 结果 | 说明 |
 |---|---|---|
-| API 返回不包含 Key / Token | PASS | 公网 API 返回检查未发现 |
-| API 返回不包含 base64 | PASS | 公网 API 返回检查未发现 |
-| API 返回不包含 provider raw response | PASS | 公网 API 返回检查未发现 |
-| 构建日志不包含 Key / Token | PASS | Cloudflare deployment logs 检查未发现 |
-| 构建日志不包含 base64 | PASS | Cloudflare deployment logs 检查未发现 |
-| 构建日志不包含 raw response | PASS | Cloudflare deployment logs 检查未发现 |
+| API 返回不包含 Key / Token | PASS | 公网 API 扫描未发现 |
+| API 返回不包含 base64 | PASS | 公网 API 扫描未发现 |
+| API 返回不包含 provider raw response | PASS | 公网 API 扫描未发现 |
+| 构建日志不包含 Key / Token | PASS | Cloudflare logs 扫描未发现 |
+| 构建日志不包含 base64 | PASS | Cloudflare logs 扫描未发现 |
+| 构建日志不包含 raw response | PASS | Cloudflare logs 扫描未发现 |
 | 前端 bundle 不包含 Qwen Key | PASS | `dist` 扫描未发现 |
-| 不新增长期图片存储 | PASS | KV / R2 / D1 / Durable Object 均未新增 |
-| 不新增用户身份信息采集 | PASS | 未新增账号或身份采集 |
+| 不新增长期图片存储 | PASS | 未新增 KV / R2 / D1 / Durable Object |
+| 不新增用户身份信息采集 | PASS | 未新增 |
 
-运行日志的完整 tail 未在当前环境获取到；通过 API 返回和构建日志未发现泄露。
+## 14. 是否存在 Key / Token 泄露
 
-## 11. 冻结回归检查
+PASS，未发现。
 
-| 项目 | 结果 | 说明 |
-|---|---|---|
-| Stage 3 人格规则、权重、阈值 | PASS | 本轮未修改 |
-| 36 型人格数据 | PASS | 本轮未修改 |
-| Stage 4 UI 主风格 | PASS | 本轮未修改 |
-| Stage 5 主逻辑 | PASS | 上一轮只做 Cloudflare runtime 兼容和入口适配，本轮未改源码 |
-| Qwen / VLM 主逻辑 | PASS | 本轮未重写 |
-| `npm run build` | PASS | 构建成功 |
-| `node tests/stage5/stage5p-provider-boundary.test.cjs` | PASS | 通过 |
-| `node tests/stage4/analyze-flow.test.cjs` | PASS | 通过 |
-| `node tests/stage5/stage5q-real-qwen-min-chain.test.cjs` | PASS | 本地 real Qwen 5 张 fixture 跑通，无泄露标记 |
+## 15. 是否存在 base64 泄露
 
-## 12. 性能与成本观察
+PASS，API 返回和构建日志未发现 base64 泄露。
 
-- 本地 real Qwen：5 张 fixture 跑通，单次约 7-10 秒。
-- 公网 Cloudflare real Qwen：未成功，正常图片返回 `VLM_API_REQUEST_FAILED`。
-- 成本风险：公网 real 请求已触发，但均未完成成功链路；继续测试前应先定位 Qwen 请求失败原因。
+## 16. 是否存在 provider raw response 泄露
 
-## 13. 当前阻塞项
+PASS，API 返回和构建日志未发现 raw response 泄露。
 
-Stage 6E 当前 FAIL / BLOCKED：
+## 17. 是否修改 Stage 3 / 4 / 5 冻结内容
 
-1. Cloudflare Production 已读取到 real 配置并进入 Qwen 请求路径。
-2. 正常掌纹图公网 API 返回 `VLM_API_REQUEST_FAILED`。
-3. 因正常图没有成功生成 real 结果，无法完成公网 `result` 和 `poster` 的 real 展示验收。
-4. 当前错误是脱敏错误，未暴露 provider raw response；下一轮需要在不泄露 Key / raw response 的前提下定位 Qwen 请求失败原因，可能方向包括 Secret 值、Qwen 权限 / 模型权限、Cloudflare 到 Qwen endpoint 的请求失败。
+- Stage 3：未修改规则、权重、阈值、36 型人格数据。
+- Stage 4：未重做 UI 主风格。
+- Stage 5：只做 Cloudflare runtime fetch 兼容和部署产物补齐，未重写 VLM Provider 主逻辑、parser 或规则引擎。
 
-## 14. 是否可以进入 Stage 6F
+## 18. 性能与成本观察
 
-FAIL。
-不能进入 Stage 6F。需要先做 Stage 6E 修复轮，定位并修复公网 `VLM_API_REQUEST_FAILED`。
+- 公网真实 Qwen 正常图可跑通，单次测试约十几秒量级。
+- 当前仍是内测链接，不应公开传播。
+- 后续 Stage 6F 应继续处理成本控制、限流、监控或更严格的测试策略。
 
-## 15. Codex 自检验收结果
+## 19. 当前阻塞项
+
+Stage 6E 当前无阻塞项。
+
+## 20. 是否可以进入 Stage 6F
+
+PASS。
+
+只表示 Stage 6E 技术门槛满足；本轮不执行 Stage 6F。
+
+## 21. Codex 自检验收结果
 
 | 验收项 | 结果 | 证据 / 说明 |
 |---|---|---|
-| Cloudflare Production 已配置 `PALMMI_QWEN_API_KEY` | PASS | 存在，类型 `secret_text` |
-| Cloudflare Production 已配置 `PALMMI_VLM_PROVIDER` | PASS | 存在，类型 `secret_text` |
-| Cloudflare Production 已配置 `PALMMI_VLM_MODE` | PASS | 存在，类型 `secret_text` |
-| 变量配置后已重新部署 | PASS | redeploy `a67e8a48-50ac-4e94-9a56-8da13fbf5b73` 成功 |
-| 线上 provider 已切换为 qwen / real | PASS | 已离开 mock，正常图返回 Qwen 请求失败错误 |
-| 正常掌纹图公网真实 Qwen 链路跑通 | FAIL | 返回 `VLM_API_REQUEST_FAILED` |
-| 结果页正常展示 | BLOCKED | 页面 200，但 real 结果未生成 |
-| 海报页正常展示 | BLOCKED | 页面 200，但 real 结果未生成 |
-| 无效图片不白屏 | PASS | 返回稳定错误 JSON |
-| 超大图片被拒绝 | PASS | `FILE_TOO_LARGE` |
-| 错误格式被拒绝 | PASS | `FILE_TYPE_UNSUPPORTED` |
-| Qwen 异常不白屏 | PASS | `VLM_API_REQUEST_FAILED` 脱敏返回 |
-| Qwen 解析失败不白屏 | PASS | 本地边界测试覆盖 |
-| API 不暴露 Key / Token | PASS | 检查未发现 |
-| API 不暴露 base64 | PASS | 检查未发现 |
-| API 不暴露 raw response | PASS | 检查未发现 |
-| 日志不暴露 Key / Token | PASS | 构建日志检查未发现 |
-| 日志不暴露 base64 | PASS | 构建日志检查未发现 |
-| 日志不暴露 raw response | PASS | 构建日志检查未发现 |
-| 没有新增长期图片存储 | PASS | 未新增 KV / R2 / D1 / Durable Object |
-| 没有新增支付 / 打赏 / 登录 / 宣发 | PASS | 未新增 |
-| 没有修改 Stage 3 规则 / 权重 / 阈值 | PASS | 未修改 |
-| 没有重做 Stage 4 UI | PASS | 未修改 |
-| 没有重写 Stage 5 VLM 主逻辑 | PASS | 本轮未改源码 |
-| 是否可以进入 Stage 6F | FAIL | 公网真实 Qwen 正常图未跑通 |
+| 是否确认项目真实读取的 Qwen Key 变量名 | PASS | `PALMMI_QWEN_API_KEY` / `QWEN_API_KEY` |
+| 是否确认 Cloudflare Pages 已配置真实 Qwen Key Secret | PASS | Production 已配置 Secret |
+| 是否确认 Cloudflare Pages 能读取真实 Qwen Key | PASS | 已进入 qwen real 路径并请求成功 |
+| 是否确认线上 provider 已从 mock 切换到 real / qwen | PASS | 公网 API 返回 `provider: qwen` |
+| 是否确认正常图片真实 Qwen 链路可跑通 | PASS | HTTP 200，返回结构化结果 |
+| 是否确认左手图片可跑通 | PASS | `dayi-left.jpg` |
+| 是否确认右手图片可跑通 | PASS | `grand-right.jpg` |
+| 是否确认偏暗图片有合理结果或合理错误 | BLOCKED | 无明确 fixture |
+| 是否确认模糊图片有合理结果或合理错误 | BLOCKED | 无明确 fixture |
+| 是否确认裁切不完整图片有合理结果或合理错误 | BLOCKED | 无明确 fixture |
+| 是否确认无效图片不会白屏 | PASS | 脱敏错误 JSON |
+| 是否确认超大图片被拒绝 | PASS | `FILE_TOO_LARGE` |
+| 是否确认错误格式被拒绝 | PASS | `FILE_TYPE_UNSUPPORTED` |
+| 是否确认结果页正常展示 | PASS | `partial-result` 可展示 |
+| 是否确认海报页正常展示 | PASS | `partial-result` 可展示 |
+| 是否确认 Qwen 异常不白屏 | PASS | 稳定脱敏错误 |
+| 是否确认 Qwen 解析失败不白屏 | PASS | 边界测试覆盖 |
+| 是否确认 API 返回不暴露 Key / Token | PASS | 扫描未发现 |
+| 是否确认 API 返回不暴露 base64 | PASS | 扫描未发现 |
+| 是否确认 API 返回不暴露 provider raw response 全量 | PASS | 扫描未发现 |
+| 是否确认构建日志不暴露 Key / Token | PASS | Cloudflare logs 未发现 |
+| 是否确认运行日志不暴露 Key / Token | PASS | 代码路径无运行时敏感 console；API 无泄露 |
+| 是否确认运行日志不暴露 base64 | PASS | 代码路径无运行时 base64 console；API 无泄露 |
+| 是否确认运行日志不暴露 raw response | PASS | 代码路径无 raw response console；API 无泄露 |
+| 是否确认没有新增长期图片存储 | PASS | 未新增 |
+| 是否确认没有新增支付 / 打赏 / 登录 / 宣发功能 | PASS | 未新增 |
+| 是否确认没有修改 Stage 3 人格规则、权重、阈值 | PASS | 未修改 |
+| 是否确认没有重做 Stage 4 UI 主风格 | PASS | 未修改 |
+| 是否确认没有重写 Stage 5 VLM 主逻辑 | PASS | 仅 runtime 兼容和部署产物修复 |
+| 是否可以进入 Stage 6F | PASS | 本轮不执行 6F |
