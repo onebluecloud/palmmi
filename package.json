@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "scripts": {
     "build": "node scripts/build-cloudflare-pages.cjs",
-    "test:stage5p": "node tests/stage5/stage5p-provider-boundary.test.cjs"
+    "test:stage5p": "node tests/stage5/stage5p-provider-boundary.test.cjs",
+    "test:stage6f": "node tests/stage6f/mobile-e2e.test.cjs",
+    "scan:stage6f": "node scripts/stage6f/security-scan.cjs"
   }
 }
