@@ -1702,6 +1702,31 @@ async function validateStage6FFix4FetchTimeoutOnlyForRealTimeout() {
   };
 }
 
+function validateRealQwenSmokeDryRun() {
+  const output = childProcess.execFileSync(process.execPath, [
+    path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"),
+  ], {
+    cwd: root,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  const summary = JSON.parse(output);
+  assert.equal(summary.ok, true, "real Qwen smoke dry run should exit successfully");
+  assert.equal(summary.status, "REAL_QWEN_DISABLED", "real Qwen smoke must be disabled without --real");
+  assert.equal(summary.api_calls_made, 0, "real Qwen smoke dry run must not call Qwen");
+  assert.equal(summary.safety.printed_key, false, "dry run summary must not print keys");
+  assert.equal(summary.safety.printed_base64, false, "dry run summary must not print base64");
+  assert.equal(summary.safety.printed_raw_response, false, "dry run summary must not print raw responses");
+  const leakCheckSummary = JSON.stringify(summary).replace(/printed_raw_response/g, "printedRawResponse");
+  assert.deepEqual(leakFlags(leakCheckSummary, RESPONSE_LEAK_MARKERS), [], "real Qwen smoke dry run summary must not leak response internals or secrets");
+
+  return {
+    status: "PASS",
+    mode: summary.status,
+    api_calls_made: summary.api_calls_made,
+  };
+}
+
 async function validateApiEndpoint() {
   const getResponse = await stage6Fetch(API_URL, { method: "GET" });
   const getJson = await getResponse.json();
@@ -1979,6 +2004,7 @@ async function main() {
     stage6f_fix2: {},
     stage6f_fix3: {},
     stage6f_fix4: {},
+    real_qwen_smoke: null,
     abnormal_inputs: {},
     simulated_qwen_errors: null,
     missing_fixtures: [],
@@ -1992,6 +2018,7 @@ async function main() {
     summary.stage6f_fix4.not_palm_no_timeout = await validateStage6FFix4NotPalmGateDoesNotTimeout();
     summary.stage6f_fix4.validity_missing = await validateStage6FFix4ValidityMissingIsUnreliable();
     summary.stage6f_fix4.fetch_timeout = await validateStage6FFix4FetchTimeoutOnlyForRealTimeout();
+    summary.real_qwen_smoke = validateRealQwenSmokeDryRun();
 
     for (const device of deviceMatrix(playwright)) {
       const context = await browser.newContext(device.options);

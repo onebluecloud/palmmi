@@ -2,6 +2,53 @@
 
 Date: 2026-05-21
 
+## Stage 6F-Real-Qwen-Smoke 追加记录
+
+本轮不是 Stage 6G，也不继续盲修业务逻辑。本轮新增一个人工显式触发的真实 Qwen API 小样本验收脚本，用来验证当前 prompt / parser / contract 在真实 Qwen 返回下是否成立。
+
+当前背景：
+
+- Fix-4 部署后，用户安卓微信复测确认啤酒 / 饮料图已能返回 `NOT_PALM`。
+- 真实手掌图仍可能被误杀为 `ANALYSIS_UNRELIABLE`。
+- 需要用用户本地三张测试图片做真实 Qwen 小样本 smoke，但 Codex 不默认调用真实 Qwen。
+
+```text
+Real Qwen smoke script: READY
+Real Qwen smoke result: NOT_RUN
+Android WeChat: MANUAL_RETEST_REQUIRED
+iOS WeChat: MANUAL_REQUIRED
+Stage 6G: BLOCKED
+```
+
+### Real Qwen Smoke 脚本
+
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| 脚本路径 | READY | `scripts/stage6f/real-qwen-smoke.cjs` |
+| package script | READY | `npm run smoke:stage6f:qwen` |
+| 默认真实调用 | DISABLED | 无 `--real` 时输出 `REAL_QWEN_DISABLED`，不调用 Qwen |
+| 用户图片目录 | READY | `E:\其他\Palmmi\Palmmi-test-images`，不复制、不提交 |
+| 目录模式 | READY | 支持 `--image-dir "E:\其他\Palmmi\Palmmi-test-images"` |
+| 显式路径模式 | READY | 支持 `--not-palm` / `--palm-faint` / `--palm-clear` |
+| 样本数量 | LIMITED | 最多处理 3 张图片：非手掌、掌纹偏淡、清晰手掌 |
+| Key 读取 | READY | `PALMMI_QWEN_API_KEY` -> `QWEN_API_KEY` -> `DASHSCOPE_API_KEY` |
+| 输出 | PASS | 只输出脱敏 summary，不输出 Key / Token / base64 / raw Qwen response |
+| CI / Stage6F 默认测试 | PASS | 不纳入真实 API 默认流程；`test:stage6f` 只验证 dry run |
+
+### Real Qwen Smoke 预期判定
+
+| 样本 | 期望 | 未通过时含义 |
+|---|---|---|
+| not_palm | `NOT_PALM`，无人格结果 | 如果是 `REQUEST_TIMEOUT` / `ANALYSIS_UNRELIABLE` / 任意人格，说明无效图闸门仍需调 |
+| palm_faint | `LOW_CONFIDENCE` 或有效人格 | 如果是 `ANALYSIS_UNRELIABLE`，说明 parser / prompt 可能过严 |
+| palm_clear | `OK` / `LOW_CONFIDENCE` 且有合法人格 | 如果仍失败，说明真实 Qwen prompt / parser contract 未成立 |
+
+Codex 本轮没有运行 `--real`，没有读取用户本地图片，没有输出 raw Qwen response。用户后续需要显式运行：
+
+```powershell
+npm run smoke:stage6f:qwen -- --real --image-dir "E:\其他\Palmmi\Palmmi-test-images"
+```
+
 ## Stage 6F-Fix-4 追加记录
 
 用户确认 Cloudflare Production 已部署到 `aa51bf5bdfe1822cb98059878ab3c74f6cb5e708` 后，在安卓微信真机复测非手掌啤酒 / 饮料图：

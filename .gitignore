@@ -31,3 +31,10 @@ docs/stage5/stage5g-analysis-results.local.json
 docs/stage5/stage5h-analysis-contract.local.json
 tmp/
 private_samples/
+Palmmi-test-images/
+test-images/
+*.local.jpg
+*.local.jpeg
+*.local.png
+*.local.webp
+real-qwen-smoke-output*.json
