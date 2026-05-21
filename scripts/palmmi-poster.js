@@ -12,9 +12,9 @@
   const FALLBACKS = Object.freeze({
     personaName: "未知人格",
     personaCode: "结果待完善",
-    hook: "暂无金句",
+    hook: "照片掌纹不够清晰，请重新拍摄后再试。",
     tag: "暂无标签",
-    matchedFeature: "暂无匹配特征",
+    matchedFeature: "掌纹线索不足，请重新拍摄",
     primaryMother: "结果待完善",
     summary: "这份结果适合作为娱乐参考",
   });
@@ -185,17 +185,23 @@
     const ui = isPlainObject(data.uiConsumable) ? data.uiConsumable : {};
     const diagnostics = isPlainObject(data.diagnostics) ? data.diagnostics : {};
     const warnings = Array.isArray(data.warnings) ? data.warnings : [];
-    const keywords = normalizeList(summary.keywords);
-    const personaId = firstText(ui.personaId, FALLBACKS.personaCode);
-    const personaName = firstText(ui.personaName, summary.title, FALLBACKS.personaName);
-    const shortText = firstText(summary.shortText, ui.secondaryDisplayText, FALLBACKS.summary);
-    const motherType = firstText(summary.subtitle, "Stage 5");
-    const matchedFeatures = keywords.length ? keywords : ["HEAD_LINE_LENGTH"];
+    const keywords = unique([...normalizeList(data.traits), ...normalizeList(summary.keywords)]);
+    const flatFeatures = normalizeList(data.features);
+    const personaId = firstText(data.personality_id, ui.personaId, FALLBACKS.personaCode);
+    const personaName = firstText(data.personality_name, ui.personaName, summary.title, FALLBACKS.personaName);
+    const shortText = firstText(data.summary, summary.shortText, ui.secondaryDisplayText, FALLBACKS.summary);
+    const motherType = firstText(data.main_line_type, summary.subtitle, "Stage 5");
+    const matchedFeatures = flatFeatures.length ? flatFeatures : (keywords.length ? keywords : ["HEAD_LINE_LENGTH"]);
+    const candidateResults = Array.isArray(data.candidate_results) && data.candidate_results.length
+      ? data.candidate_results
+      : [{ personality_id: personaId, personality_name: personaName, main_line_type: motherType }];
 
     return {
       status: stage5StatusForRenderer(data, mapping),
+      quality_status: firstText(data.quality_status, ui.qualityStatus),
+      user_message: firstText(data.user_message),
       quality_gate: {
-        status: mapping.requiresWarning ? "WARN" : "PASS",
+        status: firstText(data.quality_status, mapping.requiresWarning ? "WARN" : "PASS"),
       },
       schema: {
         status: mapping.allowsPartialResult && mapping.pageState === POSTER_STATES.PARTIAL_RESULT ? "WARN" : "PASS",
@@ -211,18 +217,11 @@
         name: personaName,
         mother_type: motherType,
         hook: firstText(ui.secondaryDisplayText, shortText, FALLBACKS.hook),
-        description: shortText,
+        description: firstText(data.description, shortText),
         tags: keywords,
         matched_features: matchedFeatures,
       },
-      top3: [
-        {
-          id: personaId,
-          persona_id: personaId,
-          name: personaName,
-          mother_type: motherType,
-        },
-      ],
+      top3: candidateResults,
       recognition: {
         explanation: {
           persona: {
@@ -233,6 +232,8 @@
         },
       },
       error_codes: warnings,
+      evidence: firstText(data.evidence),
+      match_reason: firstText(data.match_reason),
     };
   }
 
@@ -292,10 +293,10 @@
         recoveryHint: "这通常是本地暂存结果中断导致的，重新测试即可恢复。",
       },
       [POSTER_STATES.PARTIAL_RESULT]: {
-        title: "海报字段暂时不完整",
-        message: "可以先查看基础海报预览，缺失字段会使用短兜底文案。",
-        pill: "结果待完善",
-        recoveryHint: "如果想要更完整的海报内容，可以重新上传清晰照片。",
+        title: "照片掌纹不够清晰",
+        message: "这张照片掌纹不够清晰，请重新拍摄后再试。",
+        pill: "请重新拍摄",
+        recoveryHint: "请使用清晰、正面、完整的单手掌照片重新测试。",
       },
       [POSTER_STATES.ERROR]: {
         title: "海报页暂时无法显示",
@@ -308,6 +309,7 @@
     const model = models[state] || models[POSTER_STATES.ERROR];
     return {
       state,
+      problem: true,
       ...model,
       message: messageOverride || model.message,
       backResultText: "返回结果页",
@@ -327,9 +329,9 @@
     }
 
     return top3.slice(0, 3).map((candidate, index) => {
-      const code = firstText(candidate && candidate.id, candidate && candidate.persona_id, `Top ${index + 1}`);
-      const name = firstText(candidate && candidate.name, FALLBACKS.personaCode);
-      const motherType = firstText(candidate && candidate.mother_type, "");
+      const code = firstText(candidate && candidate.id, candidate && candidate.persona_id, candidate && candidate.personality_id, `Top ${index + 1}`);
+      const name = firstText(candidate && candidate.name, candidate && candidate.personality_name, FALLBACKS.personaCode);
+      const motherType = firstText(candidate && candidate.mother_type, candidate && candidate.main_line_type, "");
       return {
         code: compactCode(code),
         name,
@@ -456,16 +458,21 @@
     return `${copy.slice(0, 52)}…`;
   }
 
+  function isRetakeQualityStatus(value) {
+    const status = firstText(value).toUpperCase();
+    return status === "IMAGE_NOT_CLEAR" || status === "RETRY_REQUIRED" || status === "REJECTED";
+  }
+
   function createPosterViewModel(result) {
     if (!isPlainObject(result)) {
       return createProblemViewModel(POSTER_STATES.INVALID_RESULT);
     }
 
     const status = firstText(result.status, "SUCCESS");
-    if (status === "RETRY_REQUIRED" || status === "REJECTED") {
+    if (status === "RETRY_REQUIRED" || status === "REJECTED" || isRetakeQualityStatus(result.quality_status)) {
       return createProblemViewModel(
-        POSTER_STATES.ERROR,
-        "本次照片暂时不适合生成海报，请重新上传一张清晰、正面的单手掌照片。"
+        POSTER_STATES.PARTIAL_RESULT,
+        firstText(result.user_message, "这张照片掌纹不够清晰，请重新拍摄后再试。")
       );
     }
 
@@ -511,9 +518,16 @@
       safeFeatures[0] === FALLBACKS.matchedFeature ||
       primaryMother === FALLBACKS.primaryMother;
 
+    if (isPartial) {
+      return createProblemViewModel(
+        POSTER_STATES.PARTIAL_RESULT,
+        "这张照片掌纹不够清晰，请重新拍摄后再试。"
+      );
+    }
+
     return {
       state: isPartial ? POSTER_STATES.PARTIAL_RESULT : POSTER_STATES.READY,
-      title: isPartial ? "基础海报预览" : "你的分享海报",
+      title: "你的分享海报",
       pill: status === "LOW_CONFIDENCE" ? "保守结果" : "传播海报",
       status,
       personaName,
@@ -693,6 +707,10 @@
 
     try {
       const viewModel = createPosterViewModel(read.result);
+      if (viewModel && viewModel.problem) {
+        renderProblem(doc, viewModel.state || POSTER_STATES.PARTIAL_RESULT, viewModel.message);
+        return;
+      }
       viewModel.state = read.state;
       if (viewModel.state === POSTER_STATES.ERROR && viewModel.backResultHref) {
         renderProblem(doc, POSTER_STATES.ERROR, viewModel.message);

@@ -12,11 +12,11 @@
   const FALLBACKS = Object.freeze({
     personaName: "未知人格",
     personaCode: "结果待完善",
-    hook: "人格结果已生成，但部分字段暂时缺失。",
-    coreDescription: "暂无详细描述。请重新测试，或稍后查看完整结果。",
+    hook: "照片掌纹不够清晰，请重新拍摄后再试。",
+    coreDescription: "照片掌纹不够清晰，请重新拍摄后再试。",
     summary: "当前结果基于可识别的掌纹结构生成。",
     tag: "暂无标签",
-    evidence: "暂无掌纹依据",
+    evidence: "掌纹线索不足，请重新拍摄。",
   });
 
   const FEATURE_LABELS = Object.freeze({
@@ -219,21 +219,33 @@
     const sections = Array.isArray(data.sections) ? data.sections : [];
     const warnings = Array.isArray(data.warnings) ? data.warnings : [];
     const featureKeys = sections.map((section) => firstText(section.key, section.title)).filter(Boolean);
-    const tags = normalizeList(summary.keywords);
-    const personaId = firstText(persona.id, ui.personaId, FALLBACKS.personaCode);
-    const personaName = firstText(persona.name, ui.personaName, summary.title, FALLBACKS.personaName);
-    const shortText = firstText(summary.shortText, ui.secondaryDisplayText, ui.primaryDisplayText, FALLBACKS.hook);
+    const flatFeatures = normalizeList(data.features);
+    const tags = unique([...normalizeList(data.traits), ...normalizeList(summary.keywords)]);
+    const personaId = firstText(data.personality_id, persona.id, ui.personaId, FALLBACKS.personaCode);
+    const personaName = firstText(data.personality_name, persona.name, ui.personaName, summary.title, FALLBACKS.personaName);
+    const shortText = firstText(data.summary, summary.shortText, ui.secondaryDisplayText, ui.primaryDisplayText, FALLBACKS.hook);
     const description = firstText(
+      data.description,
       sections[0] && sections[0].content,
       summary.shortText,
       ui.secondaryDisplayText,
       FALLBACKS.coreDescription
     );
-    const motherType = firstText(summary.subtitle, "Stage 5");
-    const matchedFeatures = featureKeys.length ? featureKeys : tags;
+    const motherType = firstText(data.main_line_type, summary.subtitle, "Stage 5");
+    const matchedFeatures = flatFeatures.length ? flatFeatures : (featureKeys.length ? featureKeys : tags);
+    const candidateResults = Array.isArray(data.candidate_results) && data.candidate_results.length
+      ? data.candidate_results
+      : [{
+        personality_id: personaId,
+        personality_name: personaName,
+        main_line_type: motherType,
+        score: scores.matchScore || scores.overallConfidence || persona.confidence || ui.confidence || null,
+      }];
 
     return {
       status: stage5StatusForRenderer(data, mapping),
+      quality_status: firstText(data.quality_status, ui.qualityStatus),
+      user_message: firstText(data.user_message),
       primary_mother: {
         id: motherType,
         name: motherType,
@@ -269,12 +281,15 @@
         },
       },
       quality_gate: {
-        status: mapping.requiresWarning ? "WARN" : "PASS",
+        status: firstText(data.quality_status, mapping.requiresWarning ? "WARN" : "PASS"),
       },
       schema: {
         status: mapping.allowsPartialResult && mapping.pageState === RESULT_STATES.PARTIAL_RESULT ? "WARN" : "PASS",
       },
       error_codes: warnings,
+      evidence: firstText(data.evidence),
+      match_reason: firstText(data.match_reason),
+      candidate_results: candidateResults,
     };
   }
 
@@ -340,16 +355,17 @@
         recoveryHint: "不会展示技术错误信息；重新上传一张清晰照片即可再试。",
       },
       [RESULT_STATES.PARTIAL_RESULT]: {
-        title: "结果字段暂时不完整",
-        message: "人格结果已生成，但部分字段暂时缺失。",
-        pill: "结果待完善",
-        recoveryHint: "你可以先查看已生成内容，或重新上传一张更清晰的照片。",
+        title: "照片掌纹不够清晰",
+        message: "这张照片掌纹不够清晰，请重新拍摄后再试。",
+        pill: "请重新拍摄",
+        recoveryHint: "请使用清晰、正面、完整的单手掌照片重新测试。",
       },
     };
 
     const model = models[state] || models[RESULT_STATES.ERROR];
     return {
       state,
+      problem: true,
       ...model,
       message: messageOverride || model.message,
       primaryActionText: "重新测试",
@@ -365,15 +381,20 @@
     }
 
     return top3.slice(0, 3).map((candidate, index) => {
-      const code = firstText(candidate && candidate.id, candidate && candidate.persona_id, `Top ${index + 1}`);
-      const name = firstText(candidate && candidate.name, "结果待完善");
-      const motherType = firstText(candidate && candidate.mother_type, "");
+      const code = firstText(candidate && candidate.id, candidate && candidate.persona_id, candidate && candidate.personality_id, `Top ${index + 1}`);
+      const name = firstText(candidate && candidate.name, candidate && candidate.personality_name, "结果待完善");
+      const motherType = firstText(candidate && candidate.mother_type, candidate && candidate.main_line_type, "");
       return {
         code: compactCode(code),
         name,
         motherType,
       };
     });
+  }
+
+  function isRetakeQualityStatus(value) {
+    const status = firstText(value).toUpperCase();
+    return status === "IMAGE_NOT_CLEAR" || status === "RETRY_REQUIRED" || status === "REJECTED";
   }
 
   function createResultViewModel(result) {
@@ -387,12 +408,12 @@
     const explanation = isPlainObject(recognition.explanation) ? recognition.explanation : {};
     const personaExplanation = isPlainObject(explanation.persona) ? explanation.persona : {};
     const status = firstText(result.status, "SUCCESS");
-    const isTerminalProblem = status === "RETRY_REQUIRED" || status === "REJECTED";
+    const isTerminalProblem = status === "RETRY_REQUIRED" || status === "REJECTED" || isRetakeQualityStatus(result.quality_status);
 
     if (isTerminalProblem) {
       return createProblemViewModel(
-        RESULT_STATES.ERROR,
-        "本次照片暂时不适合生成结果，请重新上传一张清晰、正面的单手掌照片。"
+        RESULT_STATES.PARTIAL_RESULT,
+        firstText(result.user_message, "这张照片掌纹不够清晰，请重新拍摄后再试。")
       );
     }
 
@@ -425,7 +446,7 @@
     const motherSummary = motherName
       ? `主要掌纹倾向：${motherName}。当前结果基于可识别的掌纹结构生成。`
       : FALLBACKS.summary;
-    const topCandidates = createTopCandidates(result.top3);
+    const topCandidates = createTopCandidates(result.candidate_results || result.top3);
 
     const isPartial =
       personaName === FALLBACKS.personaName ||
@@ -434,10 +455,17 @@
       matchedFeatures.length === 0 ||
       coreDescription === FALLBACKS.coreDescription;
 
+    if (isPartial) {
+      return createProblemViewModel(
+        RESULT_STATES.PARTIAL_RESULT,
+        "这张照片掌纹不够清晰，请重新拍摄后再试。"
+      );
+    }
+
     return {
       state: isPartial ? RESULT_STATES.PARTIAL_RESULT : RESULT_STATES.READY,
       status,
-      title: isPartial ? "结果字段暂时不完整" : "你的 Palmmi 结果",
+      title: "你的 Palmmi 结果",
       pill: status === "LOW_CONFIDENCE" ? "保守结果" : "结果已生成",
       personaName,
       personaCode,
@@ -616,6 +644,10 @@
 
     try {
       const viewModel = createResultViewModel(read.result);
+      if (viewModel && viewModel.problem) {
+        renderProblem(doc, viewModel.state || RESULT_STATES.PARTIAL_RESULT, viewModel.message);
+        return;
+      }
       viewModel.state = read.state;
       if (read.mapping && read.mapping.requiresWarning && !viewModel.qualityHintText) {
         viewModel.qualityHintText = "这次图片可读性一般，结果更适合作为娱乐参考。";

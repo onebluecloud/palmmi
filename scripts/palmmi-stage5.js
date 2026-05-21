@@ -521,7 +521,6 @@
       return;
     }
 
-    removeStorageValue(storage, ANALYSIS_RESULT_STORAGE_KEY);
     setStorageValue(storage, ANALYZE_ERROR_STORAGE_KEY, JSON.stringify({
       request_id: response.request_id,
       status: response.status,

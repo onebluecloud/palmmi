@@ -2,11 +2,11 @@
 
 ## 当前阶段
 
-Stage 6F：Production Mobile Simulation / WeChat Manual Gate / E2E Regression 已完成。
+Stage 6F-Fix：Repair WeChat Real Device Issues 已完成代码修复和自动化回归。
 
-Stage 6F status: CONDITIONAL_PASS
+Stage 6F-Fix status: CONDITIONAL_PASS
 
-Reason: Automated production mobile simulation passed, but WeChat iOS / Android real-device validation remains MANUAL_REQUIRED.
+Reason: Android WeChat issues were fixed by code review and automated regression, but Android WeChat real-device retest and iOS WeChat real-device validation remain manual gates.
 
 ## 已完成
 
@@ -27,6 +27,15 @@ Reason: Automated production mobile simulation passed, but WeChat iOS / Android 
   - Desktop Chrome baseline、iPhone Safari 模拟、Android Chrome 模拟通过。
   - 微信 iOS / Android 真机状态保持 `MANUAL_REQUIRED`。
   - 安全泄露扫描通过。
+- Stage 6F-Fix：
+  - 修复安卓微信真机反馈的结果字段不完整问题。
+  - 修复第二次重新测试后结果读取失败问题。
+  - 修复上传页“检查照片”按钮无明确反应问题。
+  - 新增稳定结果 key：`palmmi:last-analysis`，并保留旧 key 兼容。
+  - 结果页 / 海报页读取同一个脱敏结果对象。
+  - API 失败不清空上一次有效结果。
+  - 低质量或无法补齐的结果进入重拍提示，不展示半残缺人格结果。
+  - Stage 6F 自动化回归通过；微信真机仍需用户复测。
 
 ## 当前线上链接
 
@@ -43,8 +52,19 @@ Reason: Automated production mobile simulation passed, but WeChat iOS / Android 
 | model | PASS | `qwen3-vl-flash` |
 | provider | PASS | 生产 API 返回 `qwen` |
 | analysis_result | PASS | 生产 API 返回结构化结果 |
-| 结果页 | PASS | 真实分析结果可展示为 `partial-result` |
-| 海报页 | PASS | 真实分析结果可展示为 `partial-result` |
+| 结果页 | PASS | 代码已修复为稳定读取最近一次成功分析结果；生产部署后需安卓微信复测 |
+| 海报页 | PASS | 代码已修复为读取同一稳定结果；生产部署后需安卓微信复测 |
+
+## Stage 6F-Fix 修复状态
+
+| 修复项 | 状态 | 说明 |
+|---|---|---|
+| 结果字段不完整 | FIXED_BY_CODE_REVIEW_AND_AUTOMATED_TEST | `analysis_result` 补充稳定展示字段；Pxx 匹配冻结展示内容时补齐；无法补齐时提示重拍 |
+| 二次分析结果读取失败 | FIXED_BY_CODE_REVIEW_AND_AUTOMATED_TEST | 成功结果写入 `palmmi:last-analysis`；API 失败不清空上一次有效结果 |
+| 检查照片按钮不可点击 / 无反应 | FIXED_BY_CODE_REVIEW_AND_AUTOMATED_TEST | 按钮执行本地图片检查并展示明确提示 |
+| 低质量照片处理 | FIXED_BY_CODE_REVIEW_AND_AUTOMATED_TEST | `IMAGE_NOT_CLEAR` 显示“请重新拍摄”，不展示半残缺人格 |
+| 微信安卓真机复测 | MANUAL_RETEST_REQUIRED | 用户尚未提供修复后真机结果 |
+| 微信 iOS 真机测试 | MANUAL_REQUIRED | 用户尚未提供真机结果 |
 
 ## 当前移动端模拟测试状态
 
@@ -60,7 +80,7 @@ Reason: Automated production mobile simulation passed, but WeChat iOS / Android 
 
 ```text
 WeChat iOS WebView: MANUAL_REQUIRED
-WeChat Android WebView: MANUAL_REQUIRED
+WeChat Android WebView: FIXED_BY_CODE_REVIEW_AND_AUTOMATED_TEST, MANUAL_RETEST_REQUIRED
 ```
 
 | 项目 | 状态 |
@@ -70,11 +90,11 @@ WeChat Android WebView: MANUAL_REQUIRED
 | iPhone 微信进入结果页 | MANUAL_REQUIRED |
 | iPhone 微信进入海报页 | MANUAL_REQUIRED |
 | iPhone 微信长按保存 / 分享体验 | MANUAL_REQUIRED |
-| 安卓微信打开首页 | MANUAL_REQUIRED |
-| 安卓微信上传图片 | MANUAL_REQUIRED |
-| 安卓微信进入结果页 | MANUAL_REQUIRED |
-| 安卓微信进入海报页 | MANUAL_REQUIRED |
-| 安卓微信长按保存 / 分享体验 | MANUAL_REQUIRED |
+| 安卓微信打开首页 | MANUAL_RETEST_REQUIRED |
+| 安卓微信上传图片 | MANUAL_RETEST_REQUIRED |
+| 安卓微信进入结果页 | MANUAL_RETEST_REQUIRED |
+| 安卓微信进入海报页 | MANUAL_RETEST_REQUIRED |
+| 安卓微信长按保存 / 分享体验 | MANUAL_RETEST_REQUIRED |
 
 ## 缺失 fixture 列表
 
@@ -102,7 +122,7 @@ WeChat Android WebView: MANUAL_REQUIRED
 | 阻塞项 | 状态 | 说明 |
 |---|---|---|
 | iPhone 微信真机测试 | MANUAL_REQUIRED | 需要真实设备截图或测试结果 |
-| 安卓微信真机测试 | MANUAL_REQUIRED | 需要真实设备截图或测试结果 |
+| 安卓微信修复后真机复测 | MANUAL_RETEST_REQUIRED | 代码和自动化已修复，仍需要用户在安卓微信再次确认 |
 | 偏暗图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
 | 模糊图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
 | 裁切不完整图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
@@ -111,7 +131,7 @@ WeChat Android WebView: MANUAL_REQUIRED
 
 是否可以进入 Stage 6G: CONDITIONAL
 
-条件：进入 Stage 6G 前或 Stage 6G 中必须补充 iPhone 微信 / 安卓微信真机测试。偏暗、模糊、裁切不完整图片 fixture 建议同步补齐，但本轮没有伪造通过。
+条件：进入 Stage 6G 前或 Stage 6G 中必须补充安卓微信修复后复测，以及 iPhone 微信真机测试。偏暗、模糊、裁切不完整图片 fixture 建议同步补齐，但本轮没有伪造通过。
 
 ## 当前禁止修改
 
@@ -135,4 +155,5 @@ WeChat Android WebView: MANUAL_REQUIRED
 - 暂时不要绑定正式域名。
 - 暂时不要修改 DNS。
 - 暂时不要接支付 / 打赏 / 登录。
-- 补充 iPhone 微信和安卓微信真机验收结果。
+- 补充安卓微信修复后复测结果。
+- 补充 iPhone 微信真机验收结果。

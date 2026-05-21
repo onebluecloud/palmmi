@@ -1,5 +1,20 @@
 const ANALYSIS_RESULT_CONTRACT_SCHEMA_VERSION = "analysis-result.v1";
 const STAGE5H_TRACE_STAGE = "5H";
+const IMAGE_NOT_CLEAR_MESSAGE = "这张照片掌纹不够清晰，请重新拍摄后再试。";
+
+let frozenDisplayContent = [];
+try {
+  frozenDisplayContent = require("../../PalmTag_rule_engine_v0/data/display_content.json");
+} catch (error) {
+  frozenDisplayContent = [];
+}
+
+const FROZEN_DISPLAY_BY_PERSONA_ID = safeArray(frozenDisplayContent).reduce((mapping, item) => {
+  if (item && typeof item.persona_id === "string" && item.persona_id.trim()) {
+    mapping[item.persona_id.trim()] = item;
+  }
+  return mapping;
+}, {});
 
 function isPlainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value);
@@ -19,6 +34,34 @@ function safeArray(value) {
 
 function uniqueStrings(values) {
   return [...new Set(values.filter((value) => typeof value === "string" && value.trim()))];
+}
+
+function splitKeywordText(value) {
+  if (typeof value !== "string" || !value.trim()) {
+    return [];
+  }
+  return value
+    .split(/[、/，,|]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function readDisplayContent(personaId) {
+  const id = stringOrNull(personaId);
+  return id && isPlainObject(FROZEN_DISPLAY_BY_PERSONA_ID[id])
+    ? FROZEN_DISPLAY_BY_PERSONA_ID[id]
+    : null;
+}
+
+function nestedObject(source, path) {
+  let current = source;
+  for (const key of path) {
+    if (!isPlainObject(current)) {
+      return {};
+    }
+    current = current[key];
+  }
+  return isPlainObject(current) ? current : {};
 }
 
 function sourceRecognitionResult(stage5bResult) {
@@ -139,22 +182,23 @@ function readQualityStatus(qualityGate) {
   return stringOrNull(qualityGate.status) || (qualityGate.passed === false ? "FAILED" : "UNKNOWN");
 }
 
-function buildSummary(persona, primaryPersona) {
-  const shortText = stringOrNull(primaryPersona.description)
+function buildSummary(persona, primaryPersona, displayPayload) {
+  const shortText = stringOrNull(displayPayload.summary)
+    || stringOrNull(primaryPersona.description)
     || stringOrNull(primaryPersona.hook)
     || "";
   return {
-    title: persona.name,
-    subtitle: stringOrNull(primaryPersona.mother_type) || "",
+    title: stringOrNull(displayPayload.title) || persona.name,
+    subtitle: stringOrNull(displayPayload.main_line_type) || stringOrNull(primaryPersona.mother_type) || "",
     shortText,
-    keywords: safeArray(primaryPersona.tags),
+    keywords: displayPayload.traits.length ? displayPayload.traits : safeArray(primaryPersona.tags),
   };
 }
 
-function buildSections(primaryPersona) {
+function buildSections(primaryPersona, displayPayload) {
   const sections = [];
-  const description = stringOrNull(primaryPersona.description);
-  const hook = stringOrNull(primaryPersona.hook);
+  const description = stringOrNull(displayPayload.description) || stringOrNull(primaryPersona.description);
+  const hook = stringOrNull(displayPayload.summary) || stringOrNull(primaryPersona.hook);
 
   if (description) {
     sections.push({
@@ -170,6 +214,14 @@ function buildSections(primaryPersona) {
       title: "Hook",
       content: hook,
       source: "stage5b",
+    });
+  }
+  if (displayPayload.evidence) {
+    sections.push({
+      key: "evidence",
+      title: "Evidence",
+      content: displayPayload.evidence,
+      source: "stage3-display-content",
     });
   }
   return sections;
@@ -210,6 +262,118 @@ function buildWarnings(diagnostics, qualityGate, contractWarnings) {
     ...safeArray(qualityGate.reasons),
     ...contractWarnings,
   ]);
+}
+
+function readPrimaryMother(recognitionResult) {
+  return isPlainObject(recognitionResult.primary_mother) ? recognitionResult.primary_mother : {};
+}
+
+function readPersonaExplanation(recognitionResult) {
+  return nestedObject(recognitionResult, ["recognition", "explanation", "persona"]);
+}
+
+function readCandidateResults(recognitionResult, primaryPersona, displayContent) {
+  const top3 = safeArray(recognitionResult.top3);
+  const candidates = top3.length ? top3 : [primaryPersona];
+  return candidates
+    .filter(isPlainObject)
+    .slice(0, 3)
+    .map((candidate) => {
+      const id = stringOrNull(candidate.id) || stringOrNull(candidate.persona_id);
+      const frozen = readDisplayContent(id);
+      return {
+        personality_id: id || "",
+        personality_name: stringOrNull(candidate.name)
+          || stringOrNull(frozen && frozen.persona_name)
+          || "",
+        main_line_type: stringOrNull(candidate.mother_type)
+          || stringOrNull(displayContent && displayContent.main_line_type)
+          || "",
+        score: numberOrNull(candidate.score),
+      };
+    })
+    .filter((candidate) => candidate.personality_id && candidate.personality_name);
+}
+
+function displayFeatureKeys(primaryPersona, recognitionResult) {
+  const primaryMother = readPrimaryMother(recognitionResult);
+  const explanation = readPersonaExplanation(recognitionResult);
+  return uniqueStrings([
+    ...safeArray(primaryPersona.matched_features),
+    ...safeArray(explanation.matched_features),
+    ...safeArray(primaryMother.core_fields_matched),
+  ]);
+}
+
+function buildDisplayPayload({ persona, primaryPersona, recognitionResult, diagnostics, status, qualityGate }) {
+  const displayContent = readDisplayContent(persona.id);
+  const primaryMother = readPrimaryMother(recognitionResult);
+  const features = displayFeatureKeys(primaryPersona, recognitionResult);
+  const mainLineType = stringOrNull(primaryPersona.mother_type)
+    || stringOrNull(primaryMother.id)
+    || stringOrNull(displayContent && displayContent.mother_type)
+    || "";
+  const title = stringOrNull(displayContent && displayContent.poster_title)
+    || stringOrNull(displayContent && displayContent.persona_name)
+    || persona.name;
+  const summary = stringOrNull(displayContent && displayContent.quote)
+    || stringOrNull(displayContent && displayContent.hook)
+    || stringOrNull(primaryPersona.hook)
+    || stringOrNull(primaryPersona.description)
+    || "";
+  const description = stringOrNull(displayContent && displayContent.final_judgement)
+    || stringOrNull(primaryPersona.description)
+    || "";
+  const traits = uniqueStrings([
+    ...splitKeywordText(displayContent && displayContent.three_keywords),
+    ...safeArray(primaryPersona.tags),
+    mainLineType,
+  ]);
+  const evidence = features.length
+    ? `本次结果主要参考：${features.slice(0, 4).join("、")}。`
+    : "";
+  const matchReason = stringOrNull(displayContent && displayContent.hook)
+    || stringOrNull(readPersonaExplanation(recognitionResult).reason)
+    || summary;
+  const isDisplayable = Boolean(
+    stringOrNull(persona.id)
+      && stringOrNull(persona.name)
+      && stringOrNull(mainLineType)
+      && stringOrNull(title)
+      && stringOrNull(summary)
+      && stringOrNull(description)
+      && stringOrNull(evidence)
+  );
+  const qualityFailed = qualityGate.passed === false || status === "failed";
+  let qualityStatus = "OK";
+
+  if (!isDisplayable || qualityFailed) {
+    qualityStatus = "IMAGE_NOT_CLEAR";
+  } else if (status === "degraded" && diagnostics.lowConfidenceFieldCount > 0) {
+    qualityStatus = "LOW_CONFIDENCE";
+  } else if (status === "degraded") {
+    qualityStatus = "PARTIAL";
+  }
+
+  return {
+    personality_id: persona.id,
+    personality_name: persona.name,
+    main_line_type: mainLineType,
+    title,
+    summary,
+    description,
+    evidence,
+    features,
+    traits,
+    match_reason: matchReason,
+    candidate_results: readCandidateResults(recognitionResult, primaryPersona, { main_line_type: mainLineType }),
+    quality_status: qualityStatus,
+    user_message: qualityStatus === "IMAGE_NOT_CLEAR"
+      ? IMAGE_NOT_CLEAR_MESSAGE
+      : qualityStatus === "LOW_CONFIDENCE"
+        ? "这次图片可读性一般，结果更适合作为娱乐参考。"
+        : "分析已完成。",
+  };
 }
 
 function buildTrace(stage5bResult, recognitionResult, sourceVersion, options) {
@@ -258,15 +422,30 @@ function buildAnalysisResultContract(stage5bResult, options = {}) {
     ...diagnosticsBase,
     contractWarnings,
   };
-  const summary = buildSummary(persona, primaryPersona);
+  const displayPayload = buildDisplayPayload({
+    persona,
+    primaryPersona,
+    recognitionResult,
+    diagnostics,
+    status,
+    qualityGate,
+  });
+  const effectiveStatus = displayPayload.quality_status === "IMAGE_NOT_CLEAR" ? "failed" : status;
+  const summary = buildSummary(persona, primaryPersona, displayPayload);
   const qualityScore = readQualityScore(qualityGate);
   const matchScore = topMatchScore(recognitionResult, primaryPersona);
-  const warnings = buildWarnings(diagnosticsBase, qualityGate, contractWarnings);
+  const warnings = buildWarnings(
+    diagnosticsBase,
+    qualityGate,
+    displayPayload.quality_status === "IMAGE_NOT_CLEAR"
+      ? uniqueStrings([...contractWarnings, "IMAGE_NOT_CLEAR"])
+      : contractWarnings
+  );
 
   return {
     schemaVersion: ANALYSIS_RESULT_CONTRACT_SCHEMA_VERSION,
     sourceSchemaVersion: sourceVersion,
-    status,
+    status: effectiveStatus,
     result: {
       persona,
       summary,
@@ -275,21 +454,22 @@ function buildAnalysisResultContract(stage5bResult, options = {}) {
         qualityScore,
         matchScore,
       },
-      sections: buildSections(primaryPersona),
+      sections: buildSections(primaryPersona, displayPayload),
       warnings,
     },
     uiConsumable: {
       personaId: persona.id,
       personaName: persona.name,
       confidence: persona.confidence,
-      status,
-      qualityStatus: readQualityStatus(qualityGate),
-      primaryDisplayText: summary.title,
-      secondaryDisplayText: summary.shortText,
+      status: effectiveStatus,
+      qualityStatus: displayPayload.quality_status || readQualityStatus(qualityGate),
+      primaryDisplayText: displayPayload.title || summary.title,
+      secondaryDisplayText: displayPayload.summary || summary.shortText,
       warningBadges: warnings,
     },
     diagnostics,
     trace: buildTrace(stage5bResult, recognitionResult, sourceVersion, options),
+    ...displayPayload,
     internal: {
       stage5bResult,
     },

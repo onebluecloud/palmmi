@@ -137,6 +137,23 @@ function cloneSections(sections) {
   }));
 }
 
+function cloneCandidateResults(value) {
+  return Array.isArray(value)
+    ? value
+      .filter(isPlainObject)
+      .map((candidate) => ({
+        personality_id: isString(candidate.personality_id) ? candidate.personality_id : "",
+        personality_name: isString(candidate.personality_name) ? candidate.personality_name : "",
+        main_line_type: isString(candidate.main_line_type) ? candidate.main_line_type : "",
+        score: isNumberOrNull(candidate.score) ? candidate.score : null,
+      }))
+    : [];
+}
+
+function optionalString(value) {
+  return isString(value) ? value : "";
+}
+
 function readAnalysisResultForUI(analysisResult) {
   if (!isPlainObject(analysisResult)) {
     return errorResult(ANALYSIS_RESULT_READ_ERRORS.MISSING);
@@ -213,6 +230,19 @@ function readAnalysisResultForUI(analysisResult) {
       model: analysisResult.trace.model,
       generatedAt: analysisResult.trace.generatedAt,
     },
+    personality_id: optionalString(analysisResult.personality_id),
+    personality_name: optionalString(analysisResult.personality_name),
+    main_line_type: optionalString(analysisResult.main_line_type),
+    title: optionalString(analysisResult.title),
+    summary: optionalString(analysisResult.summary),
+    description: optionalString(analysisResult.description),
+    evidence: optionalString(analysisResult.evidence),
+    features: isStringArray(analysisResult.features) ? cloneStringArray(analysisResult.features) : [],
+    traits: isStringArray(analysisResult.traits) ? cloneStringArray(analysisResult.traits) : [],
+    match_reason: optionalString(analysisResult.match_reason),
+    candidate_results: cloneCandidateResults(analysisResult.candidate_results),
+    quality_status: optionalString(analysisResult.quality_status),
+    user_message: optionalString(analysisResult.user_message),
   };
 }
 

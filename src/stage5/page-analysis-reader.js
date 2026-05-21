@@ -137,6 +137,35 @@ function cloneTrace(value) {
   };
 }
 
+function cloneCandidateResults(value) {
+  return Array.isArray(value)
+    ? value.map((candidate) => ({
+      personality_id: candidate.personality_id,
+      personality_name: candidate.personality_name,
+      main_line_type: candidate.main_line_type,
+      score: candidate.score,
+    }))
+    : [];
+}
+
+function cloneFlatDisplayFields(data) {
+  return {
+    personality_id: data.personality_id || "",
+    personality_name: data.personality_name || "",
+    main_line_type: data.main_line_type || "",
+    title: data.title || "",
+    summary: data.summary || "",
+    description: data.description || "",
+    evidence: data.evidence || "",
+    features: cloneStringArray(data.features),
+    traits: cloneStringArray(data.traits),
+    match_reason: data.match_reason || "",
+    candidate_results: cloneCandidateResults(data.candidate_results),
+    quality_status: data.quality_status || "",
+    user_message: data.user_message || "",
+  };
+}
+
 function isReadyForPage(data) {
   return data.status === "ok" || data.status === "degraded" || data.status === "failed";
 }
@@ -153,6 +182,7 @@ function resultPageData(data) {
     uiConsumable: cloneUiConsumable(data.uiConsumable),
     diagnostics: cloneDiagnostics(data.diagnostics),
     trace: cloneTrace(data.trace),
+    ...cloneFlatDisplayFields(data),
   };
 }
 
@@ -166,6 +196,7 @@ function posterPageData(data) {
     uiConsumable: cloneUiConsumable(data.uiConsumable),
     diagnostics: cloneDiagnostics(data.diagnostics),
     trace: cloneTrace(data.trace),
+    ...cloneFlatDisplayFields(data),
   };
 }
 

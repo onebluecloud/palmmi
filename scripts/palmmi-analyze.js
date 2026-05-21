@@ -1,7 +1,10 @@
 (function palmmiAnalyze(global) {
   const UPLOAD_STORAGE_KEY = "palmmi:lastUpload";
-  const ANALYSIS_RESULT_STORAGE_KEY = "palmmi:lastAnalysisResult";
+  const STABLE_ANALYSIS_RESULT_STORAGE_KEY = "palmmi:last-analysis";
+  const LEGACY_ANALYSIS_RESULT_STORAGE_KEY = "palmmi:lastAnalysisResult";
+  const ANALYSIS_RESULT_STORAGE_KEY = STABLE_ANALYSIS_RESULT_STORAGE_KEY;
   const ANALYZE_ERROR_STORAGE_KEY = "palmmi:lastAnalyzeError";
+  const ANALYSIS_STORAGE_VERSION = 1;
   const UPLOAD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
   const ANALYSIS_STATES = Object.freeze({
     IDLE: "idle",
@@ -268,12 +271,60 @@
     }
   }
 
+  function isPlainObject(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
+
+  function removeForbiddenStorageFields(value) {
+    const forbidden = new Set([
+      "analysis_input",
+      "internal",
+      "stage5bResult",
+      "provider_output",
+      "raw_provider",
+      "raw_response",
+      "rawText",
+      "base64",
+      "data_url",
+      "dataUrl",
+      "previewDataUrl",
+      "buffer",
+      "imageBuffer",
+      "Authorization",
+    ]);
+    if (Array.isArray(value)) {
+      return value.map(removeForbiddenStorageFields);
+    }
+    if (!isPlainObject(value)) {
+      return value;
+    }
+    const output = {};
+    for (const [key, child] of Object.entries(value)) {
+      if (forbidden.has(key)) {
+        continue;
+      }
+      output[key] = removeForbiddenStorageFields(child);
+    }
+    return output;
+  }
+
+  function createAnalysisStorageEnvelope(result, options = {}) {
+    const now = options.now || (() => new Date().toISOString());
+    const safeResult = removeForbiddenStorageFields(result);
+    const trace = isPlainObject(safeResult && safeResult.trace) ? safeResult.trace : {};
+    return {
+      version: ANALYSIS_STORAGE_VERSION,
+      created_at: now(),
+      provider: typeof trace.provider === "string" && trace.provider ? trace.provider : "qwen",
+      analysis_result: safeResult,
+    };
+  }
+
   function saveAnalyzeError(storage, response) {
     if (!storage || typeof storage.setItem !== "function") {
       return;
     }
 
-    removeStorageItem(storage, ANALYSIS_RESULT_STORAGE_KEY);
     try {
       storage.setItem(ANALYZE_ERROR_STORAGE_KEY, JSON.stringify({
         request_id: response && response.request_id ? response.request_id : null,
@@ -409,7 +460,10 @@
     }
 
     try {
-      storage.setItem(ANALYSIS_RESULT_STORAGE_KEY, JSON.stringify(result));
+      const safeResult = removeForbiddenStorageFields(result);
+      const envelope = createAnalysisStorageEnvelope(safeResult);
+      storage.setItem(STABLE_ANALYSIS_RESULT_STORAGE_KEY, JSON.stringify(envelope));
+      storage.setItem(LEGACY_ANALYSIS_RESULT_STORAGE_KEY, JSON.stringify(safeResult));
       return { ok: true };
     } catch (error) {
       return {
@@ -609,6 +663,8 @@
   const api = {
     ANALYZE_ERROR_STORAGE_KEY,
     ANALYSIS_RESULT_STORAGE_KEY,
+    LEGACY_ANALYSIS_RESULT_STORAGE_KEY,
+    STABLE_ANALYSIS_RESULT_STORAGE_KEY,
     ANALYSIS_STATES,
     ANALYSIS_STEPS,
     UPLOAD_CACHE_TTL_MS,

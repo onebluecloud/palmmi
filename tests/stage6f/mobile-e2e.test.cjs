@@ -2,12 +2,14 @@ const assert = require("node:assert/strict");
 const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 
 const root = path.resolve(__dirname, "..", "..");
 const BASE_URL = process.env.PALMMI_STAGE6F_BASE_URL || "https://palmmi.pages.dev";
 const API_URL = new URL("/api/analyze", BASE_URL).href;
 const STORAGE_KEYS = Object.freeze({
   upload: "palmmi:lastUpload",
+  stableAnalysis: "palmmi:last-analysis",
   analysis: "palmmi:lastAnalysisResult",
   analyzeError: "palmmi:lastAnalyzeError",
 });
@@ -105,6 +107,31 @@ function contentTypeFor(filePath) {
   return "image/jpeg";
 }
 
+function localPageUrl(pageName) {
+  return pathToFileURL(path.join(root, pageName, "index.html")).href;
+}
+
+function createMemoryStorage(initial = {}) {
+  const values = new Map(Object.entries(initial));
+  return {
+    getItem(key) {
+      return values.has(key) ? values.get(key) : null;
+    },
+    setItem(key, value) {
+      values.set(key, String(value));
+    },
+    removeItem(key) {
+      values.delete(key);
+    },
+    keys() {
+      return [...values.keys()];
+    },
+    snapshot() {
+      return Object.fromEntries(values);
+    },
+  };
+}
+
 function walkFiles(directory) {
   if (!fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) {
     return [];
@@ -177,6 +204,95 @@ function syntheticPngBuffer() {
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
     "base64"
   );
+}
+
+function assertNoStorageLeaks(storage, label) {
+  const snapshot = storage.snapshot ? storage.snapshot() : {};
+  const text = JSON.stringify(snapshot);
+  assert.equal(text.includes("data:image"), false, `${label} must not keep image data URLs after analysis`);
+  assert.equal(text.includes(";base64,"), false, `${label} must not keep base64 after analysis`);
+  assert.equal(text.includes("raw_response"), false, `${label} must not keep raw provider response`);
+  assert.equal(text.includes("rawText"), false, `${label} must not keep raw provider text`);
+  assert.equal(text.includes("Authorization"), false, `${label} must not keep Authorization tokens`);
+  assert.equal(text.includes("QWEN_API_KEY"), false, `${label} must not keep API key names`);
+}
+
+function completeAnalysisResult(overrides = {}) {
+  const status = overrides.status || "ok";
+  return {
+    schemaVersion: "analysis-result.v1",
+    sourceSchemaVersion: "stage6f-fix.mock",
+    status,
+    result: {
+      persona: {
+        id: "P25",
+        name: "老干部",
+        confidence: 0.82,
+      },
+      summary: {
+        title: "老干部",
+        subtitle: "M1",
+        shortText: "别人还在情绪开会，你已经端着保温杯散会了。",
+        keywords: ["稳定", "降噪", "M1"],
+      },
+      scores: {
+        overallConfidence: 0.82,
+        qualityScore: 0.8,
+        matchScore: 0.82,
+      },
+      sections: [
+        {
+          key: "HEAD_LINE_DEPTH",
+          title: "智慧线清晰度",
+          content: "这份结果已补齐用户可读描述，用于稳定展示。",
+          source: "stage6f-fix",
+        },
+      ],
+      warnings: [],
+    },
+    uiConsumable: {
+      personaId: "P25",
+      personaName: "老干部",
+      confidence: 0.82,
+      status,
+      qualityStatus: "OK",
+      primaryDisplayText: "老干部",
+      secondaryDisplayText: "别人还在情绪开会，你已经端着保温杯散会了。",
+      warningBadges: [],
+    },
+    diagnostics: {
+      lowConfidenceFieldCount: 0,
+      missingFieldCount: 0,
+      unknownFieldCount: 0,
+      adapterWarnings: [],
+      providerWarnings: [],
+      matcherWarnings: [],
+      contractWarnings: [],
+    },
+    trace: {
+      stage: "6F-Fix",
+      from: "stage6f-fix.mock",
+      contract: "analysis-result.v1",
+      sourceImage: null,
+      provider: "qwen",
+      model: "qwen3-vl-flash",
+      generatedAt: "2026-05-21T00:00:00.000Z",
+    },
+    personality_id: "P25",
+    personality_name: "老干部",
+    main_line_type: "M1",
+    title: "老干部",
+    summary: "别人还在情绪开会，你已经端着保温杯散会了。",
+    description: "这份结果已补齐用户可读描述，用于稳定展示。",
+    evidence: "本次结果主要参考：智慧线清晰度。",
+    features: ["HEAD_LINE_DEPTH"],
+    traits: ["稳定", "降噪", "M1"],
+    match_reason: "本地冻结内容补齐后可以稳定展示。",
+    candidate_results: [{ personality_id: "P25", personality_name: "老干部", main_line_type: "M1" }],
+    quality_status: "OK",
+    user_message: "分析已完成。",
+    ...overrides.extra,
+  };
 }
 
 function leakFlags(value, markers = RESPONSE_LEAK_MARKERS) {
@@ -413,6 +529,237 @@ async function validateBlockedUpload(context, label, filePayload, expectedCodeFr
     status_text: state.statusText,
     has_upload: state.hasUpload,
     has_analysis_result: state.hasAnalysisResult,
+  };
+}
+
+async function validateLocalPhotoCheckButton(context, fixturePath) {
+  if (!fixturePath) {
+    return {
+      status: "BLOCKED_BY_MISSING_FIXTURE",
+      reason: "normal_palm_image missing",
+    };
+  }
+
+  const page = await context.newPage();
+  const signals = createSignals(page);
+  await page.goto(localPageUrl("upload"), { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#checkFile");
+
+  const buttonProbe = await page.evaluate(() => {
+    const button = document.querySelector("#checkFile");
+    if (!button) {
+      return { exists: false };
+    }
+    const rect = button.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const topElement = document.elementFromPoint(centerX, centerY);
+    return {
+      exists: true,
+      disabled: Boolean(button.disabled),
+      width: rect.width,
+      height: rect.height,
+      topElementId: topElement ? topElement.id : "",
+      topElementTag: topElement ? topElement.tagName : "",
+    };
+  });
+  assert.equal(buttonProbe.exists, true, "检查照片 button must exist");
+  assert.equal(buttonProbe.disabled, false, "检查照片 button must be enabled");
+  assert.ok(buttonProbe.width > 20 && buttonProbe.height > 20, "检查照片 button must be touch-sized");
+  assert.ok(
+    ["checkFile", ""].includes(buttonProbe.topElementId) || buttonProbe.topElementTag === "BUTTON",
+    `检查照片 button must not be covered by another layer: ${JSON.stringify(buttonProbe)}`
+  );
+
+  await page.setInputFiles("#palmFile", fixturePath);
+  await page.click("#checkFile");
+  await page.waitForFunction(() => {
+    const status = document.querySelector("#uploadStatus");
+    return Boolean(status && /照片可以使用/.test(status.textContent || ""));
+  }, null, { timeout: 10000 });
+
+  const checkState = await page.evaluate((keys) => ({
+    statusText: document.querySelector("#uploadStatus").textContent,
+    statusIsSuccess: document.querySelector("#uploadStatus").classList.contains("is-success"),
+    startDisabled: document.querySelector("#startAnalyze").disabled,
+    hasUpload: Boolean(sessionStorage.getItem(keys.upload)),
+    hasStableAnalysis: Boolean(sessionStorage.getItem(keys.stableAnalysis)),
+    hasLegacyAnalysis: Boolean(sessionStorage.getItem(keys.analysis)),
+  }), STORAGE_KEYS);
+  assert.equal(checkState.statusIsSuccess, true, "photo check should render success state");
+  assert.equal(checkState.startDisabled, false, "photo check should leave start analysis available");
+  assert.equal(checkState.hasUpload, false, "photo check alone must not persist image upload state");
+  assert.equal(checkState.hasStableAnalysis, false, "photo check alone must not create analysis result");
+  assert.equal(checkState.hasLegacyAnalysis, false, "photo check alone must not create legacy analysis result");
+
+  await assertBrowserClean(signals, "local upload photo check");
+  await page.close();
+  return {
+    status: "PASS",
+    status_text: checkState.statusText,
+  };
+}
+
+async function validateStage6FFixStorageContract() {
+  const analyzePage = require(path.join(root, "scripts", "palmmi-analyze.js"));
+  const resultPage = require(path.join(root, "scripts", "palmmi-result.js"));
+  const posterPage = require(path.join(root, "scripts", "palmmi-poster.js"));
+  const {
+    buildAnalysisResultContract,
+  } = require(path.join(root, "src", "stage5", "analysis-result-contract.js"));
+
+  const upload = {
+    schemaVersion: "stage4d_upload_v1",
+    fileName: "stage6f-fix.png",
+    fileType: "image/png",
+    fileSize: syntheticPngBuffer().length,
+    fileSizeLabel: `${syntheticPngBuffer().length} B`,
+    previewDataUrl: "",
+    uploadedAt: "2026-05-21T00:00:00.000Z",
+    expiresAt: "2026-05-22T00:00:00.000Z",
+    handSide: null,
+  };
+  const storage = createMemoryStorage();
+  const successClient = {
+    canUseApi: () => true,
+    callAnalyzeApi: async () => ({
+      ok: true,
+      request_id: "req_stage6f_fix_success",
+      status: "SUCCESS",
+      provider: "qwen",
+      analysis_result: completeAnalysisResult(),
+    }),
+  };
+
+  const first = await analyzePage.runStage5ApiAnalysis(upload, {
+    storage,
+    localStorage: createMemoryStorage(),
+    useAnalyzeApi: true,
+    apiClient: successClient,
+  });
+  assert.equal(first.ok, true, "first analysis should succeed");
+  assert.ok(storage.getItem(STORAGE_KEYS.stableAnalysis), "analysis must be written to stable storage key");
+  assert.ok(storage.getItem(STORAGE_KEYS.analysis), "analysis must remain available on legacy storage key");
+
+  const resultRead = resultPage.readAnalysisResult({ storage });
+  const posterRead = posterPage.readAnalysisResult({ storage });
+  assert.equal(resultRead.ok, true, "/result/ must read stable stored result");
+  assert.equal(posterRead.ok, true, "/poster/ must read stable stored result");
+
+  const stableBeforeFailure = storage.getItem(STORAGE_KEYS.stableAnalysis);
+  const legacyBeforeFailure = storage.getItem(STORAGE_KEYS.analysis);
+  const failureClient = {
+    canUseApi: () => true,
+    callAnalyzeApi: async () => ({
+      ok: false,
+      request_id: "req_stage6f_fix_failure",
+      status: "RETRY_REQUIRED",
+      error: {
+        code: "VLM_API_REQUEST_FAILED",
+        message: "分析流程暂时没有完成，请重新上传后再试。",
+        retryable: true,
+      },
+    }),
+  };
+  const second = await analyzePage.runStage5ApiAnalysis(upload, {
+    storage,
+    localStorage: createMemoryStorage(),
+    useAnalyzeApi: true,
+    apiClient: failureClient,
+  });
+  assert.equal(second.ok, false, "second mocked API call should fail");
+  assert.equal(storage.getItem(STORAGE_KEYS.stableAnalysis), stableBeforeFailure, "API failure must not clear stable last-good result");
+  assert.equal(storage.getItem(STORAGE_KEYS.analysis), legacyBeforeFailure, "API failure must not clear legacy last-good result");
+  assert.ok(storage.getItem(STORAGE_KEYS.analyzeError), "API failure may store a sanitized error");
+  assertNoStorageLeaks(storage, "analysis storage");
+
+  const contract = buildAnalysisResultContract({
+    ok: true,
+    status: "SUCCESS",
+    provider: "qwen",
+    model: "qwen3-vl-flash",
+    analysis_input: {
+      finalPersona: {
+        id: "P25",
+        name: "老干部",
+        confidence: 0.82,
+      },
+    },
+    recognition_result: {
+      status: "SUCCESS",
+      primary_persona: {
+        id: "P25",
+        persona_id: "P25",
+        name: "老干部",
+        mother_type: "M1",
+        score: 0.82,
+        matched_features: ["HEAD_LINE_DEPTH"],
+      },
+      top3: [
+        { id: "P25", persona_id: "P25", name: "老干部", mother_type: "M1", score: 0.82 },
+      ],
+      primary_mother: {
+        id: "M1",
+        name: "M1",
+        core_fields_matched: ["HEAD_LINE_DEPTH"],
+      },
+      quality_gate: {
+        passed: true,
+        status: "PASS",
+        confidence: 0.8,
+        reasons: [],
+      },
+      recognition: {
+        explanation: {
+          persona: {
+            matched_features: ["HEAD_LINE_DEPTH"],
+          },
+          low_confidence: false,
+        },
+      },
+    },
+    diagnostics: {
+      lowConfidenceFieldCount: 0,
+      missingFieldCount: 0,
+      unknownFieldCount: 0,
+      adapterWarnings: [],
+      providerWarnings: [],
+      matcherWarnings: [],
+      contractWarnings: [],
+    },
+  }, {
+    now: () => "2026-05-21T00:00:00.000Z",
+  });
+  assert.equal(contract.personality_id, "P25", "contract must expose flat personality_id");
+  assert.equal(contract.personality_name, "老干部", "contract must expose flat personality_name");
+  assert.equal(contract.main_line_type, "M1", "contract must expose flat main_line_type");
+  assert.ok(contract.description.length > 20, "contract must fill user-facing description from frozen content");
+  assert.ok(contract.evidence.length > 0, "contract must fill user-facing evidence");
+  assert.ok(Array.isArray(contract.candidate_results), "contract must expose candidate_results");
+  assert.notEqual(contract.quality_status, "IMAGE_NOT_CLEAR", "known persona with frozen content should be displayable");
+
+  const partialView = resultPage.createResultViewModel({
+    status: "SUCCESS",
+    primary_persona: {
+      id: "P_UNKNOWN",
+      persona_id: "P_UNKNOWN",
+      name: "Unknown",
+      mother_type: "M1",
+    },
+    primary_mother: {
+      id: "M1",
+      name: "M1",
+    },
+    top3: [],
+  });
+  const partialText = JSON.stringify(partialView);
+  assert.match(partialText, /照片掌纹不够清晰|重新拍摄/, "partial result should ask user to retake");
+  assert.doesNotMatch(partialText, /结果字段暂时不完整|暂无详细描述|暂无掌纹依据/, "partial result must not show broken placeholders");
+
+  return {
+    status: "PASS",
+    stable_key: STORAGE_KEYS.stableAnalysis,
+    legacy_key: STORAGE_KEYS.analysis,
   };
 }
 
@@ -666,6 +1013,7 @@ async function main() {
     stage5_assets: [],
     devices: {},
     normal_palm_upload: null,
+    stage6f_fix: {},
     abnormal_inputs: {},
     simulated_qwen_errors: null,
     missing_fixtures: [],
@@ -674,6 +1022,7 @@ async function main() {
   try {
     summary.production_access.api_endpoint = await validateApiEndpoint();
     summary.stage5_assets = await validateStage5Assets();
+    summary.stage6f_fix.storage_contract = await validateStage6FFixStorageContract();
 
     for (const device of deviceMatrix(playwright)) {
       const context = await browser.newContext(device.options);
@@ -693,6 +1042,7 @@ async function main() {
 
     const mobileContext = await browser.newContext((playwright.devices["iPhone 13"] || deviceMatrix(playwright)[1].options));
     try {
+      summary.stage6f_fix.photo_check_button = await validateLocalPhotoCheckButton(mobileContext, fixturePath);
       summary.abnormal_inputs.non_image = await validateBlockedUpload(
         mobileContext,
         "iPhone Safari simulated non-image",

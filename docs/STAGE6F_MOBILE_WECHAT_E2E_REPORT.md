@@ -2,17 +2,99 @@
 
 Date: 2026-05-21
 
+## Stage 6F-Fix 追加记录
+
+用户在安卓微信真机测试中发现 3 个真实问题：结果页展示半残缺结果、第二次重新测试后结果读取失败、上传页“检查照片”按钮点击无明确反应。本轮进入 Stage 6F-Fix，不进入 Stage 6G。
+
+Stage 6F-Fix 结论：`CONDITIONAL_PASS`
+
+原因：代码层修复和自动化回归已通过，但用户尚未提供修复后的安卓微信 / iOS 微信真机复测结果。
+
+```text
+WeChat Android: FIXED_BY_CODE_REVIEW_AND_AUTOMATED_TEST, MANUAL_RETEST_REQUIRED
+WeChat iOS: MANUAL_REQUIRED
+```
+
+### Stage 6F-Fix 修复摘要
+
+| 问题 | 修复状态 | 修复方式 |
+|---|---|---|
+| 结果字段暂时不完整 / 暂无详细描述 / 暂无掌纹依据 | FIXED_BY_CODE_REVIEW_AND_AUTOMATED_TEST | `analysis_result` 增加稳定展示字段；按 `personality_id` 读取冻结展示内容补齐 Pxx 结果；无法补齐时进入 `IMAGE_NOT_CLEAR`，提示重拍 |
+| 第二次重新测试后结果读取失败 | FIXED_BY_CODE_REVIEW_AND_AUTOMATED_TEST | 新增稳定 key `palmmi:last-analysis`；成功 normalize 后先写结果再跳转；API 失败不清空上一次有效结果；结果页 / 海报页同源读取 |
+| “检查照片”按钮不可点击 / 点击无反应 | FIXED_BY_CODE_REVIEW_AND_AUTOMATED_TEST | 上传页按钮执行本地图片检查：是否选择、类型、大小、decode、尺寸；成功 / 失败均给明确提示 |
+
+### Stage 6F-Fix 结果契约
+
+后端返回的 `analysis_result` 继续保留 Stage 5 既有契约，同时补充前端稳定展示字段：
+
+| 字段 | 状态 |
+|---|---|
+| `personality_id` / `personality_name` | REQUIRED |
+| `main_line_type` | REQUIRED |
+| `title` / `summary` / `description` | REQUIRED，优先来自冻结展示内容 |
+| `evidence` / `features` / `traits` / `match_reason` | REQUIRED |
+| `candidate_results` | REQUIRED，脱敏候选列表 |
+| `quality_status` | `OK` / `LOW_CONFIDENCE` / `IMAGE_NOT_CLEAR` / `PARTIAL` |
+| `user_message` | REQUIRED，低质量照片时提示重拍 |
+
+如果 `personality_id` 能匹配冻结展示资料，则只补齐展示字段，不改 Stage 3 规则、权重、阈值或 36 型人格内容。如果无法可靠补齐，则结果页和海报页不再渲染半残缺人格结果，改为提示“这张照片掌纹不够清晰，请重新拍摄后再试。”
+
+### Stage 6F-Fix 存储策略
+
+| 项 | 结果 |
+|---|---|
+| 稳定结果 key | `palmmi:last-analysis` |
+| 兼容旧结果 key | `palmmi:lastAnalysisResult` |
+| 写入顺序 | API 成功后写入脱敏完整结果，再进入结果页 |
+| API 失败 | 不清空上一次有效结果，只写入脱敏错误状态 |
+| 图片 base64 | 不写入结果 key |
+| raw Qwen response | 不写入结果 key |
+| Key / Token | 不写入结果 key |
+
+### Stage 6F-Fix 复测结果
+
+| 命令 / 场景 | 结果 | 说明 |
+|---|---|---|
+| `npm run test:stage6f` | PASS | 覆盖检查照片按钮、稳定存储、结果页 / 海报页读取、二次失败不丢结果、残缺结果不展示半成品 |
+| 检查照片按钮 | PASS | 选择图片后可点击，提示“照片可以使用。请确认掌纹清晰完整后开始分析。” |
+| 稳定结果读取 | PASS | `/result/` 和 `/poster/` 可读取同一个稳定结果 |
+| 二次分析失败保护 | PASS | 第二次 API 失败不会清空第一次成功结果 |
+| 残缺结果处理 | PASS | 未补齐结果进入重拍提示，不再展示半残缺字段 |
+| localStorage / sessionStorage 脱敏 | PASS | 未发现 Key / Token / base64 / raw response |
+
+### Stage 6F-Fix 微信状态
+
+| 项目 | 状态 |
+|---|---|
+| 安卓微信打开首页 | MANUAL_RETEST_REQUIRED |
+| 安卓微信上传图片 | MANUAL_RETEST_REQUIRED |
+| 安卓微信进入结果页 | MANUAL_RETEST_REQUIRED |
+| 安卓微信进入海报页 | MANUAL_RETEST_REQUIRED |
+| iPhone 微信打开首页 | MANUAL_REQUIRED |
+| iPhone 微信上传图片 | MANUAL_REQUIRED |
+| iPhone 微信进入结果页 | MANUAL_REQUIRED |
+| iPhone 微信进入海报页 | MANUAL_REQUIRED |
+
+Codex 没有把微信真机修复伪造成 PASS。安卓微信问题仅能写为 `FIXED_BY_CODE_REVIEW_AND_AUTOMATED_TEST, MANUAL_RETEST_REQUIRED`。
+
 ## 1. 本次修改文件列表
 
 | 文件 | 类型 | 说明 |
 |---|---|---|
-| `docs/STAGE6F_MOBILE_WECHAT_E2E_REPORT.md` | 文档 | 新增 Stage 6F 生产移动端、微信人工闸门、E2E、安全扫描报告 |
-| `docs/STAGE6_STATE.md` | 文档 | 更新 Stage 6F 当前状态 |
-| `tests/stage6f/mobile-e2e.test.cjs` | 测试 | 新增 Playwright 生产移动端模拟、真实 Qwen 上传回归、异常输入测试 |
-| `scripts/stage6f/security-scan.cjs` | 测试脚本 | 新增 Key / Token / base64 / raw response / 长期图片存储扫描 |
-| `package.json` | 测试配置 | 新增 `test:stage6f` 和 `scan:stage6f` |
+| `docs/STAGE6F_MOBILE_WECHAT_E2E_REPORT.md` | 文档 | 更新 Stage 6F-Fix 真机问题修复记录 |
+| `docs/STAGE6_STATE.md` | 文档 | 更新 Stage 6F-Fix 当前状态 |
+| `tests/stage6f/mobile-e2e.test.cjs` | 测试 | 补充检查照片、稳定存储、二次分析、残缺结果回归 |
+| `scripts/palmmi-upload.js` | 前端 | 修复“检查照片”按钮和本地图片检查 |
+| `scripts/palmmi-analyze.js` | 前端 | 修复稳定结果 key 和失败不清空有效结果 |
+| `scripts/palmmi-result.js` | 前端 | 修复残缺结果展示为重拍提示 |
+| `scripts/palmmi-poster.js` | 前端 | 同步修复海报页残缺结果处理 |
+| `scripts/palmmi-stage5.js` | 前端兼容 | 失败保存错误时不清空已有有效结果 |
+| `src/stage5/analysis-result-contract.js` | 结果契约 | 从冻结展示内容补齐稳定展示字段 |
+| `src/stage5/analysis-result-read-adapter.js` | 结果读取 | 透出稳定展示字段 |
+| `src/stage5/analysis-result-storage-reader.js` | 结果读取 | 支持 `palmmi:last-analysis` 和旧 key fallback |
+| `src/stage5/page-analysis-reader.js` | 结果读取 | 结果页 / 海报页读取稳定展示字段 |
 
-未新增 `package-lock.json`。未修改业务主逻辑、Stage 3 规则、Stage 4 UI 主风格或 Stage 5 VLM 主逻辑。
+未新增 `package-lock.json`。未新增支付、打赏、登录、宣发或长期图片存储。未修改 Stage 3 规则、权重、阈值或 Stage 5 VLM 主逻辑。
 
 ## 2. Stage 6F 目标
 

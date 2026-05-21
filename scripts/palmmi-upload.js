@@ -1,8 +1,11 @@
 (function palmmiUpload(global) {
   const UPLOAD_SCHEMA_VERSION = "stage4d_upload_v1";
   const UPLOAD_STORAGE_KEY = "palmmi:lastUpload";
-  const ANALYSIS_RESULT_STORAGE_KEY = "palmmi:lastAnalysisResult";
+  const STABLE_ANALYSIS_RESULT_STORAGE_KEY = "palmmi:last-analysis";
+  const LEGACY_ANALYSIS_RESULT_STORAGE_KEY = "palmmi:lastAnalysisResult";
+  const ANALYSIS_RESULT_STORAGE_KEY = STABLE_ANALYSIS_RESULT_STORAGE_KEY;
   const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+  const MIN_IMAGE_DIMENSION = 160;
   const UPLOAD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
   const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -11,7 +14,7 @@
       return {
         ok: false,
         code: "missing_file",
-        message: "请先选择一张清晰的手掌照片。"
+        message: "请先选择一张掌心照片。"
       };
     }
 
@@ -27,7 +30,7 @@
       return {
         ok: false,
         code: "too_large",
-        message: "图片太大，请换一张 8MB 以内的图片。"
+        message: "图片过大，请压缩或重新拍摄。"
       };
     }
 
@@ -35,6 +38,31 @@
       ok: true,
       code: "accepted",
       message: "图片已选择，可以预览。"
+    };
+  }
+
+  function createImageDecodeFailureResult() {
+    return {
+      ok: false,
+      code: "image_decode_failed",
+      message: "照片无法读取，请重新选择。"
+    };
+  }
+
+  function createImageDimensionFailureResult() {
+    return {
+      ok: false,
+      code: "image_too_small",
+      message: "照片尺寸过小，请重新拍摄。"
+    };
+  }
+
+  function createImageCheckSuccessResult(dimensions) {
+    return {
+      ok: true,
+      code: "image_check_passed",
+      message: "照片可以使用。请确认掌纹清晰完整后开始分析。",
+      dimensions,
     };
   }
 
@@ -75,7 +103,7 @@
     return {
       ok: false,
       code: "preview_read_failed",
-      message: "这张图片暂时无法读取，请重新选择。"
+      message: "照片无法读取，请重新选择。"
     };
   }
 
@@ -120,14 +148,6 @@
       };
     }
 
-    try {
-      if (storage && typeof storage.removeItem === "function") {
-        storage.removeItem(ANALYSIS_RESULT_STORAGE_KEY);
-      }
-    } catch (error) {
-      // Clearing a stale result is helpful but not required for the upload flow.
-    }
-
     return {
       ok: true,
       code: "ready",
@@ -161,6 +181,73 @@
       });
       reader.readAsDataURL(file);
     });
+  }
+
+  function decodeImageDimensions(file) {
+    if (!file) {
+      return Promise.resolve(null);
+    }
+
+    if (typeof global.createImageBitmap === "function") {
+      return global.createImageBitmap(file)
+        .then((bitmap) => {
+          const dimensions = {
+            width: bitmap.width,
+            height: bitmap.height,
+          };
+          if (typeof bitmap.close === "function") {
+            bitmap.close();
+          }
+          return dimensions;
+        });
+    }
+
+    if (typeof global.Image !== "function" || !global.URL || typeof global.URL.createObjectURL !== "function") {
+      return Promise.resolve(null);
+    }
+
+    return new Promise((resolve, reject) => {
+      const image = new global.Image();
+      const url = global.URL.createObjectURL(file);
+      image.onload = () => {
+        const dimensions = {
+          width: image.naturalWidth || image.width || 0,
+          height: image.naturalHeight || image.height || 0,
+        };
+        global.URL.revokeObjectURL(url);
+        resolve(dimensions);
+      };
+      image.onerror = () => {
+        global.URL.revokeObjectURL(url);
+        reject(new Error("image_decode_failed"));
+      };
+      image.src = url;
+    });
+  }
+
+  async function checkSelectedImageFile(file) {
+    const validation = validateUploadFile(file);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    let dimensions = null;
+    try {
+      dimensions = await decodeImageDimensions(file);
+    } catch (error) {
+      return createImageDecodeFailureResult();
+    }
+
+    if (
+      dimensions &&
+      Number.isFinite(dimensions.width) &&
+      Number.isFinite(dimensions.height) &&
+      (dimensions.width < MIN_IMAGE_DIMENSION || dimensions.height < MIN_IMAGE_DIMENSION)
+    ) {
+      return createImageDimensionFailureResult();
+    }
+
+    return createImageCheckSuccessResult(dimensions);
   }
 
   function initUploadPage(doc) {
@@ -206,7 +293,7 @@
         resetButton.hidden = true;
       }
       if (startButton) {
-        startButton.disabled = false;
+        startButton.disabled = true;
         startButton.textContent = "开始分析";
       }
     }
@@ -269,8 +356,24 @@
     });
 
     if (checkButton) {
-      checkButton.addEventListener("click", () => {
-        handleFile(fileInput.files && fileInput.files[0]);
+      checkButton.addEventListener("click", async () => {
+        const file = (fileInput.files && fileInput.files[0]) || selectedFile;
+        if (!file) {
+          if (startButton) {
+            startButton.disabled = true;
+          }
+          setStatus(validateUploadFile(file));
+          return;
+        }
+
+        checkButton.disabled = true;
+        const result = await checkSelectedImageFile(file);
+        checkButton.disabled = false;
+        if (!result.ok) {
+          fileInput.value = "";
+          clearPreview();
+        }
+        setStatus(result);
       });
     }
 
@@ -288,7 +391,7 @@
     }
 
     if (startButton) {
-      startButton.disabled = false;
+      startButton.disabled = true;
       startButton.addEventListener("click", async () => {
         const file = (fileInput.files && fileInput.files[0]) || selectedFile;
         const result = handleFile(file);
@@ -341,12 +444,17 @@
   const api = {
     ACCEPTED_TYPES,
     ANALYSIS_RESULT_STORAGE_KEY,
+    LEGACY_ANALYSIS_RESULT_STORAGE_KEY,
     MAX_UPLOAD_BYTES,
+    MIN_IMAGE_DIMENSION,
+    STABLE_ANALYSIS_RESULT_STORAGE_KEY,
     UPLOAD_CACHE_TTL_MS,
     UPLOAD_SCHEMA_VERSION,
     UPLOAD_STORAGE_KEY,
     buildUploadState,
     createPreviewReadFailureResult,
+    checkSelectedImageFile,
+    decodeImageDimensions,
     formatBytes,
     initUploadPage,
     prepareUploadForAnalysis,

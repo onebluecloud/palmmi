@@ -10,7 +10,9 @@ const {
   readAnalysisResultForUI,
 } = analysisResultReadAdapter || {};
 
-const ANALYSIS_RESULT_STORAGE_KEY = "palmmi:lastAnalysisResult";
+const STABLE_ANALYSIS_RESULT_STORAGE_KEY = "palmmi:last-analysis";
+const LEGACY_ANALYSIS_RESULT_STORAGE_KEY = "palmmi:lastAnalysisResult";
+const ANALYSIS_RESULT_STORAGE_KEY = STABLE_ANALYSIS_RESULT_STORAGE_KEY;
 
 const ANALYSIS_RESULT_STORAGE_ERRORS = Object.freeze({
   STORAGE_UNAVAILABLE: "ANALYSIS_STORAGE_UNAVAILABLE",
@@ -186,44 +188,83 @@ function normalizeKey(key) {
   return typeof key === "string" ? key.trim() : "";
 }
 
+function defaultKeys() {
+  return [STABLE_ANALYSIS_RESULT_STORAGE_KEY, LEGACY_ANALYSIS_RESULT_STORAGE_KEY];
+}
+
+function readRawAnalysisValue(storage, keyOption) {
+  const keys = keyOption === undefined
+    ? defaultKeys()
+    : [normalizeKey(keyOption)];
+  const normalizedKeys = keys.filter(Boolean);
+  if (normalizedKeys.length === 0) {
+    return {
+      ok: false,
+      error: ANALYSIS_RESULT_STORAGE_ERRORS.KEY_MISSING,
+    };
+  }
+
+  for (const key of normalizedKeys) {
+    let raw;
+    try {
+      raw = storage.getItem(key);
+    } catch (error) {
+      return {
+        ok: false,
+        error: ANALYSIS_RESULT_STORAGE_ERRORS.UNKNOWN,
+      };
+    }
+
+    if (typeof raw === "string" && raw.length > 0) {
+      return {
+        ok: true,
+        key,
+        raw,
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    error: ANALYSIS_RESULT_STORAGE_ERRORS.VALUE_MISSING,
+  };
+}
+
+function unwrapStoredAnalysisResult(value) {
+  if (isPlainObject(value) && isPlainObject(value.analysis_result)) {
+    return value.analysis_result;
+  }
+  return value;
+}
+
 function readLastAnalysisResultFromStorage(options = {}) {
   const storage = options.storage === undefined ? getDefaultStorage() : options.storage;
   if (!isUsableStorage(storage)) {
     return errorResult(ANALYSIS_RESULT_STORAGE_ERRORS.STORAGE_UNAVAILABLE);
   }
 
-  const key = normalizeKey(options.key === undefined ? ANALYSIS_RESULT_STORAGE_KEY : options.key);
-  if (!key) {
-    return errorResult(ANALYSIS_RESULT_STORAGE_ERRORS.KEY_MISSING);
-  }
-
-  let raw;
-  try {
-    raw = storage.getItem(key);
-  } catch (error) {
-    return errorResult(ANALYSIS_RESULT_STORAGE_ERRORS.UNKNOWN);
-  }
-
-  if (typeof raw !== "string" || raw.length === 0) {
-    return errorResult(ANALYSIS_RESULT_STORAGE_ERRORS.VALUE_MISSING);
+  const rawRead = readRawAnalysisValue(storage, options.key);
+  if (!rawRead.ok) {
+    return errorResult(rawRead.error);
   }
 
   let parsed;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(rawRead.raw);
   } catch (error) {
     return errorResult(ANALYSIS_RESULT_STORAGE_ERRORS.JSON_INVALID);
   }
 
   try {
-    let readable = readAnalysisResultForUI(parsed);
+    const analysisResult = unwrapStoredAnalysisResult(parsed);
+    let readable = readAnalysisResultForUI(analysisResult);
     if (
       readable &&
       readable.ok === false &&
       readable.error &&
       readable.error.code === "ANALYSIS_RESULT_SCHEMA_UNSUPPORTED"
     ) {
-      const legacyAnalysisResult = legacyRecognitionResultToAnalysisResult(parsed);
+      const legacyAnalysisResult = legacyRecognitionResultToAnalysisResult(analysisResult);
       if (legacyAnalysisResult) {
         readable = readAnalysisResultForUI(legacyAnalysisResult);
       }
@@ -243,6 +284,8 @@ function readLastAnalysisResultFromStorage(options = {}) {
 const api = {
   ANALYSIS_RESULT_STORAGE_ERRORS,
   ANALYSIS_RESULT_STORAGE_KEY,
+  LEGACY_ANALYSIS_RESULT_STORAGE_KEY,
+  STABLE_ANALYSIS_RESULT_STORAGE_KEY,
   readLastAnalysisResultFromStorage,
 };
 
