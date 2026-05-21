@@ -6,6 +6,11 @@
   <title>Palmmi · 上传掌纹</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../styles/palmmi.css" />
+  <script src="../scripts/palmmi-analyze-api-client.js" defer></script>
+  <script src="../scripts/palmmi-stage5.js" defer></script>
+  <script src="../src/stage5/analysis-result-read-adapter.js" defer></script>
+  <script src="../src/stage5/analysis-result-storage-reader.js" defer></script>
+  <script src="../scripts/palmmi-analyze.js" defer></script>
   <script src="../scripts/palmmi-upload.js" defer></script>
 </head>
 <body data-page="upload">
@@ -71,7 +76,7 @@
               <div class="tip-item"><span>5</span><div><strong>格式和大小</strong><em>JPG / PNG / WebP，单张 8MB 以内。</em></div></div>
             </div>
 
-            <p class="privacy-note">隐私提示：图片只用于本次分析请求；服务端不长期保存原图，浏览器本地上传状态最多保留 24 小时。</p>
+            <p class="privacy-note">隐私提示：图片只用于本次分析请求；服务端不长期保存原图，浏览器本地只保存脱敏分析结果。</p>
           </aside>
         </div>
       </div>

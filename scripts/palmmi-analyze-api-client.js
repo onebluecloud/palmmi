@@ -1,5 +1,6 @@
 (function palmmiAnalyzeApiClient(global) {
   const DEFAULT_ANALYZE_ENDPOINT = "/api/analyze";
+  const DEFAULT_ANALYZE_TIMEOUT_MS = 60000;
 
   function isPlainObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -43,7 +44,21 @@
     };
   }
 
-  async function callAnalyzeApi({ upload, anonymousDeviceId, endpoint, requestId, fetchImpl } = {}) {
+  function createTimeoutError(requestId) {
+    return {
+      ok: false,
+      request_id: requestId || null,
+      status: "RETRY_REQUIRED",
+      error: {
+        code: "REQUEST_TIMEOUT",
+        message: "当前分析服务响应超时，请稍后重试，或换一张更清晰、文件更小的照片。",
+        message_key: "request_timeout",
+        retryable: true,
+      },
+    };
+  }
+
+  async function callAnalyzeApi({ upload, anonymousDeviceId, endpoint, requestId, fetchImpl, timeoutMs } = {}) {
     const activeFetch = fetchImpl || global.fetch;
     if (typeof activeFetch !== "function") {
       return {
@@ -60,6 +75,20 @@
     }
 
     const payload = buildAnalyzePayload({ upload, anonymousDeviceId, requestId });
+    const canAbort = typeof global.AbortController === "function";
+    const controller = canAbort ? new global.AbortController() : null;
+    const requestTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? timeoutMs
+      : DEFAULT_ANALYZE_TIMEOUT_MS;
+    let didTimeout = false;
+    const timeoutTimer = requestTimeoutMs
+      ? global.setTimeout(() => {
+        didTimeout = true;
+        if (controller) {
+          controller.abort();
+        }
+      }, requestTimeoutMs)
+      : null;
     let response;
     try {
       response = await activeFetch(endpoint || DEFAULT_ANALYZE_ENDPOINT, {
@@ -68,19 +97,27 @@
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
+        ...(controller ? { signal: controller.signal } : {}),
       });
     } catch (error) {
+      if (didTimeout || (error && error.name === "AbortError")) {
+        return createTimeoutError(payload.request_id);
+      }
       return {
         ok: false,
         request_id: payload.request_id,
         status: "RETRY_REQUIRED",
         error: {
-          code: "ANALYZE_API_REQUEST_FAILED",
-          message: "分析服务暂时不可用，请重新上传后再试。",
-          message_key: "retry_upload",
+          code: "API_REQUEST_FAILED",
+          message: "分析服务暂时不可用，请稍后重试。",
+          message_key: "api_request_failed",
           retryable: true,
         },
       };
+    } finally {
+      if (timeoutTimer) {
+        global.clearTimeout(timeoutTimer);
+      }
     }
 
     try {
@@ -91,9 +128,9 @@
           request_id: payload.request_id,
           status: "RETRY_REQUIRED",
           error: {
-            code: "ANALYZE_API_REQUEST_FAILED",
-            message: "分析服务暂时不可用，请重新上传后再试。",
-            message_key: "retry_upload",
+            code: "API_REQUEST_FAILED",
+            message: "分析服务暂时不可用，请稍后重试。",
+            message_key: "api_request_failed",
             retryable: true,
           },
         };
@@ -105,9 +142,9 @@
         request_id: payload.request_id,
         status: "RETRY_REQUIRED",
         error: {
-          code: "ANALYZE_API_INVALID_RESPONSE",
-          message: "分析结果暂时无法读取，请重新上传后再试。",
-          message_key: "retry_upload",
+          code: "RESULT_READ_FAILED",
+          message: "未找到可展示的分析结果，请重新分析。",
+          message_key: "result_read_failed",
           retryable: true,
         },
       };
@@ -116,6 +153,7 @@
 
   const api = {
     DEFAULT_ANALYZE_ENDPOINT,
+    DEFAULT_ANALYZE_TIMEOUT_MS,
     buildAnalyzePayload,
     callAnalyzeApi,
     canUseApi,

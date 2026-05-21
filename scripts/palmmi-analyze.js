@@ -66,17 +66,17 @@
       },
       [ANALYSIS_STATES.INVALID_UPLOAD]: {
         title: "需要重新上传",
-        message: "本次上传状态不完整，请重新上传一张掌心照片。",
+        message: "当前上传状态已丢失，请重新选择照片后再试。",
         pill: "状态已失效",
       },
       [ANALYSIS_STATES.TIMEOUT]: {
-        title: "分析暂时没有完成",
-        message: "本次分析等待时间过长，请重新上传后再试。",
+        title: "分析超时",
+        message: "当前分析服务响应超时，请稍后重试，或换一张更清晰、文件更小的照片。",
         pill: "等待超时",
       },
       [ANALYSIS_STATES.ERROR]: {
-        title: "需要重新上传",
-        message: "分析流程暂时没有完成，请重新上传后再试。",
+        title: "结果暂时无法读取",
+        message: "未找到可展示的分析结果，请重新分析。",
         pill: "分析中断",
       },
     };
@@ -114,7 +114,7 @@
       return {
         ok: false,
         state: ANALYSIS_STATES.MISSING_UPLOAD,
-        message: "请先上传一张清晰的手掌照片，再开始分析。",
+        message: "当前上传状态已丢失，请重新选择照片后再试。",
       };
     }
 
@@ -123,7 +123,7 @@
       return {
         ok: false,
         state: ANALYSIS_STATES.MISSING_UPLOAD,
-        message: "请先上传一张清晰的手掌照片，再开始分析。",
+        message: "当前上传状态已丢失，请重新选择照片后再试。",
       };
     }
 
@@ -133,7 +133,7 @@
         return {
           ok: false,
           state: ANALYSIS_STATES.INVALID_UPLOAD,
-          message: "本次上传状态不完整，请重新上传一张掌心照片。",
+          message: "当前上传状态已丢失，请重新选择照片后再试。",
         };
       }
 
@@ -155,7 +155,7 @@
       return {
         ok: false,
         state: ANALYSIS_STATES.INVALID_UPLOAD,
-        message: "本次上传状态无法读取，请重新上传一张掌心照片。",
+        message: "当前上传状态已丢失，请重新选择照片后再试。",
       };
     }
   }
@@ -370,6 +370,7 @@
       anonymousDeviceId: getAnonymousDeviceId(options),
       endpoint: options.analyzeEndpoint,
       requestId: typeof options.requestId === "function" ? options.requestId() : undefined,
+      timeoutMs: options.timeoutMs,
     });
 
     if (!response || response.ok !== true) {
@@ -400,11 +401,14 @@
 
   function getStage5BProblemState(response) {
     const code = response && response.error ? response.error.code : "";
-    if (code === "FILE_MISSING") {
+    if (code === "FILE_MISSING" || code === "UPLOAD_STATE_LOST") {
       return ANALYSIS_STATES.MISSING_UPLOAD;
     }
     if (code === "FILE_TYPE_UNSUPPORTED" || code === "FILE_TOO_LARGE" || code === "FILE_EMPTY") {
       return ANALYSIS_STATES.INVALID_UPLOAD;
+    }
+    if (code === "REQUEST_TIMEOUT") {
+      return ANALYSIS_STATES.TIMEOUT;
     }
     return ANALYSIS_STATES.ERROR;
   }

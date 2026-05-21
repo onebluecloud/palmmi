@@ -2,6 +2,93 @@
 
 Date: 2026-05-21
 
+## Stage 6F-Fix-2 追加记录
+
+用户在 Stage 6F-Fix 后进行了安卓微信真机复测，发现 Stage 6F-Fix 没修干净。本轮进入 Stage 6F-Fix-2，不进入 Stage 6G。
+
+Stage 6F-Fix-2 结论：`CODE_FIXED_MANUAL_RETEST_REQUIRED`
+
+Stage 6G：`BLOCKED`
+
+```text
+Android WeChat: MANUAL_RETEST_REQUIRED
+iOS WeChat: MANUAL_REQUIRED
+Stage 6G: BLOCKED
+```
+
+### Stage 6F-Fix 后真机失败记录
+
+| 问题 | 安卓微信真机表现 | 判断 |
+|---|---|---|
+| 拍照上传后分析失败 | “检查照片”通过，点击“开始分析”后进入分析中，最终显示“当前分析结果暂时无法读取，请重新上传后再试” | 上传页到分析页的跨页流程丢失拍照 File / Blob 或当前任务状态 |
+| 本地相册图片分析超时 | 约 2.5MB 相册图检查通过，点击“开始分析”后显示“当前分析服务响应超时，请稍后再试” | 原图 / base64 体积过大，微信 WebView 下真实请求链路容易超时 |
+
+这些问题不能记录为 PASS。Stage 6G 继续阻塞。
+
+### Stage 6F-Fix-2 修复内容
+
+| 修复项 | 状态 | 修复方式 |
+|---|---|---|
+| 安卓微信拍照后结果无法读取 | CODE_FIXED_AUTOMATED_PASS | 上传页在同一 JS 上下文内完成 decode、压缩、API 请求、结果写入和回读；API 成功后才跳转 `/result/` |
+| 相册图片分析超时 | CODE_FIXED_AUTOMATED_PASS | 请求前客户端压缩为 JPEG，避免 2.5MB 左右原图直接转 base64 送分析 |
+| `/result/` 承担分析任务 | FIXED | `/result/` 只读取已成功写入的 `palmmi:last-analysis` |
+| `/analysis/` 跨页读取 File | FIXED_FOR_UPLOAD_FLOW | 上传页不再把真实分析任务交给跨页 File / session 状态；`/analysis/` 仅保留兼容和测试态 |
+| 结果写入顺序 | PASS | API success -> save sanitized result -> readback -> navigate `/result/` |
+| 超时处理 | PASS | `REQUEST_TIMEOUT` 留在上传页，不清空上一次有效结果，不显示 `RESULT_READ_FAILED` |
+
+### 图片压缩策略
+
+| 项 | 策略 |
+|---|---|
+| 浏览器能力 | `Image` / `createImageBitmap` + `canvas` + `canvas.toBlob` |
+| 输出格式 | JPEG |
+| 首选最长边 | 1280px |
+| 回退最长边 | 1024px |
+| 首选质量 | 0.82 |
+| 回退质量 | 0.75 |
+| 目标体积 | 优先小于约 1.2MB |
+| 失败回退 | 压缩失败时仅在当前请求中临时回退原图，不写入 localStorage / sessionStorage，不记录 base64 |
+
+Stage 6F-Fix-2 自动化中，2MB+ `camera.jpg` 模拟文件压缩为约 659KB 后再请求 API。
+
+### 错误状态拆分
+
+| 错误码 | 展示策略 |
+|---|---|
+| `UPLOAD_STATE_LOST` | 当前上传状态已丢失，请重新选择照片后再试 |
+| `REQUEST_TIMEOUT` | 当前分析服务响应超时，请稍后重试，或换一张更清晰、文件更小的照片 |
+| `RESULT_READ_FAILED` | 未找到可展示的分析结果，请重新分析 |
+| `RESULT_WRITE_FAILED` | 分析结果暂时无法保存，请重新分析 |
+| `IMAGE_NOT_CLEAR` | 请重新拍摄一张掌纹完整、光线均匀的掌心照片 |
+| `API_REQUEST_FAILED` | 分析服务暂时不可用，请稍后重试 |
+
+请求超时不会再显示成结果读取失败；结果读取失败也不会覆盖请求超时。
+
+### Stage 6F-Fix-2 复测结果
+
+| 命令 / 场景 | 结果 | 说明 |
+|---|---|---|
+| `npm run test:stage6f` | PASS | Fix-2 本地回归通过；生产当前已部署正常上传仍记录为 `FAIL_BEFORE_FIX2_DEPLOYMENT`，等待本次部署后复测 |
+| Fix-2 拍照大图模拟 | PASS | API pending 时仍停留上传页；API 成功写入 `palmmi:last-analysis` 后跳转结果页 |
+| Fix-2 相册超时模拟 | PASS | 显示 `REQUEST_TIMEOUT`；不跳转结果页；不清空上一次有效结果 |
+| localStorage / sessionStorage 脱敏 | PASS | 未发现 Key / Token / base64 / raw response |
+| 非图片 / 超大图片 | PASS | 上传页稳定错误态，不白屏 |
+
+### Stage 6F-Fix-2 微信状态
+
+| 项目 | 状态 |
+|---|---|
+| 安卓微信拍照上传 | MANUAL_RETEST_REQUIRED |
+| 安卓微信相册上传 | MANUAL_RETEST_REQUIRED |
+| 安卓微信进入结果页 | MANUAL_RETEST_REQUIRED |
+| 安卓微信进入海报页 | MANUAL_RETEST_REQUIRED |
+| iPhone 微信打开首页 | MANUAL_REQUIRED |
+| iPhone 微信上传图片 | MANUAL_REQUIRED |
+| iPhone 微信进入结果页 | MANUAL_REQUIRED |
+| iPhone 微信进入海报页 | MANUAL_REQUIRED |
+
+Codex 没有把微信真机测试伪造成 PASS。本轮只能写代码修复和自动化通过，不能替代安卓微信 / iPhone 微信真机验收。
+
 ## Stage 6F-Fix 追加记录
 
 用户在安卓微信真机测试中发现 3 个真实问题：结果页展示半残缺结果、第二次重新测试后结果读取失败、上传页“检查照片”按钮点击无明确反应。本轮进入 Stage 6F-Fix，不进入 Stage 6G。
@@ -293,9 +380,9 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 
 ## 16. 是否可以进入 Stage 6G
 
-是否可以进入 Stage 6G: CONDITIONAL
+是否可以进入 Stage 6G: BLOCKED
 
-条件：进入 Stage 6G 前或 Stage 6G 中必须补充 iPhone 微信 / 安卓微信真机测试。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
+条件：本次 Fix-2 部署后，必须补充安卓微信拍照上传、安卓微信相册上传和 iPhone 微信真机测试；在用户提供真实复测通过结果前，不允许进入 Stage 6G。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
 
 ## 17. 当前阻塞项
 
@@ -368,4 +455,4 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 | 没有修改 Stage 3 规则 / 权重 / 阈值 | PASS | 未修改相关文件 |
 | 没有重做 Stage 4 UI | PASS | 未修改 UI 主风格 |
 | 没有重写 Stage 5 VLM 主逻辑 | PASS | 未修改 VLM 主逻辑 |
-| 是否可以进入 Stage 6G | CONDITIONAL | 微信 iOS / Android 真机仍需人工补测 |
+| 是否可以进入 Stage 6G | FAIL | Stage 6F-Fix 后安卓微信复测失败；Fix-2 部署后仍需人工复测 |

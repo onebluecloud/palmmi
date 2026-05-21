@@ -632,7 +632,12 @@
     }
 
     if (requestedState === RESULT_STATES.PARTIAL_RESULT) {
-      renderResult(doc, createResultViewModel({ status: "SUCCESS", primary_persona: {}, top3: [] }));
+      const viewModel = createResultViewModel({ status: "SUCCESS", primary_persona: {}, top3: [] });
+      if (viewModel && viewModel.problem) {
+        renderProblem(doc, viewModel.state || RESULT_STATES.PARTIAL_RESULT, viewModel.message);
+        return;
+      }
+      renderResult(doc, viewModel);
       return;
     }
 

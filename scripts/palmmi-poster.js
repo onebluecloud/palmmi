@@ -695,7 +695,12 @@
     }
 
     if (requestedState === POSTER_STATES.PARTIAL_RESULT) {
-      renderPoster(doc, createPosterViewModel({ status: "SUCCESS", primary_persona: {}, primary_mother: {}, top3: [] }));
+      const viewModel = createPosterViewModel({ status: "SUCCESS", primary_persona: {}, primary_mother: {}, top3: [] });
+      if (viewModel && viewModel.problem) {
+        renderProblem(doc, viewModel.state || POSTER_STATES.PARTIAL_RESULT, viewModel.message);
+        return;
+      }
+      renderPoster(doc, viewModel);
       return;
     }
 
