@@ -154,6 +154,10 @@ function optionalString(value) {
   return isString(value) ? value : "";
 }
 
+function optionalBoolean(value) {
+  return typeof value === "boolean" ? value : null;
+}
+
 function readAnalysisResultForUI(analysisResult) {
   if (!isPlainObject(analysisResult)) {
     return errorResult(ANALYSIS_RESULT_READ_ERRORS.MISSING);
@@ -234,6 +238,9 @@ function readAnalysisResultForUI(analysisResult) {
     personality_name: optionalString(analysisResult.personality_name),
     main_line_type: optionalString(analysisResult.main_line_type),
     title: optionalString(analysisResult.title),
+    poster_title: optionalString(analysisResult.poster_title),
+    poster_subtitle: optionalString(analysisResult.poster_subtitle),
+    poster_quote: optionalString(analysisResult.poster_quote),
     summary: optionalString(analysisResult.summary),
     description: optionalString(analysisResult.description),
     evidence: optionalString(analysisResult.evidence),
@@ -241,6 +248,7 @@ function readAnalysisResultForUI(analysisResult) {
     traits: isStringArray(analysisResult.traits) ? cloneStringArray(analysisResult.traits) : [],
     match_reason: optionalString(analysisResult.match_reason),
     candidate_results: cloneCandidateResults(analysisResult.candidate_results),
+    valid_palm: optionalBoolean(analysisResult.valid_palm),
     quality_status: optionalString(analysisResult.quality_status),
     user_message: optionalString(analysisResult.user_message),
   };

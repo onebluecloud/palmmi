@@ -314,9 +314,68 @@
     const trace = isPlainObject(safeResult && safeResult.trace) ? safeResult.trace : {};
     return {
       version: ANALYSIS_STORAGE_VERSION,
+      analysis_id: options.analysisId || safeResult.analysis_id || safeResult.request_id || null,
       created_at: now(),
       provider: typeof trace.provider === "string" && trace.provider ? trace.provider : "qwen",
       analysis_result: safeResult,
+    };
+  }
+
+  function firstText(...values) {
+    for (const value of values) {
+      if (typeof value === "string" && value.trim()) {
+        return value.trim();
+      }
+    }
+    return "";
+  }
+
+  function normalizeQualityStatus(value) {
+    return firstText(value).toUpperCase();
+  }
+
+  function hasStableAnalysisContract(result) {
+    if (!isPlainObject(result)) {
+      return false;
+    }
+    const qualityStatus = normalizeQualityStatus(result.quality_status);
+    if (result.valid_palm === false || ["NOT_PALM", "IMAGE_NOT_CLEAR", "ANALYSIS_UNRELIABLE", "RETRY_REQUIRED", "REJECTED"].includes(qualityStatus)) {
+      return false;
+    }
+    const requiredText = [
+      result.personality_id,
+      result.personality_name,
+      result.main_line_type,
+      result.title,
+      result.summary,
+      result.description,
+      result.evidence,
+    ];
+    const hasRequiredText = requiredText.every((value) => firstText(value));
+    const hasCandidate = Array.isArray(result.candidate_results)
+      && result.candidate_results.some((candidate) => (
+        isPlainObject(candidate)
+          && firstText(candidate.personality_id)
+          && firstText(candidate.personality_name)
+      ));
+    return Boolean(
+      result.schemaVersion === "analysis-result.v1"
+        && ["ok", "degraded"].includes(firstText(result.status))
+        && hasRequiredText
+        && hasCandidate
+    );
+  }
+
+  function createUnreliableAnalysisResponse(response, requestId) {
+    return {
+      ok: false,
+      request_id: (response && response.request_id) || requestId || null,
+      status: "RETRY_REQUIRED",
+      error: {
+        code: "ANALYSIS_UNRELIABLE",
+        message: "本次识别结果不稳定，请换一张更清晰的掌心照片后重试。",
+        retryable: true,
+      },
     };
   }
 
@@ -365,11 +424,13 @@
       return null;
     }
 
+    const requestId = typeof options.requestId === "function" ? options.requestId() : undefined;
+    const analysisId = options.analysisId || requestId || `analysis_${Date.now()}`;
     const response = await apiClient.callAnalyzeApi({
       upload,
       anonymousDeviceId: getAnonymousDeviceId(options),
       endpoint: options.analyzeEndpoint,
-      requestId: typeof options.requestId === "function" ? options.requestId() : undefined,
+      requestId,
       timeoutMs: options.timeoutMs,
     });
 
@@ -379,7 +440,13 @@
     }
 
     const resultForPage = response.analysis_result || response.recognition_result;
-    const saved = saveAnalysisResult(storage, resultForPage);
+    if (!hasStableAnalysisContract(resultForPage)) {
+      const contractError = createUnreliableAnalysisResponse(response, analysisId);
+      saveAnalyzeError(storage, contractError);
+      return contractError;
+    }
+
+    const saved = saveAnalysisResult(storage, resultForPage, { analysisId });
     if (!saved.ok) {
       const storageError = {
         ok: false,
@@ -458,14 +525,14 @@
     });
   }
 
-  function saveAnalysisResult(storage, result) {
+  function saveAnalysisResult(storage, result, options = {}) {
     if (!storage || typeof storage.setItem !== "function") {
       return { ok: false, error: "storage_unavailable" };
     }
 
     try {
       const safeResult = removeForbiddenStorageFields(result);
-      const envelope = createAnalysisStorageEnvelope(safeResult);
+      const envelope = createAnalysisStorageEnvelope(safeResult, options);
       storage.setItem(STABLE_ANALYSIS_RESULT_STORAGE_KEY, JSON.stringify(envelope));
       storage.setItem(LEGACY_ANALYSIS_RESULT_STORAGE_KEY, JSON.stringify(safeResult));
       return { ok: true };

@@ -189,7 +189,8 @@
     const flatFeatures = normalizeList(data.features);
     const personaId = firstText(data.personality_id, ui.personaId, FALLBACKS.personaCode);
     const personaName = firstText(data.personality_name, ui.personaName, summary.title, FALLBACKS.personaName);
-    const shortText = firstText(data.summary, summary.shortText, ui.secondaryDisplayText, FALLBACKS.summary);
+    const posterQuote = firstText(data.poster_quote, data.poster_subtitle, data.summary, summary.shortText, ui.secondaryDisplayText, FALLBACKS.summary);
+    const shortText = posterQuote;
     const motherType = firstText(data.main_line_type, summary.subtitle, "Stage 5");
     const matchedFeatures = flatFeatures.length ? flatFeatures : (keywords.length ? keywords : ["HEAD_LINE_LENGTH"]);
     const candidateResults = Array.isArray(data.candidate_results) && data.candidate_results.length
@@ -214,9 +215,9 @@
       primary_persona: {
         id: personaId,
         persona_id: personaId,
-        name: personaName,
+        name: firstText(data.poster_title, personaName),
         mother_type: motherType,
-        hook: firstText(ui.secondaryDisplayText, shortText, FALLBACKS.hook),
+        hook: posterQuote,
         description: firstText(data.description, shortText),
         tags: keywords,
         matched_features: matchedFeatures,
@@ -460,7 +461,43 @@
 
   function isRetakeQualityStatus(value) {
     const status = firstText(value).toUpperCase();
-    return status === "IMAGE_NOT_CLEAR" || status === "RETRY_REQUIRED" || status === "REJECTED";
+    return status === "IMAGE_NOT_CLEAR"
+      || status === "NOT_PALM"
+      || status === "ANALYSIS_UNRELIABLE"
+      || status === "RETRY_REQUIRED"
+      || status === "REJECTED";
+  }
+
+  function createRetakeProblemViewModel(result) {
+    const status = firstText(result && result.quality_status).toUpperCase();
+    const message = firstText(result && result.user_message);
+    const model = createProblemViewModel(
+      POSTER_STATES.PARTIAL_RESULT,
+      message || (
+        status === "NOT_PALM"
+          ? "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。"
+          : status === "ANALYSIS_UNRELIABLE"
+            ? "本次识别结果不稳定，请换一张更清晰的掌心照片后重试。"
+            : "照片掌纹不够清晰，请在光线均匀的位置重新拍摄，确保掌心完整、掌纹可见。"
+      )
+    );
+    if (status === "NOT_PALM") {
+      return {
+        ...model,
+        title: "未检测到清晰掌心",
+        pill: "请重新上传",
+        recoveryHint: "请上传清晰、正面、完整的单手掌照片重新测试。",
+      };
+    }
+    if (status === "ANALYSIS_UNRELIABLE") {
+      return {
+        ...model,
+        title: "本次识别结果不稳定",
+        pill: "请重新拍摄",
+        recoveryHint: "请换一张更清晰的掌心照片后重试。",
+      };
+    }
+    return model;
   }
 
   function createPosterViewModel(result) {
@@ -470,10 +507,7 @@
 
     const status = firstText(result.status, "SUCCESS");
     if (status === "RETRY_REQUIRED" || status === "REJECTED" || isRetakeQualityStatus(result.quality_status)) {
-      return createProblemViewModel(
-        POSTER_STATES.PARTIAL_RESULT,
-        firstText(result.user_message, "这张照片掌纹不够清晰，请重新拍摄后再试。")
-      );
+      return createRetakeProblemViewModel(result);
     }
 
     const persona = isPlainObject(result.primary_persona) ? result.primary_persona : {};

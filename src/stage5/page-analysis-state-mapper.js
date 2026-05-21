@@ -90,8 +90,20 @@ function hasCompletePosterPayload(input) {
     uiConsumable &&
     (hasText(summary.title) || hasText(summary.shortText)) &&
     hasText(uiConsumable.personaId) &&
-    hasText(uiConsumable.personaName)
+    hasText(uiConsumable.personaName) &&
+    hasText(data.personality_id) &&
+    hasText(data.personality_name) &&
+    hasText(data.main_line_type) &&
+    hasText(data.description) &&
+    hasText(data.evidence) &&
+    (hasText(data.poster_title) || hasText(data.title)) &&
+    (hasText(data.poster_quote) || hasText(data.summary))
   );
+}
+
+function userMessageFromInput(input) {
+  const data = readData(input) || input;
+  return isPlainObject(data) ? normalizeText(data.user_message) : "";
 }
 
 function statusFromPageResponse(input) {
@@ -173,6 +185,7 @@ function mapAnalysisStatusToResultPageState(input = {}) {
   const analysisStatus = readAnalysisStatus(input);
   const personaAvailable = hasPersona(input);
   const posterPayloadComplete = hasCompletePosterPayload(input);
+  const userMessage = userMessageFromInput(input);
 
   switch (analysisStatus) {
     case ANALYSIS_PAGE_STATUSES.PAGE_RESULT_MISSING:
@@ -215,7 +228,7 @@ function mapAnalysisStatusToResultPageState(input = {}) {
       return mapping("result", analysisStatus, {
         pageState: STAGE4_PAGE_STATES.ERROR,
         shouldRedirectToUpload: true,
-        message: "分析失败，请重新上传手掌图片。",
+        message: userMessage || "分析失败，请重新上传手掌图片。",
       });
 
     case ANALYSIS_PAGE_STATUSES.ANALYSIS_PARTIAL:
@@ -270,6 +283,7 @@ function mapAnalysisStatusToPosterPageState(input = {}) {
   const personaAvailable = hasPersona(input);
   const posterPayloadComplete = hasCompletePosterPayload(input);
   const canRenderPoster = personaAvailable && posterPayloadComplete;
+  const userMessage = userMessageFromInput(input);
 
   switch (analysisStatus) {
     case ANALYSIS_PAGE_STATUSES.PAGE_RESULT_MISSING:
@@ -308,7 +322,7 @@ function mapAnalysisStatusToPosterPageState(input = {}) {
       return mapping("poster", analysisStatus, {
         pageState: STAGE4_PAGE_STATES.ERROR,
         shouldRedirectToUpload: true,
-        message: "分析失败，不能生成海报。",
+        message: userMessage || "分析失败，不能生成海报。",
       });
 
     case ANALYSIS_PAGE_STATUSES.ANALYSIS_PARTIAL:

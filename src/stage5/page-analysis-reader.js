@@ -154,6 +154,9 @@ function cloneFlatDisplayFields(data) {
     personality_name: data.personality_name || "",
     main_line_type: data.main_line_type || "",
     title: data.title || "",
+    poster_title: data.poster_title || "",
+    poster_subtitle: data.poster_subtitle || "",
+    poster_quote: data.poster_quote || "",
     summary: data.summary || "",
     description: data.description || "",
     evidence: data.evidence || "",
@@ -161,6 +164,7 @@ function cloneFlatDisplayFields(data) {
     traits: cloneStringArray(data.traits),
     match_reason: data.match_reason || "",
     candidate_results: cloneCandidateResults(data.candidate_results),
+    valid_palm: typeof data.valid_palm === "boolean" ? data.valid_palm : null,
     quality_status: data.quality_status || "",
     user_message: data.user_message || "",
   };

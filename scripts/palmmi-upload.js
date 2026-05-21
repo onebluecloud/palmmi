@@ -67,7 +67,7 @@
     return {
       ok: true,
       code: "image_check_passed",
-      message: "照片可以使用。请确认掌纹清晰完整后开始分析。",
+      message: "照片已通过基础检查。开始分析后会继续判断是否为清晰掌心照片。",
       dimensions,
     };
   }
@@ -505,6 +505,12 @@
     if (code === "IMAGE_NOT_CLEAR") {
       return "IMAGE_NOT_CLEAR";
     }
+    if (code === "NOT_PALM") {
+      return "NOT_PALM";
+    }
+    if (code === "ANALYSIS_UNRELIABLE") {
+      return "ANALYSIS_UNRELIABLE";
+    }
     if (code === "FILE_MISSING" || code === "UPLOAD_STATE_LOST") {
       return "UPLOAD_STATE_LOST";
     }
@@ -520,7 +526,9 @@
       REQUEST_TIMEOUT: "当前分析服务响应超时，请稍后重试，或换一张更清晰、文件更小的照片。",
       RESULT_READ_FAILED: "未找到可展示的分析结果，请重新分析。",
       RESULT_WRITE_FAILED: "分析结果暂时无法保存，请重新分析。",
-      IMAGE_NOT_CLEAR: "请重新拍摄一张掌纹完整、光线均匀的掌心照片。",
+      IMAGE_NOT_CLEAR: "照片掌纹不够清晰，请在光线均匀的位置重新拍摄，确保掌心完整、掌纹可见。",
+      NOT_PALM: "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。",
+      ANALYSIS_UNRELIABLE: "本次识别结果不稳定，请换一张更清晰的掌心照片后重试。",
       API_REQUEST_FAILED: "分析服务暂时不可用，请稍后重试。",
     };
     const message = messages[code] || fallbackMessage || messages.API_REQUEST_FAILED;

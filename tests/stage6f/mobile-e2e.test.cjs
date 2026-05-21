@@ -335,6 +335,9 @@ function completeAnalysisResult(overrides = {}) {
     title: "老干部",
     summary: "别人还在情绪开会，你已经端着保温杯散会了。",
     description: "这份结果已补齐用户可读描述，用于稳定展示。",
+    poster_title: "老干部",
+    poster_subtitle: "M1",
+    poster_quote: "别人还在情绪开会，你已经端着保温杯散会了。",
     evidence: "本次结果主要参考：智慧线清晰度。",
     features: ["HEAD_LINE_DEPTH"],
     traits: ["稳定", "降噪", "M1"],
@@ -656,7 +659,7 @@ async function validateLocalPhotoCheckButton(context, fixturePath) {
   await page.click("#checkFile");
   await page.waitForFunction(() => {
     const status = document.querySelector("#uploadStatus");
-    return Boolean(status && /照片可以使用/.test(status.textContent || ""));
+    return Boolean(status && /基础检查/.test(status.textContent || ""));
   }, null, { timeout: 10000 });
 
   const checkState = await page.evaluate((keys) => ({
@@ -908,7 +911,7 @@ async function validateStage6FFix2InlineAnalyzeFlow(context) {
   await page.click("#checkFile");
   await page.waitForFunction(() => {
     const status = document.querySelector("#uploadStatus");
-    return Boolean(status && /照片可以使用/.test(status.textContent || ""));
+    return Boolean(status && /基础检查/.test(status.textContent || ""));
   }, null, { timeout: 15000 });
 
   await page.click("#startAnalyze");
@@ -1020,7 +1023,7 @@ async function validateStage6FFix2TimeoutHandling(context) {
   await page.click("#checkFile");
   await page.waitForFunction(() => {
     const status = document.querySelector("#uploadStatus");
-    return Boolean(status && /照片可以使用/.test(status.textContent || ""));
+    return Boolean(status && /基础检查/.test(status.textContent || ""));
   }, null, { timeout: 15000 });
   await page.click("#startAnalyze");
   await page.waitForFunction(() => {
@@ -1054,6 +1057,407 @@ async function validateStage6FFix2TimeoutHandling(context) {
   return {
     status: "PASS",
     code: "REQUEST_TIMEOUT",
+  };
+}
+
+async function validateStage6FFix3InvalidImageGate(context) {
+  const page = await context.newPage();
+  const signals = createSignals(page);
+
+  await page.addInitScript(() => {
+    window.__PALMMI_UPLOAD_OPTIONS__ = {
+      location: { protocol: "https:" },
+      useAnalyzeApi: true,
+      analyzeEndpoint: "/api/analyze",
+      requestId: () => "req_stage6f_fix3_not_palm",
+      apiClient: {
+        canUseApi: () => true,
+        callAnalyzeApi: async () => ({
+          ok: false,
+          request_id: "req_stage6f_fix3_not_palm",
+          status: "RETRY_REQUIRED",
+          error: {
+            code: "NOT_PALM",
+            message: "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。",
+            retryable: true,
+          },
+        }),
+      },
+    };
+  });
+
+  await page.goto(localPageUrl("upload"), { waitUntil: "domcontentloaded" });
+  await attachGeneratedImageFile(page, {
+    name: "not-palm-beverage.jpg",
+    type: "image/jpeg",
+    width: 1000,
+    height: 1000,
+    minBytes: 128 * 1024,
+  });
+  await page.click("#checkFile");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#uploadStatus").textContent || "";
+    return /基础检查/.test(text);
+  }, null, { timeout: 15000 });
+  const checkText = await page.locator("#uploadStatus").textContent();
+  assert.doesNotMatch(checkText, /照片可以使用|掌纹清晰完整/, "basic check copy must not promise the image is a usable palm");
+
+  await page.click("#startAnalyze");
+  await page.waitForFunction(() => {
+    const text = document.body.innerText || "";
+    return /未检测到清晰掌心|NOT_PALM/.test(text);
+  }, null, { timeout: 30000 });
+
+  const state = await page.evaluate((keys) => {
+    const text = document.body.innerText || "";
+    return {
+      url: location.href,
+      text,
+      hasStableAnalysis: Boolean(sessionStorage.getItem(keys.stableAnalysis)),
+      stableText: sessionStorage.getItem(keys.stableAnalysis) || "",
+    };
+  }, STORAGE_KEYS);
+  assert.match(state.url, /\/upload\/index\.html|\/upload\/?$/, "NOT_PALM must keep user on upload page");
+  assert.equal(state.hasStableAnalysis, false, "NOT_PALM must not write a personality result");
+  assert.doesNotMatch(state.text, /P25|老干部/, "NOT_PALM must not display P25 or 老干部");
+  assert.doesNotMatch(state.stableText, /P25|老干部/, "NOT_PALM storage must not contain P25 or 老干部");
+
+  await assertBrowserClean(signals, "stage6f fix3 invalid image gate");
+  await page.close();
+  return {
+    status: "PASS",
+    code: "NOT_PALM",
+  };
+}
+
+async function validateStage6FFix3NoDefaultPersonaFallback(context) {
+  const page = await context.newPage();
+  const signals = createSignals(page);
+
+  await page.addInitScript(() => {
+    window.__PALMMI_UPLOAD_OPTIONS__ = {
+      location: { protocol: "https:" },
+      useAnalyzeApi: true,
+      analyzeEndpoint: "/api/analyze",
+      requestId: () => "req_stage6f_fix3_incomplete_result",
+      apiClient: {
+        canUseApi: () => true,
+        callAnalyzeApi: async () => ({
+          ok: true,
+          request_id: "req_stage6f_fix3_incomplete_result",
+          status: "SUCCESS",
+          provider: "qwen",
+          analysis_result: {
+            personality_id: null,
+            personality_name: null,
+            main_line_type: null,
+            quality_status: "PARTIAL",
+          },
+        }),
+      },
+    };
+  });
+
+  await page.goto(localPageUrl("upload"), { waitUntil: "domcontentloaded" });
+  await attachGeneratedImageFile(page, {
+    name: "mock-palm-incomplete.jpg",
+    type: "image/jpeg",
+    width: 1200,
+    height: 1200,
+    minBytes: 256 * 1024,
+  });
+  await page.click("#checkFile");
+  await page.waitForFunction(() => /基础检查/.test(document.querySelector("#uploadStatus").textContent || ""), null, { timeout: 15000 });
+  await page.click("#startAnalyze");
+  await page.waitForFunction(() => {
+    const text = document.body.innerText || "";
+    return /ANALYSIS_UNRELIABLE|识别结果不稳定|掌纹不够清晰/.test(text);
+  }, null, { timeout: 30000 });
+
+  const state = await page.evaluate((keys) => ({
+    url: location.href,
+    text: document.body.innerText || "",
+    stableRaw: sessionStorage.getItem(keys.stableAnalysis),
+  }), STORAGE_KEYS);
+  assert.match(state.url, /\/upload\/index\.html|\/upload\/?$/, "incomplete success must not navigate to result");
+  assert.equal(state.stableRaw, null, "incomplete success must not be stored as last analysis");
+  assert.doesNotMatch(state.text, /P25|老干部/, "incomplete result must not fall back to P25 老干部");
+
+  await assertBrowserClean(signals, "stage6f fix3 no default persona");
+  await page.close();
+  return {
+    status: "PASS",
+    code: "ANALYSIS_UNRELIABLE",
+  };
+}
+
+async function validateStage6FFix3RepeatedAnalysisIsolation(context) {
+  const page = await context.newPage();
+  const signals = createSignals(page);
+  const firstResult = completeAnalysisResult({
+    extra: {
+      analysis_id: "analysis_first_valid",
+    },
+  });
+
+  await page.addInitScript((analysisResult) => {
+    window.__stage6fFix3CallCount = Number(sessionStorage.getItem("__stage6fFix3CallCount") || "0");
+    window.__PALMMI_UPLOAD_OPTIONS__ = {
+      location: { protocol: "https:" },
+      useAnalyzeApi: true,
+      analyzeEndpoint: "/api/analyze",
+      requestId: () => `req_stage6f_fix3_isolation_${window.__stage6fFix3CallCount + 1}`,
+      apiClient: {
+        canUseApi: () => true,
+        callAnalyzeApi: async () => {
+          window.__stage6fFix3CallCount += 1;
+          sessionStorage.setItem("__stage6fFix3CallCount", String(window.__stage6fFix3CallCount));
+          if (window.__stage6fFix3CallCount === 1) {
+            return {
+              ok: true,
+              request_id: "req_stage6f_fix3_isolation_1",
+              status: "SUCCESS",
+              provider: "qwen",
+              analysis_result: analysisResult,
+            };
+          }
+          return {
+            ok: false,
+            request_id: "req_stage6f_fix3_isolation_2",
+            status: "RETRY_REQUIRED",
+            error: {
+              code: "NOT_PALM",
+              message: "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。",
+              retryable: true,
+            },
+          };
+        },
+      },
+    };
+  }, firstResult);
+
+  await page.goto(localPageUrl("upload"), { waitUntil: "domcontentloaded" });
+  await attachGeneratedImageFile(page, {
+    name: "mock-palm-a.jpg",
+    type: "image/jpeg",
+    width: 1200,
+    height: 1200,
+    minBytes: 256 * 1024,
+  });
+  await page.click("#checkFile");
+  await page.waitForFunction(() => /基础检查/.test(document.querySelector("#uploadStatus").textContent || ""), null, { timeout: 15000 });
+  await page.click("#startAnalyze");
+  await page.waitForURL(/\/result\/index\.html|\/result\/?/, { timeout: 30000 });
+  const firstStored = await page.evaluate((key) => sessionStorage.getItem(key), STORAGE_KEYS.stableAnalysis);
+  assert.ok(firstStored, "first valid analysis should store a result");
+  assert.match(firstStored, /P25|老干部/, "first valid mocked result intentionally uses P25");
+
+  await page.goto(localPageUrl("upload"), { waitUntil: "domcontentloaded" });
+  await attachGeneratedImageFile(page, {
+    name: "not-palm-second.jpg",
+    type: "image/jpeg",
+    width: 1000,
+    height: 1000,
+    minBytes: 128 * 1024,
+  });
+  await page.click("#checkFile");
+  await page.waitForFunction(() => /基础检查/.test(document.querySelector("#uploadStatus").textContent || ""), null, { timeout: 15000 });
+  await page.click("#startAnalyze");
+  await page.waitForFunction(() => /未检测到清晰掌心|NOT_PALM/.test(document.body.innerText || ""), null, { timeout: 30000 });
+
+  const secondState = await page.evaluate((key) => ({
+    url: location.href,
+    text: document.body.innerText || "",
+    stableRaw: sessionStorage.getItem(key),
+    callCount: window.__stage6fFix3CallCount,
+  }), STORAGE_KEYS.stableAnalysis);
+  assert.match(secondState.url, /\/upload\/index\.html|\/upload\/?$/, "second NOT_PALM must not navigate to result");
+  assert.equal(secondState.callCount, 2, "second analysis should be a distinct API call");
+  assert.equal(secondState.stableRaw, firstStored, "invalid second analysis must not overwrite last valid result");
+  assert.doesNotMatch(secondState.text, /P25|老干部/, "second NOT_PALM status must not display previous P25 result");
+
+  await assertBrowserClean(signals, "stage6f fix3 repeated analysis isolation");
+  await page.close();
+  return {
+    status: "PASS",
+    first_result_preserved: true,
+    second_code: "NOT_PALM",
+  };
+}
+
+async function validateStage6FFix3PosterContract(context) {
+  const page = await context.newPage();
+  const signals = createSignals(page);
+  const result = completeAnalysisResult({
+    extra: {
+      analysis_id: "analysis_stage6f_fix3_poster",
+      valid_palm: true,
+    },
+  });
+
+  await page.addInitScript((analysisResult) => {
+    sessionStorage.setItem("palmmi:last-analysis", JSON.stringify({
+      version: 1,
+      analysis_id: "analysis_stage6f_fix3_poster",
+      created_at: "2026-05-21T00:00:00.000Z",
+      provider: "qwen",
+      analysis_result: analysisResult,
+    }));
+    sessionStorage.setItem("palmmi:lastAnalysisResult", JSON.stringify(analysisResult));
+  }, result);
+
+  await page.goto(localPageUrl("poster"), { waitUntil: "domcontentloaded" });
+  await waitForPageState(page, "#posterApp");
+  const state = await page.evaluate(() => ({
+    state: document.querySelector("#posterApp").dataset.state,
+    readyVisible: !document.querySelector("#posterReady").hidden,
+    problemVisible: !document.querySelector("#posterProblem").hidden,
+    text: document.body.innerText || "",
+  }));
+  assert.equal(state.readyVisible, true, "valid analysis_result must render a basic poster");
+  assert.equal(state.problemVisible, false, "valid poster contract must not render problem panel");
+  assert.doesNotMatch(state.text, /字段缺失|照片掌纹不够清晰/, "valid poster must not show missing-field or retake copy");
+
+  await assertBrowserClean(signals, "stage6f fix3 poster contract");
+  await page.close();
+  return {
+    status: "PASS",
+    poster_state: state.state,
+  };
+}
+
+async function validateStage6FFix3InvalidPosterBlocked(context) {
+  const page = await context.newPage();
+  const signals = createSignals(page);
+  const invalidResult = {
+    ...completeAnalysisResult(),
+    status: "failed",
+    valid_palm: false,
+    quality_status: "NOT_PALM",
+    user_message: "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。",
+  };
+
+  await page.addInitScript((analysisResult) => {
+    sessionStorage.setItem("palmmi:last-analysis", JSON.stringify({
+      version: 1,
+      analysis_id: "analysis_stage6f_fix3_not_palm",
+      created_at: "2026-05-21T00:00:00.000Z",
+      provider: "qwen",
+      analysis_result: analysisResult,
+    }));
+  }, invalidResult);
+
+  await page.goto(localPageUrl("poster"), { waitUntil: "domcontentloaded" });
+  await waitForPageState(page, "#posterApp");
+  const state = await page.evaluate(() => ({
+    state: document.querySelector("#posterApp").dataset.state,
+    readyVisible: !document.querySelector("#posterReady").hidden,
+    problemVisible: !document.querySelector("#posterProblem").hidden,
+    text: document.body.innerText || "",
+  }));
+  assert.equal(state.readyVisible, false, "invalid result must not render poster");
+  assert.equal(state.problemVisible, true, "invalid result must show poster problem panel");
+  assert.match(state.text, /未检测到清晰掌心|重新拍摄|清晰、正面、完整/, "invalid poster should ask for a clear palm retake");
+
+  await assertBrowserClean(signals, "stage6f fix3 invalid poster blocked");
+  await page.close();
+  return {
+    status: "PASS",
+    poster_state: state.state,
+  };
+}
+
+async function validateStage6FFix3ServerValidityContract() {
+  const { runAnalyzeApi } = require(path.join(root, "server", "stage5p", "analyze-service.js"));
+  const env = {
+    PALMMI_VLM_PROVIDER: "qwen",
+    PALMMI_VLM_MODE: "real-only",
+    PALMMI_QWEN_API_KEY: "stage6f-test-key",
+    QWEN_API_KEY: "",
+  };
+  const payload = {
+    request_id: "req_stage6f_fix3_server_not_palm",
+    anonymous_device_id: "anon_stage6f_fix3_server",
+    locale: "zh-CN",
+    image: {
+      file_name: "not-palm-beverage.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+      side: "unknown",
+    },
+  };
+
+  const notPalm = await runAnalyzeApi(payload, {
+    env,
+    fetchImpl: async () => new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            validity: {
+              is_palm_photo: false,
+              is_single_hand: false,
+              is_palm_side_visible: false,
+              palm_lines_visible: false,
+              image_quality: "not_palm",
+              reject_reason: "beverage object",
+            },
+            palm_features: {
+              visible_features: [],
+              confidence: 0,
+            },
+            result: {
+              personality_id: null,
+              candidate_results: [],
+            },
+          }),
+        },
+      }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }),
+  });
+  assert.equal(notPalm.ok, false, "server must reject non-palm images");
+  assert.equal(notPalm.error.code, "NOT_PALM", "server must expose NOT_PALM");
+  assertNoResponseLeaks(notPalm, "server NOT_PALM response");
+
+  const unreliable = await runAnalyzeApi({
+    ...payload,
+    request_id: "req_stage6f_fix3_server_unreliable",
+  }, {
+    env,
+    fetchImpl: async () => new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            validity: {
+              is_palm_photo: true,
+              is_single_hand: true,
+              is_palm_side_visible: true,
+              palm_lines_visible: true,
+              image_quality: "clear",
+              reject_reason: "",
+            },
+            palm_features: {
+              visible_features: [],
+              confidence: 0.2,
+            },
+            result: {
+              personality_id: null,
+              candidate_results: [],
+            },
+          }),
+        },
+      }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }),
+  });
+  assert.equal(unreliable.ok, false, "server must reject unreliable incomplete results");
+  assert.equal(unreliable.error.code, "ANALYSIS_UNRELIABLE", "server must expose ANALYSIS_UNRELIABLE");
+  assert.doesNotMatch(JSON.stringify(unreliable), /P25|老干部/, "unreliable response must not contain default P25");
+  assertNoResponseLeaks(unreliable, "server ANALYSIS_UNRELIABLE response");
+
+  return {
+    status: "PASS",
+    not_palm_code: notPalm.error.code,
+    unreliable_code: unreliable.error.code,
   };
 }
 
@@ -1332,6 +1736,7 @@ async function main() {
     normal_palm_upload: null,
     stage6f_fix: {},
     stage6f_fix2: {},
+    stage6f_fix3: {},
     abnormal_inputs: {},
     simulated_qwen_errors: null,
     missing_fixtures: [],
@@ -1341,6 +1746,7 @@ async function main() {
     summary.production_access.api_endpoint = await validateApiEndpoint();
     summary.stage5_assets = await validateStage5Assets();
     summary.stage6f_fix.storage_contract = await validateStage6FFixStorageContract();
+    summary.stage6f_fix3.server_validity_contract = await validateStage6FFix3ServerValidityContract();
 
     for (const device of deviceMatrix(playwright)) {
       const context = await browser.newContext(device.options);
@@ -1363,6 +1769,11 @@ async function main() {
       summary.stage6f_fix.photo_check_button = await validateLocalPhotoCheckButton(mobileContext, fixturePath);
       summary.stage6f_fix2.inline_analyze_flow = await validateStage6FFix2InlineAnalyzeFlow(mobileContext);
       summary.stage6f_fix2.timeout_handling = await validateStage6FFix2TimeoutHandling(mobileContext);
+      summary.stage6f_fix3.invalid_image_gate = await validateStage6FFix3InvalidImageGate(mobileContext);
+      summary.stage6f_fix3.no_default_persona_fallback = await validateStage6FFix3NoDefaultPersonaFallback(mobileContext);
+      summary.stage6f_fix3.repeated_analysis_isolation = await validateStage6FFix3RepeatedAnalysisIsolation(mobileContext);
+      summary.stage6f_fix3.poster_contract = await validateStage6FFix3PosterContract(mobileContext);
+      summary.stage6f_fix3.invalid_poster_blocked = await validateStage6FFix3InvalidPosterBlocked(mobileContext);
       summary.abnormal_inputs.non_image = await validateBlockedUpload(
         mobileContext,
         "iPhone Safari simulated non-image",

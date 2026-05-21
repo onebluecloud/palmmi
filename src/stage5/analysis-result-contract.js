@@ -1,6 +1,9 @@
 const ANALYSIS_RESULT_CONTRACT_SCHEMA_VERSION = "analysis-result.v1";
 const STAGE5H_TRACE_STAGE = "5H";
 const IMAGE_NOT_CLEAR_MESSAGE = "这张照片掌纹不够清晰，请重新拍摄后再试。";
+const NOT_PALM_MESSAGE = "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。";
+const ANALYSIS_UNRELIABLE_MESSAGE = "本次识别结果不稳定，请换一张更清晰的掌心照片后重试。";
+const TERMINAL_QUALITY_STATUSES = new Set(["NOT_PALM", "IMAGE_NOT_CLEAR", "ANALYSIS_UNRELIABLE", "RETRY_REQUIRED", "REJECTED"]);
 
 let frozenDisplayContent = [];
 try {
@@ -140,6 +143,9 @@ function readPersona(stage5bResult, recognitionResult) {
     if (!id || !name || confidence === null) {
       throw new Error("AnalysisResultContract requires persona id, name, and numeric confidence.");
     }
+    if (!readDisplayContent(id)) {
+      throw new Error("AnalysisResultContract requires a known frozen persona id.");
+    }
     return {
       id,
       name,
@@ -157,6 +163,9 @@ function readPersona(stage5bResult, recognitionResult) {
 
   if (!id || !name || confidence === null) {
     throw new Error("AnalysisResultContract requires persona id, name, and numeric confidence.");
+  }
+  if (!readDisplayContent(id)) {
+    throw new Error("AnalysisResultContract requires a known frozen persona id.");
   }
 
   return {
@@ -316,6 +325,11 @@ function buildDisplayPayload({ persona, primaryPersona, recognitionResult, diagn
   const title = stringOrNull(displayContent && displayContent.poster_title)
     || stringOrNull(displayContent && displayContent.persona_name)
     || persona.name;
+  const posterTitle = stringOrNull(displayContent && displayContent.poster_title) || title;
+  const posterSubtitle = stringOrNull(displayContent && displayContent.poster_subtitle)
+    || stringOrNull(displayContent && displayContent.quote)
+    || stringOrNull(primaryPersona.hook)
+    || "";
   const summary = stringOrNull(displayContent && displayContent.quote)
     || stringOrNull(displayContent && displayContent.hook)
     || stringOrNull(primaryPersona.hook)
@@ -347,8 +361,10 @@ function buildDisplayPayload({ persona, primaryPersona, recognitionResult, diagn
   const qualityFailed = qualityGate.passed === false || status === "failed";
   let qualityStatus = "OK";
 
-  if (!isDisplayable || qualityFailed) {
+  if (qualityFailed) {
     qualityStatus = "IMAGE_NOT_CLEAR";
+  } else if (!isDisplayable) {
+    qualityStatus = "ANALYSIS_UNRELIABLE";
   } else if (status === "degraded" && diagnostics.lowConfidenceFieldCount > 0) {
     qualityStatus = "LOW_CONFIDENCE";
   } else if (status === "degraded") {
@@ -360,6 +376,9 @@ function buildDisplayPayload({ persona, primaryPersona, recognitionResult, diagn
     personality_name: persona.name,
     main_line_type: mainLineType,
     title,
+    poster_title: posterTitle,
+    poster_subtitle: posterSubtitle,
+    poster_quote: posterSubtitle || summary,
     summary,
     description,
     evidence,
@@ -367,12 +386,17 @@ function buildDisplayPayload({ persona, primaryPersona, recognitionResult, diagn
     traits,
     match_reason: matchReason,
     candidate_results: readCandidateResults(recognitionResult, primaryPersona, { main_line_type: mainLineType }),
+    valid_palm: !TERMINAL_QUALITY_STATUSES.has(qualityStatus),
     quality_status: qualityStatus,
-    user_message: qualityStatus === "IMAGE_NOT_CLEAR"
-      ? IMAGE_NOT_CLEAR_MESSAGE
-      : qualityStatus === "LOW_CONFIDENCE"
-        ? "这次图片可读性一般，结果更适合作为娱乐参考。"
-        : "分析已完成。",
+    user_message: qualityStatus === "NOT_PALM"
+      ? NOT_PALM_MESSAGE
+      : qualityStatus === "IMAGE_NOT_CLEAR"
+        ? IMAGE_NOT_CLEAR_MESSAGE
+        : qualityStatus === "ANALYSIS_UNRELIABLE"
+          ? ANALYSIS_UNRELIABLE_MESSAGE
+          : qualityStatus === "LOW_CONFIDENCE"
+            ? "这次图片可读性一般，结果更适合作为娱乐参考。"
+            : "分析已完成。",
   };
 }
 
@@ -430,15 +454,15 @@ function buildAnalysisResultContract(stage5bResult, options = {}) {
     status,
     qualityGate,
   });
-  const effectiveStatus = displayPayload.quality_status === "IMAGE_NOT_CLEAR" ? "failed" : status;
+  const effectiveStatus = TERMINAL_QUALITY_STATUSES.has(displayPayload.quality_status) ? "failed" : status;
   const summary = buildSummary(persona, primaryPersona, displayPayload);
   const qualityScore = readQualityScore(qualityGate);
   const matchScore = topMatchScore(recognitionResult, primaryPersona);
   const warnings = buildWarnings(
     diagnosticsBase,
     qualityGate,
-    displayPayload.quality_status === "IMAGE_NOT_CLEAR"
-      ? uniqueStrings([...contractWarnings, "IMAGE_NOT_CLEAR"])
+    TERMINAL_QUALITY_STATUSES.has(displayPayload.quality_status)
+      ? uniqueStrings([...contractWarnings, displayPayload.quality_status])
       : contractWarnings
   );
 
