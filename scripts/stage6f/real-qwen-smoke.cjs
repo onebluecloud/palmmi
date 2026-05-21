@@ -506,7 +506,7 @@ function disabledSummary(options) {
     status: "REAL_QWEN_DISABLED",
     message: "No API call was made.",
     notice: [
-      "This script will call real Qwen API up to 3 times.",
+      "This script validates up to 3 samples and may make up to 5 real Qwen API calls.",
       "It may consume quota.",
       "Use --real to confirm.",
     ],

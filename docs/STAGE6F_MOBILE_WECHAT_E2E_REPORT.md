@@ -2,6 +2,37 @@
 
 Date: 2026-05-21
 
+## Stage 6F Real Qwen Smoke PASS 记录
+
+用户已在 Fix-5 后运行真实 Qwen smoke，结果为脱敏 summary。本轮只记录结果，不继续真实调用 Qwen，不进入 Stage 6G。
+
+```text
+Real Qwen smoke: PASS
+Android WeChat: MANUAL_RETEST_REQUIRED
+iOS WeChat: MANUAL_REQUIRED
+Stage 6G: BLOCKED
+```
+
+### 真实 Smoke 结果
+
+| 样本 | 结果 | 关键字段 | usage |
+|---|---|---|---|
+| not_palm | PASS | `NOT_PALM`，`valid_palm=false`，`has_personality_result=false`，`personality_id=null` | total_tokens 1817 |
+| palm_faint | PASS_OR_REVIEW | `actual_code=OK`，`quality_status=LOW_CONFIDENCE`，`valid_palm=true`，`personality_id=P25`，`has_personality_result=true`，`candidate_count=3` | total_tokens 3141 |
+| palm_clear | PASS | `actual_code=OK`，`quality_status=LOW_CONFIDENCE`，`valid_palm=true`，`personality_id=P25`，`has_personality_result=true`，`candidate_count=3` | total_tokens 3156 |
+
+结论：
+
+- 非手掌拦截已生效。
+- 有效手掌不再卡在 `ANALYSIS_UNRELIABLE`。
+- valid palm personality pipeline 已恢复。
+- smoke 输出未包含 Key / Token / base64 / raw Qwen response。
+
+注意事项：
+
+- `api_calls_made=5`。原文档“最多 3 次 API 调用”的理解不准确，正确描述是：最多 3 个样本；完整 `provider.analyze()` 对有效手掌可能执行 validity + personality 两阶段，因此真实 Qwen API 调用次数可能达到 5 次。
+- 两张手掌均返回 P25。当前样本量不足，不能直接判定人格塌缩失败；但后续安卓微信多图复测必须继续观察不同手掌是否仍全部 P25。
+
 ## Stage 6F-Fix-5 追加记录
 
 用户已运行真实 Qwen 小样本 smoke，输出为脱敏 summary。本轮不继续真实调用 Qwen，不进入 Stage 6G。
@@ -39,7 +70,7 @@ Date: 2026-05-21
 | non-palm still rejected | PASS | Fix-4 / Fix-5 回归继续覆盖 `NOT_PALM` |
 | smoke dry run | PASS | 无 `--real` 输出 `REAL_QWEN_DISABLED`，`api_calls_made=0` |
 
-Fix-5 后尚未重新运行真实 Qwen smoke。Stage 6G 继续 `BLOCKED`，直到真实 Qwen 小样本、安卓微信和 iOS 微信真机验收补齐。
+Fix-5 后用户已重新运行真实 Qwen smoke，核心验收通过；Stage 6G 仍继续 `BLOCKED`，直到安卓微信和 iOS 微信真机验收补齐。
 
 ## Stage 6F-Real-Qwen-Smoke 追加记录
 
@@ -70,6 +101,7 @@ Stage 6G: BLOCKED
 | 目录模式 | READY | 支持 `--image-dir "E:\其他\Palmmi\Palmmi-test-images"` |
 | 显式路径模式 | READY | 支持 `--not-palm` / `--palm-faint` / `--palm-clear` |
 | 样本数量 | LIMITED | 最多处理 3 张图片：非手掌、掌纹偏淡、清晰手掌 |
+| API 调用次数 | RECORDED | 完整 `provider.analyze()` 对有效手掌可能执行两阶段，最多约 5 次真实 Qwen API 调用 |
 | Key 读取 | READY | `PALMMI_QWEN_API_KEY` -> `QWEN_API_KEY` -> `DASHSCOPE_API_KEY` |
 | 输出 | PASS | 只输出脱敏 summary，不输出 Key / Token / base64 / raw Qwen response |
 | CI / Stage6F 默认测试 | PASS | 不纳入真实 API 默认流程；`test:stage6f` 只验证 dry run |

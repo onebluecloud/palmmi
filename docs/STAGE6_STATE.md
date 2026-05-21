@@ -2,13 +2,13 @@
 
 ## 当前阶段
 
-Stage 6F-Fix-5：Complete Valid Palm Personality Result Pipeline 已完成代码修复和自动化回归。
+Stage 6F：真实 Qwen smoke 已通过核心验收，微信真机仍需复测。
 
-Stage 6F-Fix-5 status: CODE_FIXED_REAL_QWEN_RETEST_REQUIRED
+Stage 6F status: REAL_QWEN_SMOKE_PASS / MANUAL_RETEST_REQUIRED
 
 Stage 6G: BLOCKED
 
-Reason: 用户真实 Qwen smoke 已证明非手掌 `NOT_PALM` 通过，但 `palm_faint` / `palm_clear` 均为 `valid_palm=true` 后缺少人格结果并进入 `ANALYSIS_UNRELIABLE`。本轮修复 smoke 完整 pipeline、有效手掌低置信人格结果、parser 字段别名和缺 result 诊断；尚未获得修复后的真实 Qwen smoke 复测、安卓微信复测和 iOS 微信真机验收，Stage 6G 继续 BLOCKED。
+Reason: 用户在 Fix-5 后运行真实 Qwen smoke，`not_palm` 返回 `NOT_PALM`，`palm_faint` / `palm_clear` 均为 `valid_palm=true` 且有合法人格结果，说明有效手掌人格结果 pipeline 已恢复。Stage 6G 仍 BLOCKED，原因是安卓微信真机仍需复测，iOS 微信也仍未真机验收。
 
 ## 已完成
 
@@ -47,9 +47,9 @@ Reason: 用户真实 Qwen smoke 已证明非手掌 `NOT_PALM` 通过，但 `palm
   - 新增 `npm run smoke:stage6f:qwen`，默认无 `--real` 时只输出 `REAL_QWEN_DISABLED`，不调用真实 Qwen。
   - 支持用户本地目录 `E:\其他\Palmmi\Palmmi-test-images` 的 `--image-dir` 自动识别，以及 `--not-palm` / `--palm-faint` / `--palm-clear` 显式路径模式。
   - 支持 `--timeout-ms`、`--model`，Key 读取顺序为 `PALMMI_QWEN_API_KEY`、`QWEN_API_KEY`、`DASHSCOPE_API_KEY`。
-  - 真实运行最多处理 3 个样本；输出脱敏 summary，不输出 Key / Token / base64 / raw Qwen response，不提交图片。
+  - 真实运行最多处理 3 个样本；完整 `provider.analyze()` 对有效手掌会执行两阶段，真实 Qwen API 调用次数可能达到 5 次；输出脱敏 summary，不输出 Key / Token / base64 / raw Qwen response，不提交图片。
   - Real Qwen smoke script: READY
-  - Real Qwen smoke result: RUN_FAILED_BEFORE_FIX5
+  - Real Qwen smoke result: PASS_AFTER_FIX5
 - Stage 6F-Fix-5：
   - 真实 smoke 结果记录：not_palm PASS，`NOT_PALM`，total_tokens 2189。
   - 真实 smoke 结果记录：palm_faint FAIL，`valid_palm=true`、`personality_id=null`、`candidate_count=0`、`ANALYSIS_UNRELIABLE`，total_tokens 2957。
@@ -59,6 +59,14 @@ Reason: 用户真实 Qwen smoke 已证明非手掌 `NOT_PALM` 通过，但 `palm
   - 修复 parser：支持 `personalityId`、`personality`、`primary_personality_id`、`candidates` / `result.candidates` 等真实字段别名；人格名称只做冻结 36 型人格精确匹配。
   - 新增诊断：`VALIDITY_PASS_RESULT_MISSING`、`SMOKE_PIPELINE_INCOMPLETE`。
   - 保留 `NOT_PALM` 拦截和禁止默认 P25 / 老干部兜底。
+- Stage 6F Real Qwen Smoke after Fix-5：
+  - 总体结果：PASS。
+  - `not_palm`：PASS，`NOT_PALM`，`valid_palm=false`，`has_personality_result=false`，`personality_id=null`，total_tokens 1817。
+  - `palm_faint`：PASS_OR_REVIEW，`actual_code=OK`，`quality_status=LOW_CONFIDENCE`，`valid_palm=true`，`personality_id=P25`，`has_personality_result=true`，`candidate_count=3`，total_tokens 3141。
+  - `palm_clear`：PASS，`actual_code=OK`，`quality_status=LOW_CONFIDENCE`，`valid_palm=true`，`personality_id=P25`，`has_personality_result=true`，`candidate_count=3`，total_tokens 3156。
+  - `api_calls_made=5`，符合完整 pipeline 的两阶段调用成本预期修正。
+  - 未输出 Key / Token / base64 / raw Qwen response。
+  - 两张手掌均返回 P25：当前不判定失败，但后续安卓微信多图复测必须继续观察是否存在人格塌缩。
 
 ## 用户真机复测失败记录
 
@@ -173,7 +181,9 @@ Stage 6F-Fix-3 部署到 `aa51bf5bdfe1822cb98059878ab3c74f6cb5e708` 后，用户
 |---|---|---|
 | Real Qwen smoke script | READY | `scripts/stage6f/real-qwen-smoke.cjs` |
 | Real Qwen smoke result before Fix-5 | RUN_FAILED | not_palm PASS；palm_faint / palm_clear 均 `valid_palm=true` 但 result missing |
-| Real Qwen smoke result after Fix-5 | NOT_RUN | Codex 未继续真实调用 Qwen；需用户后续显式加 `--real` 才能复测 |
+| Real Qwen smoke result after Fix-5 | PASS | not_palm / palm_faint / palm_clear 核心验收通过 |
+| Real Qwen smoke API calls | RECORDED | `api_calls_made=5`；最多 3 个样本，但有效手掌两阶段导致最多约 5 次真实调用 |
+| Real Qwen smoke P25 observation | REVIEW_IN_WECHAT_RETEST | 两张手掌均返回 P25，暂不判定失败，后续多图复测继续观察人格塌缩 |
 | 用户本地图片目录 | READY_FOR_USER_RUN | `E:\其他\Palmmi\Palmmi-test-images`，不提交进 Git |
 | 目录模式 | READY | `npm run smoke:stage6f:qwen -- --real --image-dir "E:\其他\Palmmi\Palmmi-test-images"` |
 | 显式路径模式 | READY | 支持 `--not-palm` / `--palm-faint` / `--palm-clear` |
@@ -236,7 +246,8 @@ Codex 没有把微信真机测试伪造成 PASS。
 | 安卓微信非手掌拒绝复测 | MANUAL_RETEST_REQUIRED | 啤酒 / 饮料 / 非手掌图片必须被拒绝，不能进入人格结果 |
 | 安卓微信非手掌不超时复测 | MANUAL_RETEST_REQUIRED | 啤酒 / 饮料 / 非手掌图片必须稳定显示 `NOT_PALM` |
 | 安卓微信海报生成复测 | MANUAL_RETEST_REQUIRED | 有效结果页能展示人格时，海报页也必须能生成基础海报 |
-| Real Qwen smoke Fix-5 后真实小样本结果 | NOT_RUN_AFTER_FIX5 | 代码层修复已完成，但 Codex 未继续真实调用 Qwen；后续如复测需用户显式执行 `--real` 并提供脱敏 summary |
+| 安卓微信正常手掌人格结果复测 | MANUAL_RETEST_REQUIRED | 真实 Qwen smoke 已 PASS，但微信内置浏览器仍需确认正常手掌能出人格结果 |
+| 安卓微信 P25 塌缩观察 | MANUAL_RETEST_REQUIRED | 两张 smoke 手掌均为 P25，需用更多真机样本观察是否仍全部 P25 |
 | 偏暗图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
 | 模糊图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
 | 裁切不完整图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
@@ -245,7 +256,7 @@ Codex 没有把微信真机测试伪造成 PASS。
 
 是否可以进入 Stage 6G: BLOCKED
 
-条件：只有在 Fix-5 部署后完成真实 Qwen 小样本复测、安卓微信拍照上传 / 相册上传 / 非手掌稳定 `NOT_PALM` 且不超时 / 多手掌不塌缩 P25 / 海报生成真机复测通过，且继续保持无 Key / Token / base64 / raw response 泄露，才允许重新评估 Stage 6G。
+条件：真实 Qwen smoke 已通过核心验收。只有在 Fix-5 部署后安卓微信拍照上传 / 相册上传 / 非手掌稳定 `NOT_PALM` 且不超时 / 正常手掌能出人格结果 / 多手掌不塌缩 P25 / 海报生成真机复测通过，且继续保持无 Key / Token / base64 / raw response 泄露，才允许重新评估 Stage 6G。
 
 ## 当前禁止修改
 
