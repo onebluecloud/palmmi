@@ -2,6 +2,45 @@
 
 Date: 2026-05-21
 
+## Stage 6F-Fix-5 追加记录
+
+用户已运行真实 Qwen 小样本 smoke，输出为脱敏 summary。本轮不继续真实调用 Qwen，不进入 Stage 6G。
+
+真实 smoke 结果：
+
+| 样本 | 结果 | 关键事实 |
+|---|---|---|
+| not_palm | PASS | `NOT_PALM`，`valid_palm=false`，无人格结果，total_tokens 2189 |
+| palm_faint | FAIL_OR_NEEDS_PROMPT_TUNING | `valid_palm=true`，`personality_id=null`，`candidate_count=0`，`ANALYSIS_UNRELIABLE`，total_tokens 2957 |
+| palm_clear | FAIL | `valid_palm=true`，`personality_id=null`，`candidate_count=0`，`ANALYSIS_UNRELIABLE`，total_tokens 2957 |
+
+判断：非手掌拦截已经成立；真实手掌没有被误判为非手掌。问题集中在 valid palm 通过后，人格分析 result 没有产出或没有被 parser 接住。
+
+### Stage 6F-Fix-5 修复内容
+
+| 修复项 | 状态 | 说明 |
+|---|---|---|
+| smoke 只跑 validity / 单次解析风险 | CODE_FIXED_AUTOMATED_PASS | 真实模式改为调用完整 `provider.analyze()` pipeline |
+| valid palm 后人格分析 | CODE_FIXED_AUTOMATED_PASS | validity 通过后继续第二阶段分析；低置信但合法人格结果返回 `LOW_CONFIDENCE` |
+| prompt 有效手掌 result 要求 | CODE_FIXED_AUTOMATED_PASS | 明确要求 valid palm 必须输出 `result.personality_id` 和 `candidate_results` |
+| parser 字段别名 | CODE_FIXED_AUTOMATED_PASS | 支持 `personalityId`、`personality`、`primary_personality_id`、`candidates` / `result.candidates` 等别名 |
+| 人格名称映射 | CODE_FIXED_AUTOMATED_PASS | 只允许精确匹配冻结 36 型人格名称，不做模糊猜测 |
+| NOT_PALM 拦截 | PASS | 保留非手掌只返回 `NOT_PALM`，不进入人格结果 |
+| 默认 P25 / 老干部兜底 | PASS | 未恢复默认人格兜底 |
+| 新诊断 | PASS | 新增 `VALIDITY_PASS_RESULT_MISSING` / `SMOKE_PIPELINE_INCOMPLETE` |
+
+### Fix-5 自动化复测结果
+
+| 场景 | 结果 | 说明 |
+|---|---|---|
+| valid palm must produce personality result | PASS | mock 有效手掌低置信结果返回 `LOW_CONFIDENCE`、`P25`、1 个候选 |
+| valid palm without result should not be final success | PASS | 第二阶段缺 result 时返回 `ANALYSIS_UNRELIABLE` + `VALIDITY_PASS_RESULT_MISSING` |
+| parser aliases | PASS | 精确人格名称和 candidate aliases 可解析为合法 ID |
+| non-palm still rejected | PASS | Fix-4 / Fix-5 回归继续覆盖 `NOT_PALM` |
+| smoke dry run | PASS | 无 `--real` 输出 `REAL_QWEN_DISABLED`，`api_calls_made=0` |
+
+Fix-5 后尚未重新运行真实 Qwen smoke。Stage 6G 继续 `BLOCKED`，直到真实 Qwen 小样本、安卓微信和 iOS 微信真机验收补齐。
+
 ## Stage 6F-Real-Qwen-Smoke 追加记录
 
 本轮不是 Stage 6G，也不继续盲修业务逻辑。本轮新增一个人工显式触发的真实 Qwen API 小样本验收脚本，用来验证当前 prompt / parser / contract 在真实 Qwen 返回下是否成立。
@@ -539,7 +578,7 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 
 是否可以进入 Stage 6G: BLOCKED
 
-条件：本次 Fix-4 部署后，必须补充安卓微信拍照上传、相册上传、非手掌稳定 `NOT_PALM` 且不超时、多手掌不塌缩 P25、海报生成和 iPhone 微信真机测试；在用户提供真实复测通过结果前，不允许进入 Stage 6G。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
+条件：本次 Fix-5 部署后，必须补充真实 Qwen 小样本复测、安卓微信拍照上传、相册上传、非手掌稳定 `NOT_PALM` 且不超时、多手掌不塌缩 P25、海报生成和 iPhone 微信真机测试；在用户提供真实复测通过结果前，不允许进入 Stage 6G。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
 
 ## 17. 当前阻塞项
 
@@ -612,4 +651,4 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 | 没有修改 Stage 3 规则 / 权重 / 阈值 | PASS | 未修改相关文件 |
 | 没有重做 Stage 4 UI | PASS | 未修改 UI 主风格 |
 | 没有重写 Stage 5 VLM 主逻辑 | PASS | 未修改 VLM 主逻辑 |
-| 是否可以进入 Stage 6G | FAIL | Stage 6F-Fix-3 后安卓微信复测仍发现 NOT_PALM gate 不稳定；Fix-4 部署后仍需人工复测 |
+| 是否可以进入 Stage 6G | FAIL | Fix-5 后仍需真实 Qwen 小样本复测、安卓微信复测和 iOS 微信真机测试 |

@@ -1727,6 +1727,183 @@ function validateRealQwenSmokeDryRun() {
   };
 }
 
+async function validateStage6FFix5ValidPalmProducesPersonalityResult() {
+  const {
+    QwenVlmProvider,
+  } = require(path.join(root, "server", "stage5p", "providers", "qwen-vlm-provider.js"));
+  const provider = new QwenVlmProvider({
+    env: {
+      PALMMI_QWEN_API_KEY: "stage6f-test-key",
+      QWEN_API_KEY: "",
+    },
+    fetchImpl: async () => {
+      fetchCount += 1;
+      const payload = fetchCount === 1
+        ? {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "clear",
+            reject_reason: "",
+          },
+          palm_features: null,
+          result: null,
+        }
+        : {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "acceptable",
+            reject_reason: "",
+          },
+          palm_features: {
+            main_line_type: "M1",
+            confidence: 0.42,
+          },
+          result: {
+            personality_id: "P25",
+            candidate_results: [{
+              personality_id: "P25",
+              main_line_type: "M1",
+              confidence: 0.42,
+              reason: "observable palm features only",
+            }],
+          },
+        };
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(payload) } }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    },
+  });
+  let fetchCount = 0;
+
+  const result = await provider.analyze({
+    request_id: "req_stage6f_fix5_valid_palm",
+    image: {
+      file_name: "valid-palm.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+    },
+  });
+
+  assert.equal(fetchCount, 2, "valid palm must continue from validity request to personality analysis request");
+  assert.equal(result.ok, true, "valid palm with legal low-confidence personality result must not become ANALYSIS_UNRELIABLE");
+  assert.equal(result.status, "LOW_CONFIDENCE", "valid palm confidence below review threshold should be LOW_CONFIDENCE");
+  assert.equal(result.parsed.isValidPalmImage, true);
+  assert.equal(result.parsed.result.personalityId, "P25");
+  assert.equal(result.parsed.result.candidateResults.length, 1);
+  assertNoResponseLeaks(result, "stage6f fix5 valid palm provider result");
+
+  return {
+    status: "PASS",
+    fetch_count: fetchCount,
+    provider_status: result.status,
+    personality_id: result.parsed.result.personalityId,
+    candidate_count: result.parsed.result.candidateResults.length,
+  };
+}
+
+async function validateStage6FFix5ValidPalmMissingResultDiagnosed() {
+  const {
+    QwenVlmProvider,
+  } = require(path.join(root, "server", "stage5p", "providers", "qwen-vlm-provider.js"));
+  let fetchCount = 0;
+  const provider = new QwenVlmProvider({
+    env: {
+      PALMMI_QWEN_API_KEY: "stage6f-test-key",
+      QWEN_API_KEY: "",
+    },
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              validity: {
+                is_palm_photo: true,
+                is_single_hand: true,
+                is_palm_side_visible: true,
+                palm_lines_visible: true,
+                image_quality: "clear",
+                reject_reason: "",
+              },
+              palm_features: fetchCount === 1 ? null : { main_line_type: "M1", confidence: 0.6 },
+              result: null,
+            }),
+          },
+        }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    },
+  });
+
+  const result = await provider.analyze({
+    request_id: "req_stage6f_fix5_validity_pass_result_missing",
+    image: {
+      file_name: "valid-palm-missing-result.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+    },
+  });
+
+  assert.equal(fetchCount, 2, "valid palm with missing final result must still execute the analysis stage before failing");
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "ANALYSIS_UNRELIABLE");
+  assert.equal(result.diagnostics && result.diagnostics.errorType, "VALIDITY_PASS_RESULT_MISSING");
+  assertNoResponseLeaks(result, "stage6f fix5 valid palm missing result response");
+
+  return {
+    status: "PASS",
+    code: result.error.code,
+    diagnostic: result.diagnostics && result.diagnostics.errorType,
+    fetch_count: fetchCount,
+  };
+}
+
+function validateStage6FFix5ParserPersonaAliases() {
+  const {
+    normalizeParsedPalmFeatures,
+  } = require(path.join(root, "server", "stage5p", "providers", "qwen-response-parser.js"));
+  const parsed = normalizeParsedPalmFeatures({
+    validity: {
+      is_palm_photo: true,
+      is_single_hand: true,
+      is_palm_side_visible: true,
+      palm_lines_visible: true,
+      image_quality: "acceptable",
+    },
+    palm_features: {
+      main_line_type: "M1",
+      confidence: 0.62,
+    },
+    result: {
+      personality: "老干部",
+      candidates: [{
+        personality: "老干部",
+        mainLineType: "M1",
+        confidence: 0.62,
+        reason: "exact frozen persona name",
+      }],
+    },
+  });
+
+  assert.equal(parsed.result.personalityId, "P25", "parser must map exact frozen persona names to known persona ids");
+  assert.equal(parsed.result.mainLineType, "M1");
+  assert.equal(parsed.result.candidateResults.length, 1);
+  assert.equal(parsed.result.candidateResults[0].personality_id, "P25");
+
+  return {
+    status: "PASS",
+    personality_id: parsed.result.personalityId,
+    candidate_count: parsed.result.candidateResults.length,
+  };
+}
+
 async function validateApiEndpoint() {
   const getResponse = await stage6Fetch(API_URL, { method: "GET" });
   const getJson = await getResponse.json();
@@ -2004,6 +2181,7 @@ async function main() {
     stage6f_fix2: {},
     stage6f_fix3: {},
     stage6f_fix4: {},
+    stage6f_fix5: {},
     real_qwen_smoke: null,
     abnormal_inputs: {},
     simulated_qwen_errors: null,
@@ -2018,6 +2196,9 @@ async function main() {
     summary.stage6f_fix4.not_palm_no_timeout = await validateStage6FFix4NotPalmGateDoesNotTimeout();
     summary.stage6f_fix4.validity_missing = await validateStage6FFix4ValidityMissingIsUnreliable();
     summary.stage6f_fix4.fetch_timeout = await validateStage6FFix4FetchTimeoutOnlyForRealTimeout();
+    summary.stage6f_fix5.valid_palm_personality = await validateStage6FFix5ValidPalmProducesPersonalityResult();
+    summary.stage6f_fix5.valid_palm_missing_result = await validateStage6FFix5ValidPalmMissingResultDiagnosed();
+    summary.stage6f_fix5.parser_persona_aliases = validateStage6FFix5ParserPersonaAliases();
     summary.real_qwen_smoke = validateRealQwenSmokeDryRun();
 
     for (const device of deviceMatrix(playwright)) {

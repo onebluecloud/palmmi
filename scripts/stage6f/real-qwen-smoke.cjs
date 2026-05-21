@@ -11,8 +11,6 @@ const {
 const {
   QwenVlmProvider,
   buildVlmFeatures,
-  validateParsedPalmValidity,
-  validateParsedForAnalysis,
 } = require("../../server/stage5p/providers/qwen-vlm-provider.js");
 const {
   buildAnalysisResultContract,
@@ -241,6 +239,21 @@ function publicCodeFromProviderFailure(response) {
     : ERROR_CODES.UNKNOWN_ERROR;
 }
 
+function diagnosticCodeFromFailure(response, sampleName, apiCalls) {
+  const errorType = response && response.diagnostics && typeof response.diagnostics.errorType === "string"
+    ? response.diagnostics.errorType
+    : "";
+  if (errorType === "VALIDITY_PASS_RESULT_MISSING") {
+    return "VALIDITY_PASS_RESULT_MISSING";
+  }
+  if ((sampleName === "palm_faint" || sampleName === "palm_clear")
+    && apiCalls < 2
+    && publicCodeFromProviderFailure(response) === ERROR_CODES.ANALYSIS_UNRELIABLE) {
+    return "SMOKE_PIPELINE_INCOMPLETE";
+  }
+  return errorType || null;
+}
+
 async function buildContractSummary(parsed, image, sampleName, model) {
   const providerResult = {
     ok: true,
@@ -402,17 +415,20 @@ async function runSample({ provider, sampleName, filePath, model }) {
     return response;
   };
 
-  const fetched = await provider.fetchAndParse({
-    prompt: provider.prompt,
-    image: {
-      content_type: contentType,
-    },
-    imageBuffer: buffer,
-    requestId: `real_qwen_smoke_${sampleName}`,
-    start,
-    stage: "qwen_smoke_single_pass_fetch",
-  });
-  provider.fetchImpl = originalFetch;
+  let providerResult;
+  try {
+    providerResult = await provider.analyze({
+      request_id: `real_qwen_smoke_${sampleName}`,
+      image: {
+        file_name: fileName,
+        content_type: contentType,
+        size_bytes: buffer.length,
+        buffer,
+      },
+    });
+  } finally {
+    provider.fetchImpl = originalFetch;
+  }
 
   const base = {
     ...sampleBase(sampleName),
@@ -423,60 +439,43 @@ async function runSample({ provider, sampleName, filePath, model }) {
     api_calls_made: apiCalls,
   };
 
-  if (!fetched.ok) {
-    const actualCode = publicCodeFromProviderFailure(fetched.response);
+  if (!providerResult || providerResult.ok === false) {
+    const actualCode = publicCodeFromProviderFailure(providerResult);
+    const diagnosticCode = diagnosticCodeFromFailure(providerResult, sampleName, apiCalls);
     const result = {
       ...base,
       status: "FAIL",
       actual_code: actualCode,
-      actual_quality_status: actualCode,
-      valid_palm: false,
+      actual_quality_status: diagnosticCode || actualCode,
+      diagnostic_code: diagnosticCode,
+      valid_palm: diagnosticCode === "VALIDITY_PASS_RESULT_MISSING",
       personality_id: null,
       has_personality_result: false,
       candidate_count: 0,
-      notes: noteFor({ actual_code: actualCode }),
+      notes: diagnosticCode === "VALIDITY_PASS_RESULT_MISSING"
+        ? "Validity passed, but the personality result was missing after full analysis."
+        : diagnosticCode === "SMOKE_PIPELINE_INCOMPLETE"
+          ? "Smoke pipeline did not reach the full personality analysis stage."
+          : noteFor({ actual_code: actualCode }),
     };
     result.status = statusForSample(sampleName, result);
     return result;
   }
 
-  const parsed = fetched.parsed;
-  const palmValidity = validateParsedPalmValidity(parsed);
+  const parsed = providerResult.parsed;
   const parsedPersonalityId = parsed.result && parsed.result.personalityId ? parsed.result.personalityId : null;
   const parsedCandidateCount = parsed.result && Array.isArray(parsed.result.candidateResults)
     ? parsed.result.candidateResults.length
     : 0;
-
-  if (!palmValidity.ok) {
-    const result = {
-      ...base,
-      status: "FAIL",
-      actual_code: palmValidity.code,
-      actual_quality_status: palmValidity.code,
-      valid_palm: false,
-      personality_id: null,
-      has_personality_result: false,
-      candidate_count: 0,
-      notes: noteFor({ actual_code: palmValidity.code }),
-    };
-    result.status = statusForSample(sampleName, result);
-    return result;
-  }
-
-  const analysisValidation = validateParsedForAnalysis(parsed);
   let contractSummary = null;
   try {
-    contractSummary = analysisValidation.ok
-      ? await buildContractSummary(parsed, image, sampleName, model)
-      : null;
+    contractSummary = await buildContractSummary(parsed, image, sampleName, model);
   } catch (error) {
     contractSummary = null;
   }
 
   const lowConfidence = parsed.confidence > 0 && parsed.confidence < 0.65;
-  const actualCode = analysisValidation.ok
-    ? (lowConfidence ? "LOW_CONFIDENCE" : "OK")
-    : analysisValidation.code;
+  const actualCode = providerResult.status === "LOW_CONFIDENCE" || lowConfidence ? "LOW_CONFIDENCE" : "OK";
   const actualQualityStatus = contractSummary && contractSummary.quality_status
     ? contractSummary.quality_status
     : actualCode;

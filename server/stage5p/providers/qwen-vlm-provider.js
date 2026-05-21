@@ -24,7 +24,8 @@ const VALID_PERSONA_IDS = new Set(
       .filter(Boolean)
     : []
 );
-const MIN_PROVIDER_CONFIDENCE = 0.45;
+const MIN_PROVIDER_CONFIDENCE = 0.3;
+const LOW_PROVIDER_CONFIDENCE = 0.55;
 const DEFAULT_VALIDATION_PROMPT = [
   "Return strict JSON only.",
   "Task: decide whether the image is a clear, front-facing, complete, single human palm photo.",
@@ -37,10 +38,13 @@ const DEFAULT_ANALYSIS_PROMPT = [
   "The image has passed the initial palm validity check.",
   "Return one strict JSON object only. Do not include markdown or natural language outside JSON.",
   "If the image is actually not a clear single palm after closer inspection, return invalid validity and do not output a personality result.",
-  "For a valid palm, extract observable palm features and choose the best Palmmi entertainment-only personality id from the frozen P01-P36 set.",
+  "For a valid palm, you must extract observable palm features and you must output a result object.",
+  "When validity is true, result.personality_id must be one legal id from P01 through P36 and result.candidate_results must contain 1 to 3 legal candidates.",
+  "If confidence is low but the image is still a palm, return the closest legal P01-P36 id with low confidence instead of leaving result empty.",
+  "Do not always choose the same id. Choose the closest id based only on visible palm features.",
   "Use this schema exactly:",
   "{\"validity\":{\"is_palm_photo\":true,\"is_single_hand\":true,\"is_palm_side_visible\":true,\"palm_lines_visible\":true,\"image_quality\":\"clear\",\"reject_reason\":\"\"},\"palm_features\":{\"main_line_type\":\"\",\"visible_features\":[\"OVERALL_CLARITY\"],\"confidence\":0.0},\"majorLines\":{\"lifeLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"curvature\":\"medium\",\"breaks\":\"none\",\"confidence\":0.0},\"headLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"slope\":\"flat\",\"breaks\":\"none\",\"confidence\":0.0},\"heartLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"curvature\":\"medium\",\"ending\":\"unknown\",\"breaks\":\"none\",\"confidence\":0.0}},\"minorLines\":{\"fateLine\":{\"visibility\":\"unknown\",\"strength\":\"unknown\",\"continuity\":\"unknown\",\"confidence\":0.0}},\"palmShape\":{\"palmWidth\":\"medium\",\"palmLength\":\"medium\",\"fingerLength\":\"medium\",\"confidence\":0.0},\"result\":{\"personality_id\":\"\",\"main_line_type\":\"\",\"candidate_results\":[{\"personality_id\":\"\",\"main_line_type\":\"\",\"confidence\":0.0,\"reason\":\"observable palm features only\"}]}}",
-  "Never choose P25, M1, or any personality as a fallback. If unsure, return low confidence or null result instead of guessing.",
+  "Never choose P25, M1, or any personality as a fallback. If unsure among valid palms, lower confidence and choose the closest legal id; if not a palm, return invalid validity and null result.",
   "Do not infer health, wealth, lifespan, marriage, fate, fortune, or any sensitive trait.",
 ].join("\n");
 
@@ -269,7 +273,7 @@ function validateParsedForAnalysis(parsed) {
     return {
       ok: false,
       code: ERROR_CODES.ANALYSIS_UNRELIABLE,
-      diagnostics: validationDiagnostics("analysis_payload_missing", parsed),
+      diagnostics: validationDiagnostics("VALIDITY_PASS_RESULT_MISSING", parsed),
     };
   }
 
@@ -281,7 +285,9 @@ function validateParsedForAnalysis(parsed) {
     };
   }
 
-  if (!Array.isArray(parsed.visibleFeatures) || parsed.visibleFeatures.length === 0 || !hasMajorLineSignal(parsed)) {
+  if ((!Array.isArray(parsed.visibleFeatures) || parsed.visibleFeatures.length === 0)
+    && !parsed.mainLineType
+    && !hasMajorLineSignal(parsed)) {
     return {
       ok: false,
       code: ERROR_CODES.ANALYSIS_UNRELIABLE,
@@ -289,7 +295,9 @@ function validateParsedForAnalysis(parsed) {
     };
   }
 
-  if (!isKnownPersonaId(parsed.result && parsed.result.personalityId)) {
+  if (!isKnownPersonaId(parsed.result && parsed.result.personalityId)
+    || !Array.isArray(parsed.result.candidateResults)
+    || parsed.result.candidateResults.length === 0) {
     return {
       ok: false,
       code: ERROR_CODES.ANALYSIS_UNRELIABLE,
@@ -542,12 +550,13 @@ class QwenVlmProvider {
       return this.fail(validation.code, requestId, start, validation.diagnostics);
     }
     const latencyMs = elapsedMs(start);
+    const status = parsed.confidence < LOW_PROVIDER_CONFIDENCE ? "LOW_CONFIDENCE" : "OK";
     return {
       ok: true,
       request_id: requestId,
       provider: this.name,
       model: this.model,
-      status: "OK",
+      status,
       parsed,
       features: buildVlmFeatures(parsed),
       quality: {
