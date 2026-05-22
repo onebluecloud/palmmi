@@ -10,6 +10,7 @@ const ERROR_CODES = Object.freeze({
   NOT_PALM: "NOT_PALM",
   IMAGE_NOT_CLEAR: "IMAGE_NOT_CLEAR",
   ANALYSIS_UNRELIABLE: "ANALYSIS_UNRELIABLE",
+  LOW_INFORMATION_FEATURE_SET: "LOW_INFORMATION_FEATURE_SET",
   FILE_TOO_LARGE: "FILE_TOO_LARGE",
   FILE_TYPE_UNSUPPORTED: "FILE_TYPE_UNSUPPORTED",
   UNKNOWN_ERROR: "UNKNOWN_ERROR",
@@ -27,6 +28,7 @@ const USER_MESSAGES = Object.freeze({
   [ERROR_CODES.NOT_PALM]: "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。",
   [ERROR_CODES.IMAGE_NOT_CLEAR]: "照片掌纹不够清晰，请在光线均匀的位置重新拍摄，确保掌心完整、掌纹可见。",
   [ERROR_CODES.ANALYSIS_UNRELIABLE]: "本次识别结果不稳定，请换一张更清晰的掌心照片后重试。",
+  [ERROR_CODES.LOW_INFORMATION_FEATURE_SET]: "当前照片可用于基础识别，但掌纹特征信息不足，请换一张更清晰的掌心照片后重试。",
   [ERROR_CODES.FILE_TOO_LARGE]: "图片过大，请压缩后重新上传。",
   [ERROR_CODES.FILE_TYPE_UNSUPPORTED]: "图片格式不支持，请上传 JPG / PNG / WebP。",
   [ERROR_CODES.UNKNOWN_ERROR]: "分析流程暂时没有完成，请重新上传后再试。",
@@ -55,6 +57,13 @@ function sanitizeDiagnostics(diagnostics) {
     "isTimeout",
     "isFetchFailed",
     "errorType",
+    "validityImageQuality",
+    "providerConfidence",
+    "usableFeatureCount",
+    "unknownFeatureCount",
+    "scoreMargin",
+    "collapseRiskHint",
+    "classifierVersion",
   ]);
   const output = {};
   for (const [key, value] of Object.entries(diagnostics)) {
@@ -118,6 +127,9 @@ function mapProviderErrorCode(code) {
   }
   if (code === "ANALYSIS_UNRELIABLE") {
     return ERROR_CODES.ANALYSIS_UNRELIABLE;
+  }
+  if (code === "LOW_INFORMATION_FEATURE_SET") {
+    return ERROR_CODES.LOW_INFORMATION_FEATURE_SET;
   }
   if (code === "INVALID_IMAGE" || code === "PARSE_FAILED") {
     return ERROR_CODES.VLM_API_INVALID_RESPONSE;

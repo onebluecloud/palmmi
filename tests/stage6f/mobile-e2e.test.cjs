@@ -2622,7 +2622,10 @@ async function validateStage6FClassifierCalibrationNoDefaultLiuyishou() {
 
   assert.equal(fetchCount, 2, "valid palm should still run the analysis feature request");
   assert.equal(response.ok, false, "all-unknown palm_features must not be classified");
-  assert.equal(response.error.code, "ANALYSIS_UNRELIABLE");
+  assert.ok(
+    ["LOW_INFORMATION_FEATURE_SET", "ANALYSIS_UNRELIABLE"].includes(response.error.code),
+    "all-unknown palm_features must fail as low-information or unreliable"
+  );
   assert.doesNotMatch(JSON.stringify(response), /P31|留一手/, "unknown palm_features must not default to 留一手");
   assertNoResponseLeaks(response, "stage6f classifier no default liuyishou response");
 
@@ -2630,6 +2633,466 @@ async function validateStage6FClassifierCalibrationNoDefaultLiuyishou() {
     status: "PASS",
     code: response.error.code,
     fetch_count: fetchCount,
+  };
+}
+
+async function validateStage6FFinalClassifierHardFixAllUnknownNoDefaultLiuyishou() {
+  const { response, fetchCount } = await runStage6FCalibrationMockAnalysis({
+    main_line_type: "unknown",
+    line_depth: "unknown",
+    line_complexity: "unknown",
+    line_continuity: "unknown",
+    branch_density: "unknown",
+    palm_shape_hint: "unknown",
+    visible_features: ["OVERALL_CLARITY"],
+    feature_reasons: ["all classifier features are unknown"],
+  }, "req_stage6f_hard_fix_all_unknown");
+
+  assert.equal(fetchCount, 2, "valid palm still needs the feature extraction request before classification gate");
+  assert.equal(response.ok, false, "all-unknown palm_features must not produce a personality");
+  assert.ok(
+    ["LOW_INFORMATION_FEATURE_SET", "ANALYSIS_UNRELIABLE"].includes(response.error.code),
+    "all-unknown palm_features must fail safely"
+  );
+  assert.doesNotMatch(JSON.stringify(response), /P31|留一手/, "all-unknown features must not default to P31 留一手");
+  assertNoResponseLeaks(response, "stage6f hard fix all unknown response");
+
+  return {
+    status: "PASS",
+    code: response.error.code,
+    fetch_count: fetchCount,
+  };
+}
+
+async function validateStage6FFinalClassifierHardFixLowInformationFeatureSet() {
+  const { response } = await runStage6FCalibrationMockAnalysis({
+    main_line_type: "M1",
+    line_depth: "medium",
+    line_complexity: "unknown",
+    line_continuity: "unknown",
+    branch_density: "unknown",
+    palm_shape_hint: "unknown",
+    visible_features: ["HEAD_LINE_DEPTH"],
+    feature_reasons: ["only two classifier fields are usable"],
+  }, "req_stage6f_hard_fix_low_information");
+
+  assert.equal(response.ok, false, "1-2 usable classifier fields must not produce a personality");
+  assert.equal(response.error.code, "LOW_INFORMATION_FEATURE_SET", "low-information feature set must use a specific error code");
+  assert.doesNotMatch(JSON.stringify(response), /P31|留一手/, "low-information feature set must not default to P31 留一手");
+  assertNoResponseLeaks(response, "stage6f hard fix low information response");
+
+  return {
+    status: "PASS",
+    code: response.error.code,
+  };
+}
+
+async function validateStage6FFinalClassifierHardFixFiveMockDiversity() {
+  const cases = [
+    {
+      label: "A",
+      features: {
+        main_line_type: "M3",
+        line_depth: "deep",
+        line_complexity: "complex",
+        line_continuity: "mixed",
+        branch_density: "high",
+        palm_shape_hint: "long",
+        confidence: 0.72,
+      },
+    },
+    {
+      label: "B",
+      features: {
+        main_line_type: "M1",
+        line_depth: "faint",
+        line_complexity: "simple",
+        line_continuity: "continuous",
+        branch_density: "low",
+        palm_shape_hint: "wide",
+        confidence: 0.62,
+      },
+    },
+    {
+      label: "C",
+      features: {
+        main_line_type: "M7",
+        line_depth: "medium",
+        line_complexity: "medium",
+        line_continuity: "broken",
+        branch_density: "high",
+        palm_shape_hint: "wide",
+        confidence: 0.69,
+      },
+    },
+    {
+      label: "D",
+      features: {
+        main_line_type: "M4",
+        line_depth: "deep",
+        line_complexity: "simple",
+        line_continuity: "continuous",
+        branch_density: "low",
+        palm_shape_hint: "square",
+        confidence: 0.7,
+      },
+    },
+    {
+      label: "E",
+      features: {
+        main_line_type: "M8",
+        line_depth: "faint",
+        line_complexity: "complex",
+        line_continuity: "mixed",
+        branch_density: "medium",
+        palm_shape_hint: "long",
+        confidence: 0.66,
+      },
+    },
+  ];
+
+  const results = [];
+  for (const item of cases) {
+    const { response } = await runStage6FCalibrationMockAnalysis(item.features, `req_stage6f_hard_fix_diversity_${item.label}`);
+    assert.equal(response.ok, true, `${item.label} must remain classifiable with enough usable palm_features`);
+    results.push({
+      label: item.label,
+      personality_id: response.analysis_result.personality_id,
+      candidate_ids: response.analysis_result.candidate_results.map((candidate) => candidate.personality_id),
+    });
+  }
+
+  const ids = results.map((item) => item.personality_id);
+  const uniqueIds = [...new Set(ids)];
+  assert.ok(uniqueIds.length >= 3, "five distinct mock feature groups must produce at least three personality ids");
+  assert.ok(!ids.every((id) => id === "P31"), "five mock feature groups must not all collapse to P31");
+  assert.ok(!ids.every((id) => id === ids[0]), "five mock feature groups must not all collapse to one personality");
+
+  return {
+    status: "PASS",
+    unique_personality_count: uniqueIds.length,
+    results,
+  };
+}
+
+function validateStage6FFinalClassifierHardFixP31LegalEvidence() {
+  const { buildAnalysisResultContract } = require(path.join(root, "src", "stage5", "analysis-result-contract.js"));
+  const p31Recognition = {
+    schemaVersion: "recognition-result.v1",
+    provider: "stage6f-hard-fix-test",
+    model: "local-classifier",
+    status: "LOW_CONFIDENCE",
+    primary_persona: {
+      id: "P31",
+      persona_id: "P31",
+      name: "留一手",
+      score: 0.84,
+      confidence: 0.84,
+      mother_type: "M1",
+      matched_features: ["HEAD_LINE_LENGTH", "HEAD_LINE_DEPTH", "FATE_LINE_CLARITY", "THUMB_LENGTH_RATIO", "FINGER_SPREAD"],
+      reason_codes: [
+        "HEAD_LINE_LENGTH_GTE_2",
+        "HEAD_LINE_DEPTH_GTE_2",
+        "FATE_LINE_CLARITY_LTE_1",
+        "THUMB_LENGTH_RATIO_BETWEEN_1_2",
+        "FINGER_SPREAD_LTE_1",
+      ],
+    },
+    primary_mother: {
+      id: "M1",
+      name: "M1",
+      core_fields_matched: ["HEAD_LINE_LENGTH", "HEAD_LINE_DEPTH", "FATE_LINE_CLARITY"],
+    },
+    top3: [
+      {
+        id: "P31",
+        persona_id: "P31",
+        name: "留一手",
+        score: 0.84,
+        mother_type: "M1",
+        matched_features: ["HEAD_LINE_LENGTH", "HEAD_LINE_DEPTH", "FATE_LINE_CLARITY", "THUMB_LENGTH_RATIO", "FINGER_SPREAD"],
+        reason_codes: ["P31_LEGAL_FEATURE_EVIDENCE"],
+      },
+      {
+        id: "P25",
+        persona_id: "P25",
+        name: "老干部",
+        score: 0.45,
+        mother_type: "M1",
+        matched_features: ["HEAD_LINE_DEPTH"],
+        reason_codes: ["SECONDARY_MATCH"],
+      },
+    ],
+    quality_gate: {
+      passed: true,
+      confidence: 0.7,
+      reasons: [],
+    },
+    recognition: {
+      explanation: {
+        persona: {
+          matched_features: ["HEAD_LINE_LENGTH", "HEAD_LINE_DEPTH", "FATE_LINE_CLARITY", "THUMB_LENGTH_RATIO", "FINGER_SPREAD"],
+        },
+        low_confidence: true,
+      },
+    },
+    diagnostics: {
+      lowConfidenceFieldCount: 1,
+      missingFieldCount: 0,
+      unknownFieldCount: 0,
+      usableFeatureCount: 6,
+      unknownFeatureCount: 0,
+      scoreMargin: 0.39,
+      collapseRiskHint: false,
+      classifierVersion: "stage6f-hard-fix-test",
+      adapterWarnings: [],
+      providerWarnings: [],
+      matcherWarnings: [],
+      contractWarnings: [],
+    },
+  };
+  const contract = buildAnalysisResultContract({
+    schemaVersion: "analysis-result.v1",
+    status: "LOW_CONFIDENCE",
+    recognition_result: p31Recognition,
+    analysis_input: {
+      finalPersona: {
+        id: "P31",
+        name: "留一手",
+        confidence: 0.84,
+      },
+      diagnostics: p31Recognition.diagnostics,
+      sourceImage: "p31-legal-evidence.jpg",
+      provider: "stage6f-hard-fix-test",
+      model: "local-classifier",
+    },
+    diagnostics: p31Recognition.diagnostics,
+  }, {
+    now: () => "2026-05-22T00:00:00.000Z",
+  });
+
+  assert.equal(contract.personality_id, "P31", "legal P31 fixture must produce P31");
+  assert.equal(contract.candidate_results[0].personality_id, "P31", "legal P31 must be candidate_results[0]");
+  assert.ok(contract.candidate_results[0].reason, "legal P31 must have a feature reason");
+  assert.ok(Object.keys(contract.candidate_results[0].score_breakdown || {}).length > 0, "legal P31 must have score_breakdown");
+  assert.doesNotMatch(contract.candidate_results[0].reason, /fallback/i, "legal P31 reason must not be fallback");
+
+  return {
+    status: "PASS",
+    personality_id: contract.personality_id,
+    candidate_id: contract.candidate_results[0].personality_id,
+  };
+}
+
+async function validateStage6FFinalClassifierHardFixDeterministic() {
+  const features = {
+    main_line_type: "M8",
+    line_depth: "medium",
+    line_complexity: "complex",
+    line_continuity: "mixed",
+    branch_density: "high",
+    palm_shape_hint: "square",
+    confidence: 0.71,
+  };
+  const runs = [];
+  for (let index = 0; index < 5; index += 1) {
+    const { response } = await runStage6FCalibrationMockAnalysis(features, `req_stage6f_hard_fix_deterministic_${index}`);
+    assert.equal(response.ok, true, "same sufficient palm_features should remain classifiable");
+    runs.push({
+      personality_id: response.analysis_result.personality_id,
+      candidate_ids: response.analysis_result.candidate_results.map((candidate) => candidate.personality_id),
+      diagnostics: response.analysis_result.diagnostics,
+    });
+  }
+  for (const run of runs.slice(1)) {
+    assert.deepEqual(run, runs[0], "same palm_features must produce exactly identical classifier output and diagnostics");
+  }
+
+  return {
+    status: "PASS",
+    personality_id: runs[0].personality_id,
+    candidate_ids: runs[0].candidate_ids,
+  };
+}
+
+function validateStage6FFinalClassifierHardFixPosterRegression() {
+  const posterPage = require(path.join(root, "scripts", "palmmi-poster.js"));
+  const storage = createMemoryStorage();
+  const lowConfidence = completeAnalysisResult({
+    status: "degraded",
+    extra: {
+      valid_palm: true,
+      quality_status: "LOW_CONFIDENCE",
+      personality_id: "P12",
+      personality_name: "低调战略家",
+      candidate_results: [
+        { personality_id: "P12", personality_name: "低调战略家", main_line_type: "M1", score: 0.72 },
+        { personality_id: "P25", personality_name: "老干部", main_line_type: "M1", score: 0.55 },
+      ],
+      uiConsumable: {
+        personaId: "P12",
+        personaName: "低调战略家",
+        confidence: 0.72,
+        status: "degraded",
+        qualityStatus: "LOW_CONFIDENCE",
+        primaryDisplayText: "低调战略家",
+        secondaryDisplayText: "先观察结构，再稳稳推进。",
+        warningBadges: ["CONTRACT_DEGRADED"],
+      },
+    },
+  });
+  storage.setItem(STORAGE_KEYS.stableAnalysis, JSON.stringify({
+    version: 1,
+    analysis_id: "analysis_stage6f_hard_fix_low_confidence_poster",
+    created_at: "2026-05-22T00:00:00.000Z",
+    provider: "qwen",
+    analysis_result: lowConfidence,
+  }));
+  const lowConfidenceRead = posterPage.readAnalysisResult({ storage });
+  assert.equal(lowConfidenceRead.ok, true, "LOW_CONFIDENCE legal personality must still generate poster");
+
+  const lowInfoStorage = createMemoryStorage();
+  const lowInfo = {
+    ...completeAnalysisResult(),
+    status: "failed",
+    valid_palm: true,
+    quality_status: "LOW_INFORMATION_FEATURE_SET",
+    personality_id: "",
+    personality_name: "",
+    candidate_results: [],
+    user_message: "当前照片可用信息不足，请换一张更清晰的掌心照片后重试。",
+  };
+  lowInfoStorage.setItem(STORAGE_KEYS.stableAnalysis, JSON.stringify({
+    version: 1,
+    analysis_id: "analysis_stage6f_hard_fix_low_info_poster",
+    created_at: "2026-05-22T00:00:00.000Z",
+    provider: "qwen",
+    analysis_result: lowInfo,
+  }));
+  const lowInfoRead = posterPage.readAnalysisResult({ storage: lowInfoStorage });
+  assert.equal(lowInfoRead.ok, false, "LOW_INFORMATION_FEATURE_SET must be blocked from poster generation");
+
+  const notPalmStorage = createMemoryStorage();
+  const notPalm = {
+    ...completeAnalysisResult(),
+    status: "failed",
+    valid_palm: false,
+    quality_status: "NOT_PALM",
+    personality_id: "",
+    personality_name: "",
+    candidate_results: [],
+    user_message: "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。",
+  };
+  notPalmStorage.setItem(STORAGE_KEYS.stableAnalysis, JSON.stringify({
+    version: 1,
+    analysis_id: "analysis_stage6f_hard_fix_not_palm_poster",
+    created_at: "2026-05-22T00:00:00.000Z",
+    provider: "qwen",
+    analysis_result: notPalm,
+  }));
+  const notPalmRead = posterPage.readAnalysisResult({ storage: notPalmStorage });
+  assert.equal(notPalmRead.ok, false, "NOT_PALM must stay blocked from poster generation");
+
+  return {
+    status: "PASS",
+    low_confidence_poster: "PASS",
+    low_information_blocked: "PASS",
+    not_palm_blocked: "PASS",
+  };
+}
+
+async function validateStage6FFinalClassifierHardFixNonPalmRegression() {
+  const { runAnalyzeApi } = require(path.join(root, "server", "stage5p", "analyze-service.js"));
+  const env = {
+    PALMMI_VLM_PROVIDER: "qwen",
+    PALMMI_VLM_MODE: "real-only",
+    PALMMI_QWEN_API_KEY: "stage6f-test-key",
+    QWEN_API_KEY: "",
+  };
+  let fetchCount = 0;
+  const response = await runAnalyzeApi({
+    request_id: "req_stage6f_hard_fix_not_palm_regression",
+    anonymous_device_id: "anon_stage6f_hard_fix",
+    locale: "zh-CN",
+    image: {
+      file_name: "not-palm-beverage.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+      side: "unknown",
+    },
+  }, {
+    env,
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return qwenChatResponse({
+        validity: {
+          is_palm_photo: false,
+          is_single_hand: false,
+          is_palm_side_visible: false,
+          palm_lines_visible: false,
+          image_quality: "not_palm",
+          reject_reason: "beverage",
+        },
+        palm_features: null,
+        result: null,
+      });
+    },
+  });
+
+  assert.equal(fetchCount, 1, "NOT_PALM must stop after the validity request");
+  assert.equal(response.ok, false);
+  assert.equal(response.error.code, "NOT_PALM");
+  assert.doesNotMatch(JSON.stringify(response), /P31|留一手|P25|老干部/, "NOT_PALM must not contain personality output");
+  assertNoResponseLeaks(response, "stage6f hard fix not palm response");
+
+  return {
+    status: "PASS",
+    code: response.error.code,
+    fetch_count: fetchCount,
+  };
+}
+
+function validateStage6FFinalClassifierHardFixCollapseHardFail() {
+  const smoke = require(path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"));
+  const args = smoke.parseArgs([
+    "--collapse-check",
+    "--debug-classifier",
+    "--min-palm-samples",
+    "5",
+    "--min-unique-personalities",
+    "2",
+  ]);
+  assert.equal(args.debugClassifier, true, "smoke must parse --debug-classifier");
+  assert.equal(args.minPalmSamples, 5, "smoke must parse --min-palm-samples");
+  assert.equal(args.minUniquePersonalities, 2, "smoke must parse --min-unique-personalities");
+
+  const samples = Array.from({ length: 5 }, (_, index) => ({
+    name: `palm_${index + 1}`,
+    by_model: {
+      "qwen3-vl-flash": {
+        valid_palm: true,
+        personality_id: "P31",
+        has_personality_result: true,
+        candidate_ids: ["P31", "P25", "P12"],
+      },
+    },
+  }));
+  const analysis = smoke.buildCollapseAnalysis(samples, ["qwen3-vl-flash"], {
+    minPalmSamples: args.minPalmSamples,
+    minUniquePersonalities: args.minUniquePersonalities,
+  });
+  const modelAnalysis = analysis["qwen3-vl-flash"];
+  assert.equal(modelAnalysis.collapse_risk, true);
+  assert.equal(modelAnalysis.hard_fail, true, "5 palm samples with fewer than two unique personalities must hard fail");
+  assert.equal(modelAnalysis.diagnostic_code, "P31_COLLAPSE_CONFIRMED");
+  assert.match(modelAnalysis.notes, /留一手/, "P31 collapse hard fail must explicitly mention 留一手");
+  assert.equal(modelAnalysis.candidate_distribution.P31, 5);
+
+  return {
+    status: "PASS",
+    diagnostic_code: modelAnalysis.diagnostic_code,
+    hard_fail: modelAnalysis.hard_fail,
   };
 }
 
@@ -3071,6 +3534,7 @@ async function main() {
     stage6f_fix5: {},
     stage6f_final: {},
     stage6f_final_fix: {},
+    stage6f_final_classifier_hard_fix: {},
     real_qwen_smoke: null,
     abnormal_inputs: {},
     simulated_qwen_errors: null,
@@ -3102,6 +3566,16 @@ async function main() {
       deterministic: await validateStage6FClassifierCalibrationDeterministic(),
       score_breakdown: await validateStage6FClassifierCalibrationScoreBreakdown(),
       collapse_diagnostics: validateStage6FClassifierCalibrationCollapseDiagnostics(),
+    };
+    summary.stage6f_final_classifier_hard_fix = {
+      all_unknown_no_default_liuyishou: await validateStage6FFinalClassifierHardFixAllUnknownNoDefaultLiuyishou(),
+      low_information_feature_set: await validateStage6FFinalClassifierHardFixLowInformationFeatureSet(),
+      five_mock_feature_diversity: await validateStage6FFinalClassifierHardFixFiveMockDiversity(),
+      p31_legal_evidence: validateStage6FFinalClassifierHardFixP31LegalEvidence(),
+      deterministic: await validateStage6FFinalClassifierHardFixDeterministic(),
+      poster_regression: validateStage6FFinalClassifierHardFixPosterRegression(),
+      non_palm_regression: await validateStage6FFinalClassifierHardFixNonPalmRegression(),
+      collapse_hard_fail: validateStage6FFinalClassifierHardFixCollapseHardFail(),
     };
     summary.real_qwen_smoke = validateRealQwenSmokeDryRun();
 

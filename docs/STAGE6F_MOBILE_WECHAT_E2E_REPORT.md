@@ -2,6 +2,56 @@
 
 Date: 2026-05-22
 
+## Stage 6F-Final-Classifier-Hard-Fix 追加记录
+
+本轮不是 Stage 6G。用户已确认 commit `f3d2afdc93aa87b58b54436616e13562d18434a7` 部署后安卓微信真机复测失败：非手掌识别 PASS、手掌识别 PASS、海报生成 PASS，但多个不同手掌仍全部输出 `P31 留一手`。因此 `f3d2afd` 不再视为可接受状态，不再标记为待复测通过版本。
+
+```text
+Stage 6F: FINAL_CLASSIFIER_HARD_FIX_CODE_PASS / ANDROID_WECHAT_RETEST_REQUIRED
+Android WeChat: MANUAL_RETEST_REQUIRED
+iOS WeChat: MANUAL_REQUIRED
+Stage 6G: BLOCKED
+```
+
+### Hard-Fix 定位
+
+| 项目 | 结果 | 说明 |
+|---|---|---|
+| `f3d2afd` 真机复测 | FAIL_CONFIRMED | 多个不同手掌仍全部输出 `P31 留一手` |
+| mock 多样性局限 | CONFIRMED | mock PASS 不代表真实 Qwen `palm_features` 信息量足够 |
+| 默认 `留一手` 兜底 | NOT_FOUND | 未发现硬编码默认 P31，但低信息 / unknown 特征仍可能进入 Stage3 规则误命中 |
+| 根因 | CONFIRMED | `valid_palm=true` 后，低信息 `palm_features` 没有专用闸门；unknown / 缺失信号会以中性数字流入规则匹配 |
+
+### Hard-Fix 修复内容
+
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| 真实样本 classifier debug summary | PASS | real Qwen smoke 支持 `--debug-classifier`，输出脱敏 `score_margin`、`usable_feature_count`、`unknown_feature_count`、`classifier_version` |
+| `LOW_INFORMATION_FEATURE_SET` | PASS | provider / API / 前端错误映射均支持低信息特征专用错误码 |
+| unknown 特征误命中 | PASS | classifier 前新增信息量闸门；unknown 不再能通过低信息路径默认命中 P31 |
+| feature information gate | PASS | 要求 `main_line_type` 合法且 6 个核心特征中至少 3 个可用；不足时不输出任何人格 |
+| score margin 诊断 | PASS | success contract 透出 `scoreMargin`，低于 0.05 时加 `LOW_MARGIN_CLASSIFICATION` 诊断 |
+| P31 合法输出条件 | PASS | P31 只允许作为 `candidate_results[0]` 且必须有非空 reason / score_breakdown / feature evidence |
+| `P31_COLLAPSE_CONFIRMED` | PASS | 真实 smoke collapse hard fail 可专门标记全 P31 / 留一手 |
+| collapse hard fail | PASS | `--min-palm-samples 5 --min-unique-personalities 2` 下，5 张真实 palm 少于 2 个不同人格时 `ok=false` |
+| NOT_PALM / 海报回归 | PASS | 非手掌拦截、有效 LOW_CONFIDENCE 海报能力未回退 |
+
+### Hard-Fix 自动化复测结果
+
+| 场景 | 结果 | 说明 |
+|---|---|---|
+| all unknown 不默认留一手 | PASS | 返回 `LOW_INFORMATION_FEATURE_SET`，不输出 P31 / 留一手 |
+| 低信息特征不输出人格 | PASS | 仅 1-2 个有效字段时返回 `LOW_INFORMATION_FEATURE_SET` |
+| 5 组 mock 特征多样性 | PASS | 产生 5 个不同主结果：`P02`、`P25`、`P10`、`P12`、`P08` |
+| P31 合法输出依据 | PASS | 合法 P31 fixture 的主结果和候选第一名一致，reason / score_breakdown 非空 |
+| deterministic | PASS | 同一 palm_features 连续 5 次输出完全一致 |
+| 海报回归 | PASS | `LOW_CONFIDENCE` + 合法人格可生成海报；`LOW_INFORMATION_FEATURE_SET` / `NOT_PALM` 均阻止海报 |
+| 非手掌回归 | PASS | `NOT_PALM` 仅跑有效性请求，不输出人格 |
+| `npm run test:stage6f` | PASS | Hard-Fix mock 回归已通过；命令退出码 0 |
+| smoke dry run | PASS | 无 `--real`，`REAL_QWEN_DISABLED`，`api_calls_made=0` |
+
+Stage 6G 继续 `BLOCKED`：本轮只完成代码层 hard-fix。必须等待新 commit 部署后，由用户安卓微信真机复测至少确认：低信息真实样本不再输出 `P31 留一手`、5 张真实手掌若仍全部 `P31` 则 smoke hard fail、非手掌和海报链路不回退；iOS 微信仍需真机测试。
+
 ## Stage 6F-Classifier-Calibration 追加记录
 
 本轮不是 Stage 6G，不重做 Stage 5 主链路，不继续修微信上传、非手掌和海报链路。用户安卓微信复测显示：非手掌识别通过、正常手掌能进入结果页、有效结果能生成海报，但多个不同手掌最终人格全部变成 `P31 留一手`。

@@ -26,6 +26,8 @@ const ROOT = path.resolve(__dirname, "..", "..");
 const DEFAULT_IMAGE_DIR = "E:\\其他\\Palmmi\\Palmmi-test-images";
 const DEFAULT_TIMEOUT_MS = 60000;
 const DEFAULT_MAX_REAL_CALLS = 5;
+const DEFAULT_MIN_PALM_SAMPLES = 5;
+const DEFAULT_MIN_UNIQUE_PERSONALITIES = 2;
 const SAMPLE_DEFINITIONS = Object.freeze([
   {
     name: "not_palm",
@@ -77,6 +79,9 @@ function parseArgs(argv) {
     models: [DEFAULT_QWEN_MODEL],
     maxRealCalls: DEFAULT_MAX_REAL_CALLS,
     collapseCheck: false,
+    debugClassifier: false,
+    minPalmSamples: DEFAULT_MIN_PALM_SAMPLES,
+    minUniquePersonalities: DEFAULT_MIN_UNIQUE_PERSONALITIES,
     samples: {},
   };
 
@@ -109,6 +114,12 @@ function parseArgs(argv) {
       options.maxRealCalls = Number.parseInt(argv[++index] || "", 10) || DEFAULT_MAX_REAL_CALLS;
     } else if (arg === "--collapse-check") {
       options.collapseCheck = true;
+    } else if (arg === "--debug-classifier") {
+      options.debugClassifier = true;
+    } else if (arg === "--min-palm-samples") {
+      options.minPalmSamples = Number.parseInt(argv[++index] || "", 10) || DEFAULT_MIN_PALM_SAMPLES;
+    } else if (arg === "--min-unique-personalities") {
+      options.minUniquePersonalities = Number.parseInt(argv[++index] || "", 10) || DEFAULT_MIN_UNIQUE_PERSONALITIES;
     } else if (arg === "--help" || arg === "-h") {
       options.help = true;
     } else {
@@ -372,6 +383,28 @@ async function buildContractSummary(parsed, image, sampleName, model) {
         .filter(Boolean)
         .slice(0, 3)
       : [],
+    classifier_debug: {
+      score_margin: contract.diagnostics && Number.isFinite(contract.diagnostics.scoreMargin)
+        ? contract.diagnostics.scoreMargin
+        : null,
+      unknown_feature_count: contract.diagnostics && Number.isFinite(contract.diagnostics.unknownFeatureCount)
+        ? contract.diagnostics.unknownFeatureCount
+        : null,
+      usable_feature_count: contract.diagnostics && Number.isFinite(contract.diagnostics.usableFeatureCount)
+        ? contract.diagnostics.usableFeatureCount
+        : null,
+      collapse_risk_hint: Boolean(contract.diagnostics && contract.diagnostics.collapseRiskHint),
+      classifier_version: contract.diagnostics && typeof contract.diagnostics.classifierVersion === "string"
+        ? contract.diagnostics.classifierVersion
+        : null,
+      warnings: contract.diagnostics
+        ? [
+          ...(Array.isArray(contract.diagnostics.adapterWarnings) ? contract.diagnostics.adapterWarnings : []),
+          ...(Array.isArray(contract.diagnostics.matcherWarnings) ? contract.diagnostics.matcherWarnings : []),
+          ...(Array.isArray(contract.diagnostics.contractWarnings) ? contract.diagnostics.contractWarnings : []),
+        ].slice(0, 12)
+        : [],
+    },
   };
 }
 
@@ -448,7 +481,13 @@ function personalityDistribution(ids) {
   }, {});
 }
 
-function buildCollapseAnalysis(samples, models) {
+function buildCollapseAnalysis(samples, models, options = {}) {
+  const minPalmSamples = Number.isFinite(options.minPalmSamples)
+    ? options.minPalmSamples
+    : DEFAULT_MIN_PALM_SAMPLES;
+  const minUniquePersonalities = Number.isFinite(options.minUniquePersonalities)
+    ? options.minUniquePersonalities
+    : DEFAULT_MIN_UNIQUE_PERSONALITIES;
   const analysis = {};
   for (const model of models) {
     const personalityIds = [];
@@ -467,6 +506,7 @@ function buildCollapseAnalysis(samples, models) {
     const unique = [...new Set(personalityIds)];
     const [topPersonality] = topPersonalityCount(personalityIds);
     const collapseRisk = personalityIds.length >= 3 && unique.length <= 1;
+    const hardFail = personalityIds.length >= minPalmSamples && unique.length < minUniquePersonalities;
     const allP25 = collapseRisk && topPersonality === "P25";
     const allLiuyishou = collapseRisk && topPersonality === "P31";
     analysis[model] = {
@@ -474,7 +514,12 @@ function buildCollapseAnalysis(samples, models) {
       unique_personality_count: unique.length,
       top_personality: topPersonality,
       collapse_risk: collapseRisk,
-      diagnostic_code: collapseRisk ? "PERSONALITY_COLLAPSE_RISK" : null,
+      hard_fail: hardFail,
+      diagnostic_code: hardFail && allLiuyishou
+        ? "P31_COLLAPSE_CONFIRMED"
+        : collapseRisk
+          ? "PERSONALITY_COLLAPSE_RISK"
+          : null,
       candidate_distribution: personalityDistribution(personalityIds),
       notes: collapseRisk
         ? (allP25
@@ -636,6 +681,9 @@ async function runSample({ provider, sampleName, filePath, model }) {
     candidate_ids: contractSummary && Array.isArray(contractSummary.candidate_ids)
       ? contractSummary.candidate_ids
       : [],
+    classifier_debug: contractSummary && contractSummary.classifier_debug
+      ? contractSummary.classifier_debug
+      : null,
     notes: "",
   };
   result.notes = noteFor(result);
@@ -657,6 +705,9 @@ function disabledSummary(options) {
     model: options.model,
     models: options.models,
     collapse_check: options.collapseCheck,
+    debug_classifier: options.debugClassifier,
+    min_palm_samples: options.minPalmSamples,
+    min_unique_personalities: options.minUniquePersonalities,
     max_real_calls: options.maxRealCalls,
     endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
     api_calls_made: 0,
@@ -700,6 +751,7 @@ async function main() {
         "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\"",
         "npm run smoke:stage6f:qwen -- --real --not-palm <path> --palm-faint <path> --palm-clear <path>",
         "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\" --models qwen3-vl-flash,qwen3.6-flash --collapse-check --max-real-calls 10",
+        "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\" --collapse-check --debug-classifier --min-palm-samples 5 --min-unique-personalities 2 --max-real-calls 10",
       ],
       api_calls_made: 0,
       safety: {
@@ -857,6 +909,7 @@ async function main() {
         has_personality_result: result.has_personality_result,
         candidate_count: result.candidate_count,
         candidate_ids: result.candidate_ids || [],
+        classifier_debug: options.debugClassifier ? (result.classifier_debug || null) : null,
         notes: result.notes,
       };
       const sampleEntry = bySample.find((item) => item.name === sample.name);
@@ -865,17 +918,24 @@ async function main() {
   }
 
   const collapseAnalysis = options.collapseCheck
-    ? buildCollapseAnalysis(bySample, options.models)
+    ? buildCollapseAnalysis(bySample, options.models, {
+      minPalmSamples: options.minPalmSamples,
+      minUniquePersonalities: options.minUniquePersonalities,
+    })
     : null;
+  const collapseOk = !collapseAnalysis || Object.values(collapseAnalysis).every((analysis) => analysis.hard_fail !== true);
   const summary = {
     ok: bySample.every((sample) => Object.values(sample.by_model)
-      .every((result) => result.status === "PASS" || result.status === "PASS_OR_REVIEW")),
+      .every((result) => result.status === "PASS" || result.status === "PASS_OR_REVIEW")) && collapseOk,
     models: options.models,
     endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
     mode: selected.mode,
     sample_count: selectedDefinitions.length,
     estimated_real_calls: estimatedRealCalls,
     max_real_calls: options.maxRealCalls,
+    debug_classifier: options.debugClassifier,
+    min_palm_samples: options.minPalmSamples,
+    min_unique_personalities: options.minUniquePersonalities,
     samples: bySample,
     collapse_analysis: collapseAnalysis,
     recommendation: collapseAnalysis ? buildRecommendation(collapseAnalysis, options.models) : {

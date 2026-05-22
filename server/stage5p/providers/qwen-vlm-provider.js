@@ -12,6 +12,7 @@ const {
 
 const MIN_PROVIDER_CONFIDENCE = 0.3;
 const LOW_PROVIDER_CONFIDENCE = 0.55;
+const MIN_CLASSIFIER_USABLE_FEATURES = 3;
 const DEFAULT_VALIDATION_PROMPT = [
   "Return strict JSON only.",
   "Task: decide whether the image is a clear, front-facing, complete, single human palm photo.",
@@ -315,11 +316,27 @@ function concretePalmFeatureSignalCount(parsed) {
   ].map(normalizedToken).filter((value) => value && value !== "unknown" && value !== "unclear").length;
 }
 
+function hasMainLineTypeSignal(parsed) {
+  const mainLineType = normalizedToken(parsed && parsed.mainLineType).toUpperCase();
+  return /^M[1-8]$/.test(mainLineType);
+}
+
+function usableClassifierFeatureCount(parsed) {
+  return (hasMainLineTypeSignal(parsed) ? 1 : 0) + concretePalmFeatureSignalCount(parsed);
+}
+
+function unknownClassifierFeatureCount(parsed) {
+  return 6 - usableClassifierFeatureCount(parsed);
+}
+
 function validationDiagnostics(reason, parsed) {
   return {
     errorType: reason,
     validityImageQuality: typeof parsed.imageQuality === "string" ? parsed.imageQuality.slice(0, 40) : "unknown",
     providerConfidence: Number.isFinite(parsed.confidence) ? parsed.confidence : 0,
+    usableFeatureCount: usableClassifierFeatureCount(parsed || {}),
+    unknownFeatureCount: unknownClassifierFeatureCount(parsed || {}),
+    classifierVersion: "stage6f-hard-fix.v1",
   };
 }
 
@@ -397,11 +414,19 @@ function validateParsedForAnalysis(parsed) {
     };
   }
 
+  if (!hasMainLineTypeSignal(parsed) || usableClassifierFeatureCount(parsed) < MIN_CLASSIFIER_USABLE_FEATURES) {
+    return {
+      ok: false,
+      code: ERROR_CODES.LOW_INFORMATION_FEATURE_SET,
+      diagnostics: validationDiagnostics("LOW_INFORMATION_FEATURE_SET", parsed),
+    };
+  }
+
   if (concretePalmFeatureSignalCount(parsed) < 2 && !hasMajorLineSignal(parsed)) {
     return {
       ok: false,
-      code: ERROR_CODES.ANALYSIS_UNRELIABLE,
-      diagnostics: validationDiagnostics("provider_feature_signal_missing", parsed),
+      code: ERROR_CODES.LOW_INFORMATION_FEATURE_SET,
+      diagnostics: validationDiagnostics("LOW_INFORMATION_FEATURE_SET", parsed),
     };
   }
 

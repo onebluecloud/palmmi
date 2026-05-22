@@ -173,6 +173,16 @@ async function buildSafeAnalysisResponse({ requestId, anonymousDeviceId, image, 
     side: image.side,
   });
 
+  if (
+    recognitionResult.status === ERROR_CODES.LOW_INFORMATION_FEATURE_SET ||
+    (recognitionResult.diagnostics && recognitionResult.diagnostics.matcherWarnings
+      && recognitionResult.diagnostics.matcherWarnings.includes(ERROR_CODES.LOW_INFORMATION_FEATURE_SET))
+  ) {
+    return createErrorResponse(ERROR_CODES.LOW_INFORMATION_FEATURE_SET, requestId, {
+      diagnostics: recognitionResult.diagnostics,
+    });
+  }
+
   const sessionStorage = createMemoryStorage();
   const localStorage = createMemoryStorage({
     [stage5.DEVICE_ID_STORAGE_KEY]: anonymousDeviceId,

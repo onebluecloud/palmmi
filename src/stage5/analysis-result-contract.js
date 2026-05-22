@@ -3,7 +3,15 @@ const STAGE5H_TRACE_STAGE = "5H";
 const IMAGE_NOT_CLEAR_MESSAGE = "这张照片掌纹不够清晰，请重新拍摄后再试。";
 const NOT_PALM_MESSAGE = "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。";
 const ANALYSIS_UNRELIABLE_MESSAGE = "本次识别结果不稳定，请换一张更清晰的掌心照片后重试。";
-const TERMINAL_QUALITY_STATUSES = new Set(["NOT_PALM", "IMAGE_NOT_CLEAR", "ANALYSIS_UNRELIABLE", "RETRY_REQUIRED", "REJECTED"]);
+const LOW_INFORMATION_MESSAGE = "当前照片可用于基础识别，但掌纹特征信息不足，请换一张更清晰的掌心照片后重试。";
+const TERMINAL_QUALITY_STATUSES = new Set([
+  "NOT_PALM",
+  "IMAGE_NOT_CLEAR",
+  "ANALYSIS_UNRELIABLE",
+  "LOW_INFORMATION_FEATURE_SET",
+  "RETRY_REQUIRED",
+  "REJECTED",
+]);
 
 let frozenDisplayContent = [];
 try {
@@ -94,6 +102,17 @@ function normalizeDiagnostics(value) {
     unknownFieldCount: Number.isFinite(diagnostics.unknownFieldCount)
       ? diagnostics.unknownFieldCount
       : 0,
+    unknownFeatureCount: Number.isFinite(diagnostics.unknownFeatureCount)
+      ? diagnostics.unknownFeatureCount
+      : 0,
+    usableFeatureCount: Number.isFinite(diagnostics.usableFeatureCount)
+      ? diagnostics.usableFeatureCount
+      : 0,
+    scoreMargin: Number.isFinite(diagnostics.scoreMargin)
+      ? diagnostics.scoreMargin
+      : null,
+    collapseRiskHint: diagnostics.collapseRiskHint === true,
+    classifierVersion: stringOrNull(diagnostics.classifierVersion) || "",
     adapterWarnings: safeArray(diagnostics.adapterWarnings),
     providerWarnings: safeArray(diagnostics.providerWarnings),
     matcherWarnings: safeArray(diagnostics.matcherWarnings),
@@ -460,9 +479,11 @@ function buildDisplayPayload({ persona, primaryPersona, recognitionResult, diagn
         ? IMAGE_NOT_CLEAR_MESSAGE
         : qualityStatus === "ANALYSIS_UNRELIABLE"
           ? ANALYSIS_UNRELIABLE_MESSAGE
-          : qualityStatus === "LOW_CONFIDENCE"
-            ? "这次图片可读性一般，结果更适合作为娱乐参考。"
-            : "分析已完成。",
+          : qualityStatus === "LOW_INFORMATION_FEATURE_SET"
+            ? LOW_INFORMATION_MESSAGE
+            : qualityStatus === "LOW_CONFIDENCE"
+              ? "这次图片可读性一般，结果更适合作为娱乐参考。"
+              : "分析已完成。",
   };
 }
 

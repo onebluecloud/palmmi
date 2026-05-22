@@ -220,6 +220,19 @@ function readAnalysisResultForUI(analysisResult) {
       lowConfidenceFieldCount: analysisResult.diagnostics.lowConfidenceFieldCount,
       missingFieldCount: analysisResult.diagnostics.missingFieldCount,
       unknownFieldCount: analysisResult.diagnostics.unknownFieldCount,
+      unknownFeatureCount: Number.isFinite(analysisResult.diagnostics.unknownFeatureCount)
+        ? analysisResult.diagnostics.unknownFeatureCount
+        : 0,
+      usableFeatureCount: Number.isFinite(analysisResult.diagnostics.usableFeatureCount)
+        ? analysisResult.diagnostics.usableFeatureCount
+        : 0,
+      scoreMargin: isNumberOrNull(analysisResult.diagnostics.scoreMargin)
+        ? analysisResult.diagnostics.scoreMargin
+        : null,
+      collapseRiskHint: analysisResult.diagnostics.collapseRiskHint === true,
+      classifierVersion: isString(analysisResult.diagnostics.classifierVersion)
+        ? analysisResult.diagnostics.classifierVersion
+        : "",
       adapterWarnings: cloneStringArray(analysisResult.diagnostics.adapterWarnings),
       providerWarnings: cloneStringArray(analysisResult.diagnostics.providerWarnings),
       matcherWarnings: cloneStringArray(analysisResult.diagnostics.matcherWarnings),

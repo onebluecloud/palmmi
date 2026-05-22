@@ -13,6 +13,8 @@ const {
 
 const RECOGNITION_RESULT_SCHEMA_VERSION = "recognition-result.v1";
 const UNKNOWN = "unknown";
+const LOW_INFORMATION_FEATURE_SET = "LOW_INFORMATION_FEATURE_SET";
+const LOW_MARGIN_THRESHOLD = 0.05;
 
 function isPlainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value);
@@ -181,8 +183,59 @@ function matcherWarnings(match) {
   return [...new Set(warnings)];
 }
 
+function scoreMargin(match) {
+  const top3 = safeArray(match && match.top3);
+  if (top3.length < 2) {
+    return null;
+  }
+  const first = Number.isFinite(top3[0].score) ? top3[0].score : Number.isFinite(top3[0].confidence) ? top3[0].confidence : null;
+  const second = Number.isFinite(top3[1].score) ? top3[1].score : Number.isFinite(top3[1].confidence) ? top3[1].confidence : null;
+  if (!Number.isFinite(first) || !Number.isFinite(second)) {
+    return null;
+  }
+  return Number(Math.max(0, first - second).toFixed(4));
+}
+
+function lowInformationPersonaMatch(ruleInput) {
+  const diagnostics = isPlainObject(ruleInput.diagnostics) ? ruleInput.diagnostics : {};
+  return {
+    status: LOW_INFORMATION_FEATURE_SET,
+    error_codes: [LOW_INFORMATION_FEATURE_SET],
+    primary_mother: null,
+    secondary_mother: null,
+    is_dual_mother: false,
+    primary_persona: null,
+    initial_primary_persona: null,
+    top3: [],
+    correction: {
+      cross_mother_checked: false,
+      cross_mother_applied: false,
+      cross_mother_detail: null,
+      adjacent_checked: false,
+      adjacent_applied: false,
+      adjacent_detail: null,
+    },
+    explanation: {
+      low_confidence: true,
+      low_information_feature_set: true,
+      usable_feature_count: Number.isFinite(diagnostics.usableFeatureCount) ? diagnostics.usableFeatureCount : 0,
+      unknown_feature_count: Number.isFinite(diagnostics.unknownFeatureCount) ? diagnostics.unknownFeatureCount : 0,
+    },
+    is_low_confidence: true,
+    debug: {
+      notes: ["LOW_INFORMATION_FEATURE_SET"],
+      classifier_version: diagnostics.classifierVersion || UNKNOWN,
+    },
+  };
+}
+
 function buildDiagnostics({ ruleInput, match, providerResult, options, missingFields }) {
   const adapterDiagnostics = isPlainObject(ruleInput.diagnostics) ? ruleInput.diagnostics : {};
+  const margin = scoreMargin(match);
+  const matcherWarningList = matcherWarnings(match);
+  if (margin !== null && margin < LOW_MARGIN_THRESHOLD) {
+    matcherWarningList.push("LOW_MARGIN_CLASSIFICATION");
+  }
   return {
     lowConfidenceFieldCount: Number.isFinite(adapterDiagnostics.lowConfidenceFieldCount)
       ? adapterDiagnostics.lowConfidenceFieldCount
@@ -191,9 +244,24 @@ function buildDiagnostics({ ruleInput, match, providerResult, options, missingFi
     unknownFieldCount: Number.isFinite(adapterDiagnostics.unknownFieldCount)
       ? adapterDiagnostics.unknownFieldCount
       : 0,
+    unknownFeatureCount: Number.isFinite(adapterDiagnostics.unknownFeatureCount)
+      ? adapterDiagnostics.unknownFeatureCount
+      : 0,
+    usableFeatureCount: Number.isFinite(adapterDiagnostics.usableFeatureCount)
+      ? adapterDiagnostics.usableFeatureCount
+      : 0,
+    scoreMargin: margin,
+    collapseRiskHint: Boolean(
+      isPlainObject(match && match.primary_persona)
+        && (match.primary_persona.id === "P31" || match.primary_persona.persona_id === "P31")
+        && (margin === null || margin < LOW_MARGIN_THRESHOLD)
+    ),
+    classifierVersion: typeof adapterDiagnostics.classifierVersion === "string"
+      ? adapterDiagnostics.classifierVersion
+      : UNKNOWN,
     adapterWarnings: safeArray(adapterDiagnostics.warnings),
     providerWarnings: providerWarnings(options, providerResult),
-    matcherWarnings: matcherWarnings(match),
+    matcherWarnings: [...new Set(matcherWarningList)],
   };
 }
 
@@ -208,7 +276,10 @@ async function runPalmmiRecognitionPipeline(options = {}) {
   const model = modelLabel(options, providerResult, palmFeatureSet);
   const ruleInput = buildRuleInput(options, palmFeatureSet, provider, model);
   const missingFields = findMissingFields(ruleInput.normalized_33_fields);
-  const personaMatch = runMatcher(options, ruleInput);
+  const adapterDiagnostics = isPlainObject(ruleInput.diagnostics) ? ruleInput.diagnostics : {};
+  const personaMatch = adapterDiagnostics.lowInformationFeatureSet === true
+    ? lowInformationPersonaMatch(ruleInput)
+    : runMatcher(options, ruleInput);
 
   return {
     schemaVersion: RECOGNITION_RESULT_SCHEMA_VERSION,

@@ -6,8 +6,10 @@ const {
 } = require("./palm-feature-set.js");
 
 const RULE_INPUT_SCHEMA_VERSION = "rule-input.v1";
+const CLASSIFIER_VERSION = "stage6f-hard-fix.v1";
 const UNKNOWN = "unknown";
 const LOW_CONFIDENCE_THRESHOLD = 0.5;
+const MIN_USABLE_CLASSIFIER_FEATURES = 3;
 
 function isPlainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value);
@@ -349,6 +351,30 @@ function concreteSignalCount(signals) {
   ].map(text).filter((value) => value && value !== UNKNOWN && value !== "unclear").length;
 }
 
+function classifierSignalInfo(signals) {
+  const mainLineType = normalizeMainLineType(signals.mainLineType);
+  const values = {
+    mainLineType,
+    lineDepth: text(signals.lineDepth) || UNKNOWN,
+    lineComplexity: text(signals.lineComplexity) || UNKNOWN,
+    lineContinuity: text(signals.lineContinuity) || UNKNOWN,
+    branchDensity: text(signals.branchDensity) || UNKNOWN,
+    palmShapeHint: text(signals.palmShapeHint) || UNKNOWN,
+  };
+  const usableEntries = Object.entries(values)
+    .filter(([, value]) => value && value !== UNKNOWN && value !== "unclear");
+  const usableFeatureCount = usableEntries.length;
+  const unknownFeatureCount = Object.keys(values).length - usableFeatureCount;
+  const hasMainLineType = mainLineType !== UNKNOWN;
+  return {
+    values,
+    hasMainLineType,
+    usableFeatureCount,
+    unknownFeatureCount,
+    lowInformationFeatureSet: !hasMainLineType || usableFeatureCount < MIN_USABLE_CLASSIFIER_FEATURES,
+  };
+}
+
 function applyMainLineTypeCalibration(fields, signals) {
   const mainLineType = normalizeMainLineType(signals.mainLineType);
   const concreteCount = concreteSignalCount(signals);
@@ -476,10 +502,13 @@ function buildNormalized33Fields(states) {
   return fields;
 }
 
-function buildWarnings(states, unknownCount, lowConfidenceCount) {
+function buildWarnings(states, unknownCount, lowConfidenceCount, signalInfo) {
   const warnings = [];
   if (states.imageQuality.usable === false) {
     warnings.push("IMAGE_QUALITY_UNUSABLE");
+  }
+  if (signalInfo && signalInfo.lowInformationFeatureSet) {
+    warnings.push("LOW_INFORMATION_FEATURE_SET");
   }
   if (unknownCount > 0) {
     warnings.push("UNKNOWN_FIELDS_DEFAULTED_TO_NEUTRAL");
@@ -497,6 +526,7 @@ function palmFeatureSetToRuleInput(palmFeatureSet = {}, options = {}) {
   const rawProvider = objectAt(safeInput, "rawProvider");
   const unknownCount = unknownFieldCount(states);
   const lowConfidenceCount = lowConfidenceFieldCount(states);
+  const signalInfo = classifierSignalInfo(states.classificationSignals);
 
   return {
     schemaVersion: RULE_INPUT_SCHEMA_VERSION,
@@ -513,8 +543,12 @@ function palmFeatureSetToRuleInput(palmFeatureSet = {}, options = {}) {
 
     diagnostics: {
       unknownFieldCount: unknownCount,
+      unknownFeatureCount: signalInfo.unknownFeatureCount,
+      usableFeatureCount: signalInfo.usableFeatureCount,
+      lowInformationFeatureSet: signalInfo.lowInformationFeatureSet,
+      classifierVersion: CLASSIFIER_VERSION,
       lowConfidenceFieldCount: lowConfidenceCount,
-      warnings: buildWarnings(states, unknownCount, lowConfidenceCount),
+      warnings: buildWarnings(states, unknownCount, lowConfidenceCount, signalInfo),
       provider: typeof safeOptions.provider === "string" && safeOptions.provider
         ? safeOptions.provider
         : typeof rawProvider.provider === "string" && rawProvider.provider
@@ -530,7 +564,9 @@ function palmFeatureSetToRuleInput(palmFeatureSet = {}, options = {}) {
 }
 
 module.exports = {
+  CLASSIFIER_VERSION,
   LOW_CONFIDENCE_THRESHOLD,
+  MIN_USABLE_CLASSIFIER_FEATURES,
   RULE_INPUT_SCHEMA_VERSION,
   palmFeatureSetToRuleInput,
 };

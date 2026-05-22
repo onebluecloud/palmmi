@@ -2,13 +2,13 @@
 
 ## 当前阶段
 
-Stage 6F：Classifier-Calibration 代码层已完成，微信真机仍需最终复测。
+Stage 6F：Final-Classifier-Hard-Fix 代码层已完成，微信真机仍需最终复测。
 
-Stage 6F status: CLASSIFIER_CALIBRATION_CODE_PASS / ANDROID_WECHAT_FINAL_RETEST_REQUIRED
+Stage 6F status: FINAL_CLASSIFIER_HARD_FIX_CODE_PASS / ANDROID_WECHAT_RETEST_REQUIRED
 
 Stage 6G: BLOCKED
 
-Reason: 用户安卓微信复测确认非手掌识别、正常手掌结果页和海报链路已恢复，但多个不同手掌最终人格塌缩为 `P31 留一手`。本轮 Classifier-Calibration 已定位为 Stage5 本地 adapter 丢失 / 弱化 Qwen 高层 `main_line_type`，且低信息字段进入 Stage3 规则时容易误命中 P31。已改为多维 `palm_features` 校准、保留 Stage3 冻结规则不变、增加 score_breakdown 和 `PERSONALITY_COLLAPSE_RISK` 诊断。Stage 6G 仍 BLOCKED，原因是安卓微信最终真机复测和 iOS 微信真机验收尚未完成。
+Reason: 用户安卓微信真机复测已证明 commit `f3d2afdc93aa87b58b54436616e13562d18434a7` 失败：非手掌识别、正常手掌识别、海报生成均可用，但多个不同手掌仍全部输出 `P31 留一手`。本轮 Hard-Fix 新增 `LOW_INFORMATION_FEATURE_SET`、feature information gate、score margin 诊断、P31 合法输出条件、`P31_COLLAPSE_CONFIRMED` 和 collapse hard fail。Stage 6G 仍 BLOCKED，原因是新 commit 仍需安卓微信最终真机复测和 iOS 微信真机验收。
 
 ## 已完成
 
@@ -97,6 +97,14 @@ Reason: 用户安卓微信复测确认非手掌识别、正常手掌结果页和
   - `candidate_results` 增加 `confidence`、`reason`、`score_breakdown`，用于诊断不是默认人格。
   - smoke collapse 诊断增加 `candidate_distribution`；3 个及以上 palm 样本全部同一人格时输出 `PERSONALITY_COLLAPSE_RISK`，全部 P31 时记录 `All tested palm samples collapsed to 留一手.`
   - `npm run test:stage6f` 已覆盖 no-default-留一手、不同特征不同候选、deterministic、score_breakdown、poster 和 NOT_PALM 回归。
+- Stage 6F-Final-Classifier-Hard-Fix：
+  - 已记录 `f3d2afdc93aa87b58b54436616e13562d18434a7` 安卓微信真机复测失败：多个不同手掌仍全部输出 `P31 留一手`，不能再作为可接受版本。
+  - 新增 `LOW_INFORMATION_FEATURE_SET`：`valid_palm=true` 但 `main_line_type` 缺失或 6 个核心 palm features 中可用字段少于 3 个时，不输出任何人格。
+  - unknown / unclear 特征不再能通过低信息路径误命中 P31；`LOW_CONFIDENCE` 只影响置信度，不决定人格。
+  - classifier diagnostics 增加 `scoreMargin`、`unknownFeatureCount`、`usableFeatureCount`、`collapseRiskHint`、`classifierVersion`。
+  - 合法 P31 必须是 `candidate_results[0]`，并且有非空 feature reason 与 `score_breakdown`；不得来自 fallback。
+  - real Qwen smoke 支持 `--debug-classifier`、`--min-palm-samples`、`--min-unique-personalities`；5 张 palm 少于 2 个不同人格时 hard fail，全部 P31 时输出 `P31_COLLAPSE_CONFIRMED` 且 `ok=false`。
+  - `npm run test:stage6f` 已覆盖 all unknown、低信息特征、5 组 mock 多样性、P31 合法依据、deterministic、海报和 NOT_PALM 回归。
 
 ## 用户真机复测失败记录
 
@@ -260,6 +268,21 @@ Stage 6F-Fix-3 部署到 `aa51bf5bdfe1822cb98059878ab3c74f6cb5e708` 后，用户
 | 海报错误码 | PASS | 新增 `POSTER_MAIN_CANDIDATE_MISMATCH` |
 | Final-Fix mock 测试 | PASS | 本地分类、候选一致、poster contract、缺失人格、deterministic 回归均通过 |
 
+## Stage 6F-Final-Classifier-Hard-Fix 状态
+
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| `f3d2afd` 真机复测失败确认 | PASS | 已明确记录：多个不同手掌仍全部 `P31 留一手` |
+| `LOW_INFORMATION_FEATURE_SET` | PASS | 低信息 palm_features 不再输出人格 |
+| feature information gate | PASS | `main_line_type` 合法且至少 3 个核心特征可用才进入本地 classifier |
+| unknown 特征误命中 | PASS | unknown / unclear 不再通过低信息路径误命中 P31 |
+| score margin 诊断 | PASS | success contract 和 smoke debug summary 可输出 score margin |
+| P31 合法输出条件 | PASS | P31 必须有 feature reason / score_breakdown，并且是候选第一名 |
+| `P31_COLLAPSE_CONFIRMED` | PASS | 5 张及以上真实 palm 全 P31 时 smoke hard fail |
+| collapse hard fail | PASS | `unique_personality_count < 2` 且 palm 样本数达到阈值时 `ok=false` |
+| NOT_PALM / 海报回归 | PASS | 非手掌拦截与有效 LOW_CONFIDENCE 海报能力未回退 |
+| Hard-Fix mock 测试 | PASS | all unknown、低信息、5 mock 多样性、P31 合法依据、deterministic、poster、NOT_PALM 均通过 |
+
 ## Stage 6F-Classifier-Calibration 状态
 
 | 项目 | 状态 | 说明 |
@@ -324,12 +347,13 @@ Codex 没有把微信真机测试伪造成 PASS。
 
 | 阻塞项 | 状态 | 说明 |
 |---|---|---|
-| 安卓微信 Classifier-Calibration 后真机复测 | MANUAL_RETEST_REQUIRED | 必须由用户在安卓微信重新测试多张不同手掌是否不再全部 `P31 留一手` |
+| `f3d2afd` 安卓微信真机复测 | FAIL_CONFIRMED | 已失败；多个不同手掌仍全部 `P31 留一手`，不要再复测该 commit |
+| 安卓微信 Hard-Fix 后真机复测 | MANUAL_RETEST_REQUIRED | 必须等待新 commit 部署后，由用户重新测试多张不同手掌是否不再全部 `P31 留一手` |
 | iPhone 微信真机测试 | MANUAL_REQUIRED | 需要真实设备截图或测试结果 |
-| Classifier-Calibration 部署后生产真实上传确认 | MANUAL_RETEST_REQUIRED | 当前代码修复后需等待 Pages 部署并复测 |
+| Hard-Fix 部署后生产真实上传确认 | MANUAL_RETEST_REQUIRED | 当前代码修复后需等待 Pages 部署并复测 |
 | 安卓微信非手掌拒绝复测 | CODE_REVIEW_PASS / RETEST_RECOMMENDED | 用户已反馈非手掌识别通过；部署后建议快速确认未回退 |
 | 安卓微信海报生成复测 | CODE_REVIEW_PASS / RETEST_RECOMMENDED | 用户已反馈海报生成通过；部署后建议快速确认未回退 |
-| 安卓微信正常手掌人格多样性复测 | MANUAL_RETEST_REQUIRED | 本轮已修本地 classifier；仍需用户真机确认多个手掌不再全部 `P31 留一手` |
+| 安卓微信正常手掌人格多样性复测 | MANUAL_RETEST_REQUIRED | 本轮已新增低信息闸门和 collapse hard fail；仍需用户真机确认多个手掌不再全部 `P31 留一手` |
 | 安卓微信人格塌缩观察 | MANUAL_RETEST_REQUIRED | 重点观察是否从 `P31 留一手` 转移到另一个固定人格 |
 | 真实 A/B smoke | RECORDED_INCONCLUSIVE | 用户已运行；当前结论是不切 `qwen3.6-flash`，不再作为进入 6G 的单独前置项 |
 | 偏暗图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
@@ -340,7 +364,7 @@ Codex 没有把微信真机测试伪造成 PASS。
 
 是否可以进入 Stage 6G: BLOCKED
 
-条件：真实 Qwen smoke 和真实 A/B smoke 已记录，Classifier-Calibration 代码层和 mock 回归已通过。只有在本轮部署后安卓微信多张正常手掌不再全部塌缩为 `P31 留一手` 或另一个固定人格，且非手掌 / 结果页 / 海报链路保持不回退，并继续保持无 Key / Token / base64 / raw response 泄露，才允许重新评估 Stage 6G。
+条件：`f3d2afd` 已被安卓微信真机证明失败，不能作为进入 Stage 6G 的依据。只有本轮 Hard-Fix 新 commit 部署后，安卓微信多张正常手掌不再全部塌缩为 `P31 留一手` 或另一个固定人格，真实 5 张 palm smoke 若仍少于 2 个不同人格会 hard fail，且非手掌 / 结果页 / 海报链路保持不回退，并继续保持无 Key / Token / base64 / raw response 泄露，才允许重新评估 Stage 6G。
 
 ## 当前禁止修改
 

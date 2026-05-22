@@ -29,6 +29,19 @@ function normalizeDiagnostics(value) {
     unknownFieldCount: Number.isFinite(diagnostics.unknownFieldCount)
       ? diagnostics.unknownFieldCount
       : 0,
+    unknownFeatureCount: Number.isFinite(diagnostics.unknownFeatureCount)
+      ? diagnostics.unknownFeatureCount
+      : 0,
+    usableFeatureCount: Number.isFinite(diagnostics.usableFeatureCount)
+      ? diagnostics.usableFeatureCount
+      : 0,
+    scoreMargin: Number.isFinite(diagnostics.scoreMargin)
+      ? diagnostics.scoreMargin
+      : null,
+    collapseRiskHint: diagnostics.collapseRiskHint === true,
+    classifierVersion: typeof diagnostics.classifierVersion === "string"
+      ? diagnostics.classifierVersion
+      : "",
     adapterWarnings: Array.isArray(diagnostics.adapterWarnings) ? diagnostics.adapterWarnings : [],
     providerWarnings: Array.isArray(diagnostics.providerWarnings) ? diagnostics.providerWarnings : [],
     matcherWarnings: Array.isArray(diagnostics.matcherWarnings) ? diagnostics.matcherWarnings : [],

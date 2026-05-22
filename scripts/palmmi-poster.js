@@ -257,7 +257,7 @@
       return "POSTER_MAIN_CANDIDATE_MISMATCH";
     }
     const qualityStatus = firstText(pageResponse.data && pageResponse.data.quality_status).toUpperCase();
-    if (["NOT_PALM", "IMAGE_NOT_CLEAR", "ANALYSIS_UNRELIABLE", "RETRY_REQUIRED", "REJECTED"].includes(qualityStatus)) {
+    if (["NOT_PALM", "IMAGE_NOT_CLEAR", "ANALYSIS_UNRELIABLE", "LOW_INFORMATION_FEATURE_SET", "RETRY_REQUIRED", "REJECTED"].includes(qualityStatus)) {
       return "POSTER_NOT_ALLOWED_FOR_INVALID_IMAGE";
     }
     return "POSTER_CONTRACT_INVALID";
@@ -500,6 +500,7 @@
     return status === "IMAGE_NOT_CLEAR"
       || status === "NOT_PALM"
       || status === "ANALYSIS_UNRELIABLE"
+      || status === "LOW_INFORMATION_FEATURE_SET"
       || status === "RETRY_REQUIRED"
       || status === "REJECTED";
   }
@@ -531,6 +532,14 @@
         title: "本次识别结果不稳定",
         pill: "请重新拍摄",
         recoveryHint: "请换一张更清晰的掌心照片后重试。",
+      };
+    }
+    if (status === "LOW_INFORMATION_FEATURE_SET") {
+      return {
+        ...model,
+        title: "掌纹特征信息不足",
+        pill: "请重新拍摄",
+        recoveryHint: "请换一张掌纹更清晰、信息更完整的掌心照片后重试。",
       };
     }
     return model;
