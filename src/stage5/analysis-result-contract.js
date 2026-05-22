@@ -284,7 +284,9 @@ function readPersonaExplanation(recognitionResult) {
 function readCandidateResults(recognitionResult, primaryPersona, displayContent) {
   const top3 = safeArray(recognitionResult.top3);
   const candidates = top3.length ? top3 : [primaryPersona];
-  return candidates
+  const primaryId = stringOrNull(primaryPersona.id) || stringOrNull(primaryPersona.persona_id);
+  const primaryFrozen = readDisplayContent(primaryId);
+  const normalized = candidates
     .filter(isPlainObject)
     .slice(0, 3)
     .map((candidate) => {
@@ -302,6 +304,29 @@ function readCandidateResults(recognitionResult, primaryPersona, displayContent)
       };
     })
     .filter((candidate) => candidate.personality_id && candidate.personality_name);
+
+  if (!primaryId || (normalized[0] && normalized[0].personality_id === primaryId)) {
+    return normalized;
+  }
+
+  const matchingPrimary = normalized.find((candidate) => candidate.personality_id === primaryId);
+  const primaryCandidate = matchingPrimary || {
+    personality_id: primaryId,
+    personality_name: stringOrNull(primaryPersona.name)
+      || stringOrNull(primaryFrozen && primaryFrozen.persona_name)
+      || "",
+    main_line_type: stringOrNull(primaryPersona.mother_type)
+      || stringOrNull(displayContent && displayContent.main_line_type)
+      || "",
+    score: numberOrNull(primaryPersona.score),
+  };
+
+  return [
+    primaryCandidate,
+    ...normalized.filter((candidate) => candidate.personality_id !== primaryId),
+  ]
+    .filter((candidate) => candidate.personality_id && candidate.personality_name)
+    .slice(0, 3);
 }
 
 function displayFeatureKeys(primaryPersona, recognitionResult) {

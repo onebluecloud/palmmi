@@ -116,6 +116,10 @@ function extractFeatureSource(rawResult) {
     return {};
   }
 
+  if (isPlainObject(rawResult.features)) {
+    return rawResult.features;
+  }
+
   if (isPlainObject(rawResult.parsed)) {
     return rawResult.parsed;
   }
@@ -232,6 +236,113 @@ function aggregateCount(...values) {
   return "unknown";
 }
 
+function highLevelSummary(source) {
+  return firstObject(source.palmFeatureSummary, source.palm_features);
+}
+
+function visiblePalmFromSource(source) {
+  const validity = firstObject(source.validity);
+  return source.isValidPalmImage === true || (
+    validity.is_palm_photo === true &&
+    validity.is_single_hand === true &&
+    validity.is_palm_side_visible === true &&
+    validity.palm_lines_visible === true
+  );
+}
+
+function fallbackDepth(summary) {
+  const token = normalizeToken(summary.line_depth);
+  if (token === "faint") {
+    return "shallow";
+  }
+  return pickEnum(token, ["shallow", "medium", "deep"]);
+}
+
+function fallbackBreaks(summary) {
+  const complexity = normalizeToken(summary.line_complexity);
+  const continuity = normalizeToken(summary.line_continuity);
+  if (continuity === "broken" || complexity === "complex") {
+    return "major";
+  }
+  if (continuity === "mixed" || complexity === "medium") {
+    return "minor";
+  }
+  if (continuity === "continuous" || complexity === "simple") {
+    return "none";
+  }
+  return "unknown";
+}
+
+function fallbackBranches(summary) {
+  const density = normalizeToken(summary.branch_density);
+  if (density === "high") {
+    return "many";
+  }
+  if (density === "medium") {
+    return "few";
+  }
+  if (density === "low") {
+    return "none";
+  }
+  return "unknown";
+}
+
+function fallbackContinuity(summary) {
+  const token = normalizeToken(summary.line_continuity);
+  if (token === "continuous") {
+    return "continuous";
+  }
+  if (token === "broken") {
+    return "broken";
+  }
+  if (token === "mixed") {
+    return "partial";
+  }
+  return "unknown";
+}
+
+function fallbackShape(summary, key) {
+  const token = normalizeToken(summary.palm_shape_hint);
+  if (key === "width") {
+    if (token === "wide" || token === "square") {
+      return "wide";
+    }
+    if (token === "long") {
+      return "medium";
+    }
+  }
+  if (key === "length") {
+    if (token === "long") {
+      return "long";
+    }
+    if (token === "square" || token === "wide") {
+      return "medium";
+    }
+  }
+  return "unknown";
+}
+
+function applyHighLevelLineFallback(line, summary, options = {}) {
+  const confidence = clampConfidence(summary.confidence ?? options.confidence);
+  if (options.visible && line.visible !== true) {
+    line.visible = true;
+  }
+  if (line.length === "unknown" && options.length) {
+    line.length = options.length;
+  }
+  const depth = fallbackDepth(summary);
+  if (line.depth === "unknown" && depth !== "unknown") {
+    line.depth = depth;
+  }
+  const breaks = fallbackBreaks(summary);
+  if (line.breaks === "unknown" && breaks !== "unknown") {
+    line.breaks = breaks;
+  }
+  if (line.confidence === 0 && confidence > 0) {
+    line.confidence = confidence;
+  }
+}
+
 function strengthFromFateLine(line) {
   const direct = pickEnum(line.strength, ["weak", "medium", "strong"], "");
   if (direct) {
@@ -282,6 +393,9 @@ function applyFeatureSource(featureSet, source, rawResult, options) {
   const imageQuality = firstObject(source.imageQuality, source.image_quality, source.quality);
   const palmShape = firstObject(source.palmShape, source.palm_shape);
   const specialMarks = firstObject(source.specialMarks, source.special_marks);
+  const summary = highLevelSummary(source);
+  const hasVisiblePalm = visiblePalmFromSource(source);
+  const summaryConfidence = clampConfidence(summary.confidence ?? source.confidence);
 
   featureSet.hand.side = pickEnum(firstString(hand.side, source.side, rawResult.side, options.side), [
     "left",
@@ -292,16 +406,16 @@ function applyFeatureSource(featureSet, source, rawResult, options) {
     firstString(
       hand.orientation,
       source.orientation,
-      typeof source.isValidPalmImage === "boolean" && source.isValidPalmImage ? "palm" : ""
+      hasVisiblePalm ? "palm" : ""
     ),
     ["palm", "back", "unknown"]
   );
-  featureSet.hand.confidence = clampConfidence(hand.confidence);
+  featureSet.hand.confidence = clampConfidence(hand.confidence || summaryConfidence);
 
   if (typeof imageQuality.usable === "boolean") {
     featureSet.imageQuality.usable = imageQuality.usable;
-  } else if (typeof source.isValidPalmImage === "boolean") {
-    featureSet.imageQuality.usable = source.isValidPalmImage;
+  } else if (typeof source.isValidPalmImage === "boolean" || hasVisiblePalm) {
+    featureSet.imageQuality.usable = hasVisiblePalm;
   }
   featureSet.imageQuality.reasons = safeTextList(imageQuality.reasons).length
     ? safeTextList(imageQuality.reasons)
@@ -324,15 +438,28 @@ function applyFeatureSource(featureSet, source, rawResult, options) {
     "severe",
     "unknown",
   ]);
-  featureSet.imageQuality.confidence = clampConfidence(imageQuality.confidence ?? source.confidence);
+  featureSet.imageQuality.confidence = clampConfidence(imageQuality.confidence ?? source.confidence ?? summaryConfidence);
 
   const lifeLine = readLine(source, "lifeLine", "life_line");
   applyLineDefaults(featureSet.majorLines.lifeLine, lifeLine);
   featureSet.majorLines.lifeLine.curvature = curveFromLine(lifeLine);
+  applyHighLevelLineFallback(featureSet.majorLines.lifeLine, summary, {
+    visible: hasVisiblePalm,
+    length: normalizeToken(summary.palm_shape_hint) === "long" ? "long" : "medium",
+    confidence: summaryConfidence,
+  });
 
   const headLine = readLine(source, "headLine", "head_line");
   applyLineDefaults(featureSet.majorLines.headLine, headLine);
   featureSet.majorLines.headLine.slope = slopeFromLine(headLine);
+  applyHighLevelLineFallback(featureSet.majorLines.headLine, summary, {
+    visible: hasVisiblePalm,
+    length: "long",
+    confidence: summaryConfidence,
+  });
+  if (featureSet.majorLines.headLine.slope === "unknown") {
+    featureSet.majorLines.headLine.slope = normalizeToken(summary.line_complexity) === "complex" ? "downward" : "flat";
+  }
 
   const heartLine = readLine(source, "heartLine", "heart_line");
   applyLineDefaults(featureSet.majorLines.heartLine, heartLine);
@@ -343,12 +470,32 @@ function applyFeatureSource(featureSet, source, rawResult, options) {
     "under_middle",
     "unknown",
   ]);
+  applyHighLevelLineFallback(featureSet.majorLines.heartLine, summary, {
+    visible: hasVisiblePalm,
+    length: "medium",
+    confidence: summaryConfidence,
+  });
+  if (featureSet.majorLines.heartLine.curvature === "unknown") {
+    featureSet.majorLines.heartLine.curvature = normalizeToken(summary.line_complexity) === "complex" ? "high" : "medium";
+  }
 
   const fateLine = readLine(source, "fateLine", "fate_line");
   featureSet.majorLines.fateLine.visible = visibleFromLine(fateLine);
   featureSet.majorLines.fateLine.strength = strengthFromFateLine(fateLine);
   featureSet.majorLines.fateLine.continuity = continuityFromFateLine(fateLine);
   featureSet.majorLines.fateLine.confidence = clampConfidence(fateLine.confidence);
+  if (featureSet.majorLines.fateLine.visible !== true && fallbackBranches(summary) !== "unknown") {
+    featureSet.majorLines.fateLine.visible = hasVisiblePalm && fallbackBranches(summary) !== "none";
+  }
+  if (featureSet.majorLines.fateLine.strength === "unknown") {
+    featureSet.majorLines.fateLine.strength = fallbackBranches(summary) === "many" ? "strong" : "medium";
+  }
+  if (featureSet.majorLines.fateLine.continuity === "unknown") {
+    featureSet.majorLines.fateLine.continuity = fallbackContinuity(summary);
+  }
+  if (featureSet.majorLines.fateLine.confidence === 0 && summaryConfidence > 0) {
+    featureSet.majorLines.fateLine.confidence = summaryConfidence;
+  }
 
   featureSet.palmShape.palmWidth = pickEnum(palmShape.palmWidth ?? palmShape.palm_width, [
     "narrow",
@@ -356,17 +503,26 @@ function applyFeatureSource(featureSet, source, rawResult, options) {
     "wide",
     "unknown",
   ]);
+  if (featureSet.palmShape.palmWidth === "unknown") {
+    featureSet.palmShape.palmWidth = fallbackShape(summary, "width");
+  }
   featureSet.palmShape.palmLength = pickEnum(palmShape.palmLength ?? palmShape.palm_length, [
     "short",
     "medium",
     "long",
     "unknown",
   ]);
+  if (featureSet.palmShape.palmLength === "unknown") {
+    featureSet.palmShape.palmLength = fallbackShape(summary, "length");
+  }
   featureSet.palmShape.fingerLength = pickEnum(
     palmShape.fingerLength ?? palmShape.finger_length ?? palmShape.fingerProportion,
     ["short", "medium", "long", "unknown"]
   );
-  featureSet.palmShape.confidence = clampConfidence(palmShape.confidence);
+  if (featureSet.palmShape.fingerLength === "unknown") {
+    featureSet.palmShape.fingerLength = fallbackShape(summary, "length");
+  }
+  featureSet.palmShape.confidence = clampConfidence(palmShape.confidence || summaryConfidence);
 
   featureSet.specialMarks.crosses = normalizeCount(specialMarks.crosses);
   featureSet.specialMarks.islands = aggregateCount(
@@ -381,7 +537,10 @@ function applyFeatureSource(featureSet, source, rawResult, options) {
     headLine.branches,
     heartLine.branches
   );
-  featureSet.specialMarks.confidence = clampConfidence(specialMarks.confidence);
+  if (featureSet.specialMarks.branches === "unknown") {
+    featureSet.specialMarks.branches = fallbackBranches(summary);
+  }
+  featureSet.specialMarks.confidence = clampConfidence(specialMarks.confidence || summaryConfidence);
 }
 
 function normalizeVlmToPalmFeatureSet(rawResult = {}, options = {}) {

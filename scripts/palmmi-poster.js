@@ -238,9 +238,23 @@
     };
   }
 
+  function mainCandidateMismatch(data) {
+    if (!isPlainObject(data)) {
+      return false;
+    }
+    const mainId = firstText(data.personality_id, data.uiConsumable && data.uiConsumable.personaId);
+    const candidates = Array.isArray(data.candidate_results) ? data.candidate_results : [];
+    const firstCandidate = candidates.find(isPlainObject);
+    const firstCandidateId = firstText(firstCandidate && firstCandidate.personality_id);
+    return Boolean(mainId && firstCandidateId && mainId !== firstCandidateId);
+  }
+
   function posterErrorCode(pageResponse, mapping) {
     if (!pageResponse || pageResponse.ok !== true) {
       return "POSTER_RESULT_READ_FAILED";
+    }
+    if (mainCandidateMismatch(pageResponse.data)) {
+      return "POSTER_MAIN_CANDIDATE_MISMATCH";
     }
     const qualityStatus = firstText(pageResponse.data && pageResponse.data.quality_status).toUpperCase();
     if (["NOT_PALM", "IMAGE_NOT_CLEAR", "ANALYSIS_UNRELIABLE", "RETRY_REQUIRED", "REJECTED"].includes(qualityStatus)) {
@@ -272,6 +286,16 @@
       key: options.key,
     });
     const mapping = stateMapper.mapAnalysisStatusToPosterPageState(pageResponse);
+
+    if (pageResponse && pageResponse.ok === true && mainCandidateMismatch(pageResponse.data)) {
+      return {
+        ok: false,
+        state: POSTER_STATES.INVALID_RESULT,
+        error_code: "POSTER_MAIN_CANDIDATE_MISMATCH",
+        message: "分析结果主结果与候选结果不一致，请重新测试后再生成海报。",
+        mapping,
+      };
+    }
 
     if (!pageResponse || pageResponse.ok !== true || !mapping.canRenderPoster) {
       return {

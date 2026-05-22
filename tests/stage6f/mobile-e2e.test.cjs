@@ -1858,16 +1858,17 @@ async function validateStage6FFix5ValidPalmMissingResultDiagnosed() {
     },
   });
 
-  assert.equal(fetchCount, 2, "valid palm with missing final result must still execute the analysis stage before failing");
-  assert.equal(result.ok, false);
-  assert.equal(result.error.code, "ANALYSIS_UNRELIABLE");
-  assert.equal(result.diagnostics && result.diagnostics.errorType, "VALIDITY_PASS_RESULT_MISSING");
+  assert.equal(fetchCount, 2, "valid palm with missing Qwen final result must still execute the feature extraction stage");
+  assert.equal(result.ok, true, "valid palm with usable palm_features must not require Qwen personality output");
+  assert.equal(result.parsed.isValidPalmImage, true);
+  assert.equal(result.parsed.result.personalityId, "");
+  assert.equal(result.diagnostics.local_classifier_required, true);
   assertNoResponseLeaks(result, "stage6f fix5 valid palm missing result response");
 
   return {
     status: "PASS",
-    code: result.error.code,
-    diagnostic: result.diagnostics && result.diagnostics.errorType,
+    provider_status: result.status,
+    local_classifier_required: result.diagnostics.local_classifier_required,
     fetch_count: fetchCount,
   };
 }
@@ -1950,7 +1951,7 @@ async function validateStage6FFinalP25RequiresReason() {
   } = require(path.join(root, "server", "stage5p", "providers", "qwen-vlm-provider.js"));
 
   let fetchCount = 0;
-  const missingReasonProvider = new QwenVlmProvider({
+  const ignoredQwenPersonaProvider = new QwenVlmProvider({
     env: {
       PALMMI_QWEN_API_KEY: "stage6f-test-key",
       QWEN_API_KEY: "",
@@ -1999,8 +2000,8 @@ async function validateStage6FFinalP25RequiresReason() {
     },
   });
 
-  const missingReason = await missingReasonProvider.analyze({
-    request_id: "req_stage6f_final_p25_missing_reason",
+  const ignoredQwenPersona = await ignoredQwenPersonaProvider.analyze({
+    request_id: "req_stage6f_final_p25_ignored_persona",
     image: {
       file_name: "p25-missing-reason.jpg",
       content_type: "image/jpeg",
@@ -2008,12 +2009,12 @@ async function validateStage6FFinalP25RequiresReason() {
       buffer: syntheticPngBuffer(),
     },
   });
-  assert.equal(missingReason.ok, false, "P25 without palm feature reason must not be accepted");
-  assert.equal(missingReason.error.code, "ANALYSIS_UNRELIABLE");
-  assert.equal(missingReason.diagnostics && missingReason.diagnostics.errorType, "p25_reason_missing");
+  assert.equal(ignoredQwenPersona.ok, true, "Qwen personality hints are ignored rather than accepted as final output");
+  assert.equal(ignoredQwenPersona.diagnostics.qwen_personality_ignored, true);
+  assert.equal(ignoredQwenPersona.diagnostics.local_classifier_required, true);
 
   let validFetchCount = 0;
-  const validReasonProvider = new QwenVlmProvider({
+  const featureReasonProvider = new QwenVlmProvider({
     env: {
       PALMMI_QWEN_API_KEY: "stage6f-test-key",
       QWEN_API_KEY: "",
@@ -2071,7 +2072,7 @@ async function validateStage6FFinalP25RequiresReason() {
       }), { status: 200, headers: { "Content-Type": "application/json" } });
     },
   });
-  const validReason = await validReasonProvider.analyze({
+  const featureReason = await featureReasonProvider.analyze({
     request_id: "req_stage6f_final_p25_valid_reason",
     image: {
       file_name: "p25-valid-reason.jpg",
@@ -2080,15 +2081,20 @@ async function validateStage6FFinalP25RequiresReason() {
       buffer: syntheticPngBuffer(),
     },
   });
-  assert.equal(validReason.ok, true, "legal P25 with specific palm feature reason must still be allowed");
-  assert.equal(validReason.parsed.result.personalityId, "P25");
-  assert.equal(validReason.parsed.diagnostics.has_collapse_guard, true);
+  assert.equal(featureReason.ok, true, "feature extraction with concrete palm reasons must remain allowed");
+  assert.equal(featureReason.parsed.result.personalityId, "P25");
+  assert.equal(featureReason.parsed.diagnostics.has_collapse_guard, true);
+  assert.match(
+    featureReasonProvider.prompt || "",
+    /local frozen Stage 3 classifier|Do not decide the final personality/,
+    "provider prompt must state that final personality is local and feature-driven"
+  );
 
   return {
     status: "PASS",
-    missing_reason_code: missingReason.error.code,
-    missing_reason_diagnostic: missingReason.diagnostics && missingReason.diagnostics.errorType,
-    valid_personality_id: validReason.parsed.result.personalityId,
+    qwen_personality_ignored: ignoredQwenPersona.diagnostics.qwen_personality_ignored,
+    local_classifier_required: featureReason.diagnostics.local_classifier_required,
+    qwen_hint_personality_id: featureReason.parsed.result.personalityId,
   };
 }
 
@@ -2226,6 +2232,299 @@ function validateStage6FFinalLowConfidencePosterContract() {
     status: "PASS",
     low_confidence_poster: "PASS",
     not_palm_poster_blocked: "PASS",
+  };
+}
+
+function qwenChatResponse(payload) {
+  return new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify(payload) } }],
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+}
+
+function validPalmFeatureOnlyPayload(overrides = {}) {
+  return {
+    validity: {
+      is_palm_photo: true,
+      is_single_hand: true,
+      is_palm_side_visible: true,
+      palm_lines_visible: true,
+      image_quality: "acceptable",
+      reject_reason: "",
+    },
+    palm_features: {
+      main_line_type: "M2",
+      line_depth: "deep",
+      line_complexity: "complex",
+      line_continuity: "mixed",
+      branch_density: "high",
+      palm_shape_hint: "long",
+      visible_features: ["HEAD_LINE_DEPTH", "LINE_COMPLEXITY", "HEART_LINE_LENGTH"],
+      confidence: 0.68,
+      feature_reasons: [
+        "palm_features show deep line_depth, complex line_complexity, mixed line_continuity, and high branch_density.",
+      ],
+    },
+    majorLines: {
+      lifeLine: {
+        visibility: "clear",
+        length: "long",
+        depth: "deep",
+        curvature: "high",
+        breaks: "minor",
+        branches: "many",
+        confidence: 0.68,
+      },
+      headLine: {
+        visibility: "clear",
+        length: "long",
+        depth: "deep",
+        slope: "downward",
+        breaks: "minor",
+        branches: "many",
+        confidence: 0.68,
+      },
+      heartLine: {
+        visibility: "clear",
+        length: "long",
+        depth: "medium",
+        curvature: "high",
+        ending: "under_middle",
+        breaks: "minor",
+        branches: "few",
+        confidence: 0.62,
+      },
+    },
+    minorLines: {
+      fateLine: {
+        visibility: "clear",
+        strength: "strong",
+        continuity: "partial",
+        confidence: 0.58,
+      },
+    },
+    palmShape: {
+      palmWidth: "medium",
+      palmLength: "long",
+      fingerLength: "long",
+      shapeHint: "long",
+      confidence: 0.6,
+    },
+    result: null,
+    ...overrides,
+  };
+}
+
+async function runFeatureDrivenMockAnalysis(requestId = "req_stage6f_final_fix_feature_driven") {
+  const { runAnalyzeApi } = require(path.join(root, "server", "stage5p", "analyze-service.js"));
+  const env = {
+    PALMMI_VLM_PROVIDER: "qwen",
+    PALMMI_VLM_MODE: "real-only",
+    PALMMI_QWEN_API_KEY: "stage6f-test-key",
+    QWEN_API_KEY: "",
+  };
+  let fetchCount = 0;
+  const response = await runAnalyzeApi({
+    request_id: requestId,
+    anonymous_device_id: "anon_stage6f_final_fix",
+    locale: "zh-CN",
+    image: {
+      file_name: "feature-driven-palm.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+      side: "unknown",
+    },
+  }, {
+    env,
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return qwenChatResponse(fetchCount === 1
+        ? {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "clear",
+            reject_reason: "",
+          },
+          palm_features: null,
+          result: null,
+        }
+        : validPalmFeatureOnlyPayload());
+    },
+  });
+
+  return { response, fetchCount };
+}
+
+async function validateStage6FFinalFixFeatureDrivenLocalClassification() {
+  const firstRun = await runFeatureDrivenMockAnalysis("req_stage6f_final_fix_feature_driven_a");
+  const secondRun = await runFeatureDrivenMockAnalysis("req_stage6f_final_fix_feature_driven_b");
+  const first = firstRun.response;
+  const second = secondRun.response;
+
+  assert.equal(firstRun.fetchCount, 2, "valid palm must pass validity and then run feature extraction");
+  assert.equal(first.ok, true, "valid palm with palm_features but no Qwen final personality must still produce a local classifier result");
+  assert.equal(first.provider, "qwen");
+  assert.equal(first.analysis_result.valid_palm, true);
+  assert.ok(first.analysis_result.personality_id, "local classifier must produce a personality_id");
+  assert.ok(Array.isArray(first.analysis_result.candidate_results), "local classifier must produce candidate_results");
+  assert.ok(first.analysis_result.candidate_results.length > 0, "local classifier must produce at least one candidate");
+  assert.equal(
+    first.analysis_result.personality_id,
+    first.analysis_result.candidate_results[0].personality_id,
+    "saved main personality must always equal candidate_results[0]"
+  );
+  assert.notEqual(first.analysis_result.personality_id, "STAGE4D_MOCK_PERSONA", "local classifier must not fall back to Stage 4 mock persona");
+  assertNoResponseLeaks(first, "stage6f final fix feature-driven local classification response");
+
+  assert.equal(second.ok, true, "same feature payload must remain classifiable on repeated runs");
+  assert.equal(second.analysis_result.personality_id, first.analysis_result.personality_id, "classifier must be deterministic for identical palm_features");
+  assert.deepEqual(
+    second.analysis_result.candidate_results.map((candidate) => candidate.personality_id),
+    first.analysis_result.candidate_results.map((candidate) => candidate.personality_id),
+    "candidate ranking must be deterministic for identical palm_features"
+  );
+
+  return {
+    status: "PASS",
+    personality_id: first.analysis_result.personality_id,
+    candidate_ids: first.analysis_result.candidate_results.map((candidate) => candidate.personality_id),
+    fetch_count: firstRun.fetchCount,
+  };
+}
+
+async function validateStage6FFinalFixSmokeUsesLocalCandidates() {
+  const smoke = require(path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"));
+  const { normalizeParsedPalmFeatures } = require(path.join(root, "server", "stage5p", "providers", "qwen-response-parser.js"));
+  assert.equal(typeof smoke.buildContractSummary, "function", "smoke script must expose contract summary helper for candidate consistency tests");
+
+  const parsed = normalizeParsedPalmFeatures(validPalmFeatureOnlyPayload({
+    result: {
+      personality_id: "P25",
+      candidate_results: [
+        { personality_id: "P12", main_line_type: "M1", confidence: 0.7, reason: "raw Qwen candidate hint" },
+        { personality_id: "P08", main_line_type: "M1", confidence: 0.6, reason: "raw Qwen candidate hint" },
+        { personality_id: "P21", main_line_type: "M1", confidence: 0.5, reason: "raw Qwen candidate hint" },
+      ],
+    },
+  }));
+  const summary = await smoke.buildContractSummary(parsed, {
+    fileName: "local-candidate-test.jpg",
+    contentType: "image/jpeg",
+    sizeBytes: syntheticPngBuffer().length,
+  }, "stage6f_final_fix_smoke_candidate_consistency", "qwen3-vl-flash");
+
+  assert.ok(summary.personality_id, "smoke contract summary must expose local classifier personality_id");
+  assert.ok(Array.isArray(summary.candidate_ids), "smoke contract summary must expose local candidate ids");
+  assert.ok(summary.candidate_ids.length > 0, "smoke contract summary must include local candidates");
+  assert.equal(summary.personality_id, summary.candidate_ids[0], "smoke summary candidate_ids must be aligned with local contract main result");
+  assert.notDeepEqual(summary.candidate_ids.slice(0, 3), ["P12", "P08", "P21"], "smoke summary must not report raw Qwen candidate hints as final candidates");
+
+  return {
+    status: "PASS",
+    personality_id: summary.personality_id,
+    candidate_ids: summary.candidate_ids,
+  };
+}
+
+function validateStage6FFinalFixPosterMainCandidateMismatchBlocked() {
+  const posterPage = require(path.join(root, "scripts", "palmmi-poster.js"));
+  const storage = createMemoryStorage();
+  const mismatch = completeAnalysisResult({
+    extra: {
+      personality_id: "P25",
+      candidate_results: [
+        { personality_id: "P12", personality_name: "节奏规划者", main_line_type: "M4" },
+        { personality_id: "P08", personality_name: "观察型稳态人", main_line_type: "M2" },
+      ],
+      valid_palm: true,
+      quality_status: "LOW_CONFIDENCE",
+    },
+  });
+  storage.setItem(STORAGE_KEYS.stableAnalysis, JSON.stringify({
+    version: 1,
+    analysis_id: "analysis_stage6f_final_fix_candidate_mismatch",
+    created_at: "2026-05-22T00:00:00.000Z",
+    provider: "qwen",
+    analysis_result: mismatch,
+  }));
+
+  const posterRead = posterPage.readAnalysisResult({ storage });
+  assert.equal(posterRead.ok, false, "poster must not render mismatched main/candidate analysis results");
+  assert.equal(posterRead.error_code, "POSTER_MAIN_CANDIDATE_MISMATCH", "poster must expose a specific main/candidate mismatch error code");
+
+  return {
+    status: "PASS",
+    error_code: posterRead.error_code,
+  };
+}
+
+async function validateStage6FFinalFixMissingPersonalityDoesNotDefaultP25() {
+  const { runAnalyzeApi } = require(path.join(root, "server", "stage5p", "analyze-service.js"));
+  const env = {
+    PALMMI_VLM_PROVIDER: "qwen",
+    PALMMI_VLM_MODE: "real-only",
+    PALMMI_QWEN_API_KEY: "stage6f-test-key",
+    QWEN_API_KEY: "",
+  };
+  let fetchCount = 0;
+  const response = await runAnalyzeApi({
+    request_id: "req_stage6f_final_fix_missing_personality",
+    anonymous_device_id: "anon_stage6f_final_fix",
+    locale: "zh-CN",
+    image: {
+      file_name: "missing-personality.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+      side: "unknown",
+    },
+  }, {
+    env,
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return qwenChatResponse(fetchCount === 1
+        ? {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "clear",
+            reject_reason: "",
+          },
+          palm_features: null,
+          result: null,
+        }
+        : {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "acceptable",
+            reject_reason: "",
+          },
+          palm_features: {
+            visible_features: [],
+            confidence: 0.1,
+          },
+          result: null,
+        });
+    },
+  });
+
+  assert.equal(response.ok, false, "validity pass with insufficient palm_features must fail safely");
+  assert.equal(response.error.code, "ANALYSIS_UNRELIABLE");
+  assert.doesNotMatch(JSON.stringify(response), /P25|老干部/, "missing personality path must not default to P25");
+  assertNoResponseLeaks(response, "stage6f final fix missing personality response");
+
+  return {
+    status: "PASS",
+    code: response.error.code,
+    fetch_count: fetchCount,
   };
 }
 
@@ -2518,6 +2817,7 @@ async function main() {
     stage6f_fix4: {},
     stage6f_fix5: {},
     stage6f_final: {},
+    stage6f_final_fix: {},
     real_qwen_smoke: null,
     abnormal_inputs: {},
     simulated_qwen_errors: null,
@@ -2539,6 +2839,10 @@ async function main() {
     summary.stage6f_final.p25_requires_reason = await validateStage6FFinalP25RequiresReason();
     summary.stage6f_final.smoke_collapse_diagnostics = validateStage6FFinalSmokeCollapseDiagnostics();
     summary.stage6f_final.low_confidence_poster_contract = validateStage6FFinalLowConfidencePosterContract();
+    summary.stage6f_final_fix.feature_driven_local_classification = await validateStage6FFinalFixFeatureDrivenLocalClassification();
+    summary.stage6f_final_fix.smoke_uses_local_candidates = await validateStage6FFinalFixSmokeUsesLocalCandidates();
+    summary.stage6f_final_fix.poster_main_candidate_mismatch_blocked = validateStage6FFinalFixPosterMainCandidateMismatchBlocked();
+    summary.stage6f_final_fix.missing_personality_no_p25 = await validateStage6FFinalFixMissingPersonalityDoesNotDefaultP25();
     summary.real_qwen_smoke = validateRealQwenSmokeDryRun();
 
     for (const device of deviceMatrix(playwright)) {

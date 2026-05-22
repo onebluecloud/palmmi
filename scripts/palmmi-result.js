@@ -401,6 +401,17 @@
       || status === "REJECTED";
   }
 
+  function mainCandidateMismatch(result) {
+    if (!isPlainObject(result)) {
+      return false;
+    }
+    const mainId = firstText(result.personality_id, result.primary_persona && result.primary_persona.persona_id, result.primary_persona && result.primary_persona.id);
+    const candidates = Array.isArray(result.candidate_results) ? result.candidate_results : [];
+    const firstCandidate = candidates.find(isPlainObject);
+    const firstCandidateId = firstText(firstCandidate && firstCandidate.personality_id, firstCandidate && firstCandidate.persona_id, firstCandidate && firstCandidate.id);
+    return Boolean(mainId && firstCandidateId && mainId !== firstCandidateId);
+  }
+
   function createRetakeProblemViewModel(result) {
     const status = firstText(result && result.quality_status).toUpperCase();
     const message = firstText(result && result.user_message);
@@ -436,6 +447,12 @@
   function createResultViewModel(result) {
     if (!isPlainObject(result)) {
       return createProblemViewModel(RESULT_STATES.INVALID_RESULT);
+    }
+    if (mainCandidateMismatch(result)) {
+      return createProblemViewModel(
+        RESULT_STATES.INVALID_RESULT,
+        "本次结果候选数据不一致，请重新测试。"
+      );
     }
 
     const persona = isPlainObject(result.primary_persona) ? result.primary_persona : {};

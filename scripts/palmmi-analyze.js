@@ -358,11 +358,21 @@
           && firstText(candidate.personality_id)
           && firstText(candidate.personality_name)
       ));
+    const firstCandidate = Array.isArray(result.candidate_results)
+      ? result.candidate_results.find(isPlainObject)
+      : null;
+    const mainCandidateConsistent = Boolean(
+      firstText(result.personality_id)
+        && firstCandidate
+        && firstText(firstCandidate.personality_id)
+        && firstText(result.personality_id) === firstText(firstCandidate.personality_id)
+    );
     return Boolean(
       result.schemaVersion === "analysis-result.v1"
         && ["ok", "degraded"].includes(firstText(result.status))
         && hasRequiredText
         && hasCandidate
+        && mainCandidateConsistent
     );
   }
 

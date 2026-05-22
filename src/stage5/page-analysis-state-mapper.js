@@ -46,6 +46,16 @@ function hasText(value) {
   return Boolean(normalizeText(value));
 }
 
+function firstText(...values) {
+  for (const value of values) {
+    const text = normalizeText(value);
+    if (text) {
+      return text;
+    }
+  }
+  return "";
+}
+
 function readNestedObject(input, key) {
   return isPlainObject(input) && isPlainObject(input[key]) ? input[key] : null;
 }
@@ -73,6 +83,20 @@ function hasPersona(input) {
   return Boolean(uiConsumable && hasText(uiConsumable.personaId) && hasText(uiConsumable.personaName));
 }
 
+function hasMainCandidateMismatch(input) {
+  const data = readData(input) || input;
+  if (!isPlainObject(data)) {
+    return false;
+  }
+
+  const uiConsumable = readNestedObject(data, "uiConsumable");
+  const mainId = firstText(data.personality_id, uiConsumable && uiConsumable.personaId);
+  const candidates = Array.isArray(data.candidate_results) ? data.candidate_results : [];
+  const firstCandidate = candidates.find(isPlainObject);
+  const firstCandidateId = firstText(firstCandidate && firstCandidate.personality_id);
+  return Boolean(mainId && firstCandidateId && mainId !== firstCandidateId);
+}
+
 function hasCompletePosterPayload(input) {
   if (isPlainObject(input) && typeof input.hasCompletePosterPayload === "boolean") {
     return input.hasCompletePosterPayload;
@@ -80,6 +104,9 @@ function hasCompletePosterPayload(input) {
 
   const data = readData(input) || input;
   if (!isPlainObject(data)) {
+    return false;
+  }
+  if (hasMainCandidateMismatch(data)) {
     return false;
   }
 

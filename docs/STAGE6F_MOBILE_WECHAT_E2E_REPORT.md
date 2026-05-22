@@ -2,6 +2,60 @@
 
 Date: 2026-05-22
 
+## Stage 6F-Final-Fix 追加记录
+
+本轮不是 Stage 6G。用户已完成真实 A/B smoke，两个模型都能拒绝非手掌，但两张手掌主结果均为 `P25`，且主结果与候选列表脱节；因此本轮判断为模型切换无明确收益，生产默认继续 `qwen3-vl-flash`，不切 `qwen3.6-flash`。
+
+```text
+Stage 6F: FINAL_FIX_CODE_PASS / ANDROID_WECHAT_FINAL_RETEST_REQUIRED
+Android WeChat: MANUAL_RETEST_REQUIRED
+iOS WeChat: MANUAL_REQUIRED
+Stage 6G: BLOCKED
+```
+
+### 用户真实 A/B smoke 记录
+
+| 样本 | qwen3-vl-flash | qwen3.6-flash | 结论 |
+|---|---|---|---|
+| not_palm | `NOT_PALM` | `NOT_PALM` | 非手掌闸门稳定 |
+| palm_faint | `OK` + `LOW_CONFIDENCE`，主结果 `P25`，候选 `[P12,P08,P21]` | `OK` + `LOW_CONFIDENCE`，主结果 `P25`，候选 `[P01,P05,P12]` | 有效手掌可出结果，但主结果和候选不一致 |
+| palm_clear | `OK` + `LOW_CONFIDENCE`，主结果 `P25`，候选 `[P12,P08,P21]` | `OK` + `LOW_CONFIDENCE`，主结果 `P25`，候选 `[P02,P05,P10]` | `qwen3.6-flash` 未证明优于默认模型 |
+
+结论：
+
+- `A/B result: inconclusive for model switch.`
+- `Do not switch production model yet.`
+- 生产默认模型仍为 `qwen3-vl-flash`。
+- 当前问题主要是人格决策架构和 contract，一律不再信任 Qwen 直接输出的最终 `personality_id`。
+
+### Final-Fix 修复内容
+
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| Qwen 输出目标 | PASS | Qwen 第二阶段改为提取 `validity` + `palm_features`，最终人格由本地 classifier 决定 |
+| 本地 classifier | PASS | 复用 Stage 3 / Stage 5 既有 rule input 和 `matchPersona`，不修改冻结规则 / 权重 / 36 型人格正文 |
+| Qwen 人格输出 | PASS | Qwen 的 `result.personality_id` / candidate hints 仅作诊断，不作为最终主结果 |
+| 主结果候选一致性 | PASS | 最终 `personality_id` 必须等于 `candidate_results[0].personality_id` |
+| 默认 P25 / 老干部兜底 | PASS | 缺失人格或特征不足返回 `ANALYSIS_UNRELIABLE`，不补 P25 |
+| smoke 候选 summary | PASS | `candidate_ids` 改为来自本地 contract，不再输出 Qwen raw candidate hints |
+| LOW_CONFIDENCE 海报 | PASS | `valid_palm=true` + 合法人格 + 主候选一致时允许生成基础海报 |
+| 海报错误码 | PASS | 新增 `POSTER_MAIN_CANDIDATE_MISMATCH`，保留无效图禁止海报 |
+
+### Final-Fix 自动化复测结果
+
+| 场景 | 结果 | 说明 |
+|---|---|---|
+| 主结果候选一致性 | PASS | mock 中 Qwen 主结果 `P25`、候选 `[P12,P08,P21]`，最终本地结果为 `P20`，候选 `[P20,P24,P26]` |
+| LOW_CONFIDENCE 海报 | PASS | 有效低置信结果仍可生成基础海报 |
+| 非手掌禁止海报 | PASS | `NOT_PALM` 仍阻止 poster |
+| 缺失人格不默认 P25 | PASS | 特征不足返回 `ANALYSIS_UNRELIABLE`，不输出 P25 / 老干部 |
+| classifier deterministic | PASS | 同一 palm_features 两次输出相同 candidate ranking |
+| `npm test` | NOT_AVAILABLE | `package.json` 无总 `test` 脚本，未伪造 PASS |
+| `npm run build` | PASS | Cloudflare Pages static output written to `dist` |
+| `npm run test:stage6f` | PASS | 命令退出码 0；Final-Fix mock 回归通过，生产旧部署上传子项等待部署后复测 |
+| `node scripts/stage6f/security-scan.cjs` | PASS | finding_count 0 |
+| smoke dry run | PASS | 无 `--real`，`REAL_QWEN_DISABLED`，`api_calls_made=0` |
+
 ## Stage 6F-Final-Stabilization 追加记录
 
 本轮不是 Stage 6G。本轮集中修复模型 A/B smoke、P25 人格塌缩诊断和 LOW_CONFIDENCE 海报 contract。用户尚未提供本轮部署后的安卓微信最终复测结果，因此 Stage 6G 继续 `BLOCKED`。
@@ -145,14 +199,14 @@ Stage 6G: BLOCKED
 | 人格名称映射 | CODE_FIXED_AUTOMATED_PASS | 只允许精确匹配冻结 36 型人格名称，不做模糊猜测 |
 | NOT_PALM 拦截 | PASS | 保留非手掌只返回 `NOT_PALM`，不进入人格结果 |
 | 默认 P25 / 老干部兜底 | PASS | 未恢复默认人格兜底 |
-| 新诊断 | PASS | 新增 `VALIDITY_PASS_RESULT_MISSING` / `SMOKE_PIPELINE_INCOMPLETE` |
+| 新诊断 | PASS | 新增 `VALIDITY_PASS_RESULT_MISSING` / `VALIDITY_PASS_FEATURES_MISSING` / `SMOKE_PIPELINE_INCOMPLETE` |
 
 ### Fix-5 自动化复测结果
 
 | 场景 | 结果 | 说明 |
 |---|---|---|
 | valid palm must produce personality result | PASS | mock 有效手掌低置信结果返回 `LOW_CONFIDENCE`、`P25`、1 个候选 |
-| valid palm without result should not be final success | PASS | 第二阶段缺 result 时返回 `ANALYSIS_UNRELIABLE` + `VALIDITY_PASS_RESULT_MISSING` |
+| valid palm without Qwen result | PASS | validity 通过且 palm_features 可用时进入本地 classifier；特征不足才返回 `ANALYSIS_UNRELIABLE` |
 | parser aliases | PASS | 精确人格名称和 candidate aliases 可解析为合法 ID |
 | non-palm still rejected | PASS | Fix-4 / Fix-5 回归继续覆盖 `NOT_PALM` |
 | smoke dry run | PASS | 无 `--real` 输出 `REAL_QWEN_DISABLED`，`api_calls_made=0` |
@@ -171,7 +225,7 @@ Fix-5 后用户已重新运行真实 Qwen smoke，核心验收通过；Stage 6G 
 
 ```text
 Real Qwen smoke script: READY
-Real Qwen smoke result: NOT_RUN
+Real Qwen smoke result: PASS_AFTER_FIX5 / A_B_RECORDED_INCONCLUSIVE
 Android WeChat: MANUAL_RETEST_REQUIRED
 iOS WeChat: MANUAL_REQUIRED
 Stage 6G: BLOCKED
@@ -697,7 +751,7 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 
 是否可以进入 Stage 6G: BLOCKED
 
-条件：真实 Qwen smoke 已通过，Final Stabilization 代码层和 mock 回归已通过。但在本轮部署后，仍必须补充 A/B smoke（用于判断是否建议切模型）、安卓微信拍照上传、相册上传、非手掌稳定 `NOT_PALM` 且不超时、多手掌不塌缩 P25 或有明确模型建议、海报生成和 iPhone 微信真机测试；在用户提供真实复测通过结果前，不允许进入 Stage 6G。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
+条件：真实 Qwen smoke 和真实 A/B smoke 已完成记录，A/B 结论为不建议切换 `qwen3.6-flash`。Final-Fix 代码层和 mock 回归已通过，但在本轮部署后，仍必须补充安卓微信拍照上传、相册上传、非手掌稳定 `NOT_PALM` 且不超时、正常手掌出本地分类结果、多手掌不再全部塌缩 P25、海报生成和 iPhone 微信真机测试；在用户提供真实复测通过结果前，不允许进入 Stage 6G。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
 
 ## 17. 当前阻塞项
 
@@ -705,7 +759,7 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 |---|---|---|
 | iPhone 微信真机测试 | MANUAL_REQUIRED | Codex 不能自动完成 |
 | 安卓微信真机测试 | MANUAL_REQUIRED | Codex 不能自动完成 |
-| 真实 A/B smoke | MANUAL_REQUIRED | 需要用户显式运行 `--real --models qwen3-vl-flash,qwen3.6-flash --collapse-check --max-real-calls 10` |
+| 安卓微信最终复测 | MANUAL_RETEST_REQUIRED | 部署后需确认非手掌 `NOT_PALM`、正常手掌出本地分类结果、有效结果可生成海报 |
 | 偏暗图 fixture | BLOCKED_BY_MISSING_FIXTURE | 仓库未发现明确图片 fixture |
 | 模糊图 fixture | BLOCKED_BY_MISSING_FIXTURE | 仓库未发现明确图片 fixture |
 | 裁切不完整图 fixture | BLOCKED_BY_MISSING_FIXTURE | 仓库未发现明确图片 fixture |
@@ -771,4 +825,4 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 | 没有修改 Stage 3 规则 / 权重 / 阈值 | PASS | 未修改相关文件 |
 | 没有重做 Stage 4 UI | PASS | 未修改 UI 主风格 |
 | 没有重写 Stage 5 VLM 主逻辑 | PASS | 未修改 VLM 主逻辑 |
-| 是否可以进入 Stage 6G | FAIL | Fix-5 后仍需真实 Qwen 小样本复测、安卓微信复测和 iOS 微信真机测试 |
+| 是否可以进入 Stage 6G | FAIL | 真实 smoke 和 A/B smoke 已记录；Final-Fix 部署后仍需安卓微信最终复测和 iOS 微信真机测试 |

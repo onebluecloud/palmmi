@@ -295,6 +295,9 @@ function diagnosticCodeFromFailure(response, sampleName, apiCalls) {
   if (errorType === "VALIDITY_PASS_RESULT_MISSING") {
     return "VALIDITY_PASS_RESULT_MISSING";
   }
+  if (errorType === "VALIDITY_PASS_FEATURES_MISSING") {
+    return "VALIDITY_PASS_FEATURES_MISSING";
+  }
   if ((sampleName === "palm_faint" || sampleName === "palm_clear")
     && apiCalls < 2
     && publicCodeFromProviderFailure(response) === ERROR_CODES.ANALYSIS_UNRELIABLE) {
@@ -363,6 +366,12 @@ async function buildContractSummary(parsed, image, sampleName, model) {
     personality_id: contract.personality_id || null,
     has_personality_result: Boolean(contract.personality_id),
     candidate_count: Array.isArray(contract.candidate_results) ? contract.candidate_results.length : 0,
+    candidate_ids: Array.isArray(contract.candidate_results)
+      ? contract.candidate_results
+        .map((candidate) => candidate && candidate.personality_id)
+        .filter(Boolean)
+        .slice(0, 3)
+      : [],
   };
 }
 
@@ -586,13 +595,6 @@ async function runSample({ provider, sampleName, filePath, model }) {
   }
 
   const parsed = providerResult.parsed;
-  const parsedPersonalityId = parsed.result && parsed.result.personalityId ? parsed.result.personalityId : null;
-  const parsedCandidateCount = parsed.result && Array.isArray(parsed.result.candidateResults)
-    ? parsed.result.candidateResults.length
-    : 0;
-  const parsedCandidateIds = parsed.result && Array.isArray(parsed.result.candidateResults)
-    ? parsed.result.candidateResults.map((candidate) => candidate.personality_id).filter(Boolean)
-    : [];
   let contractSummary = null;
   try {
     contractSummary = await buildContractSummary(parsed, image, sampleName, model);
@@ -613,13 +615,14 @@ async function runSample({ provider, sampleName, filePath, model }) {
     valid_palm: parsed.isValidPalmImage === true,
     personality_id: contractSummary && contractSummary.personality_id
       ? contractSummary.personality_id
-      : (isKnownPersonaId(parsedPersonalityId) ? parsedPersonalityId : null),
-    has_personality_result: Boolean(contractSummary && contractSummary.has_personality_result)
-      || isKnownPersonaId(parsedPersonalityId),
+      : null,
+    has_personality_result: Boolean(contractSummary && contractSummary.has_personality_result),
     candidate_count: contractSummary && Number.isFinite(contractSummary.candidate_count)
       ? contractSummary.candidate_count
-      : parsedCandidateCount,
-    candidate_ids: parsedCandidateIds.slice(0, 3),
+      : 0,
+    candidate_ids: contractSummary && Array.isArray(contractSummary.candidate_ids)
+      ? contractSummary.candidate_ids
+      : [],
     notes: "",
   };
   result.notes = noteFor(result);
@@ -896,6 +899,7 @@ if (require.main === module) {
 
 module.exports = {
   buildCollapseAnalysis,
+  buildContractSummary,
   buildRecommendation,
   disabledSummary,
   estimateRealCalls,
