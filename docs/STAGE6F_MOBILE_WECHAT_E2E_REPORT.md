@@ -2,6 +2,24 @@
 
 Date: 2026-05-22
 
+## Stage 6F Smoke Script Fix 追加记录
+
+本轮不是 Stage 6G，也不改业务主链路。用户运行 collapse smoke 时，本地目录已经包含 `not-palm-beer.jpg` 和 `palm-1.jpg` 到 `palm-5.jpg`，但脚本仍硬性要求旧三样本 `palm_faint` / `palm_clear`，导致 `IMAGE_SELECTION_REQUIRED` 且 `api_calls_made=0`。本轮只修复 `scripts/stage6f/real-qwen-smoke.cjs` 的样本选择逻辑。
+
+| 项目 | 结果 | 说明 |
+|---|---|---|
+| `palm-1` 到 `palm-5` 自动识别 | PASS | `--image-dir` + `--collapse-check` 下自动识别 5 张 numbered palm 样本 |
+| 取消旧三样本强依赖 | PASS | collapse-check 不再要求 `palm-faint` / `palm-clear` |
+| 重复 `--palm-sample` | PASS | 支持显式传入多张 palm 样本 |
+| estimated calls | PASS | 1 张 not-palm + 5 张 palm + 1 个模型估算为 `1 + 5 * 2 = 11` 次，`--max-real-calls 12` 可运行 |
+| palm 样本不足 | PASS | 返回 `INSUFFICIENT_PALM_SAMPLES`，不调用 Qwen |
+| not-palm 缺失 | PASS | 返回 `NOT_PALM_SAMPLE_MISSING`，不调用 Qwen |
+| max-real-calls 超限 | PASS | 返回 `MAX_REAL_CALLS_EXCEEDED`，不调用 Qwen |
+| dry run | PASS | 无 `--real` 仍输出 `REAL_QWEN_DISABLED`，`api_calls_made=0` |
+| 安全 | PASS | 不输出 Key / Token / base64 / raw response |
+
+Stage 6G 继续 `BLOCKED`。用户需要在部署新 commit 后重新运行同一条 A/B/collapse smoke；如果 5 张真实手掌仍然全部输出 `P31 留一手`，脚本现在必须 hard fail，而不能再误报为样本选择失败或 PASS。
+
 ## Stage 6F-Final-Classifier-Hard-Fix 追加记录
 
 本轮不是 Stage 6G。用户已确认 commit `f3d2afdc93aa87b58b54436616e13562d18434a7` 部署后安卓微信真机复测失败：非手掌识别 PASS、手掌识别 PASS、海报生成 PASS，但多个不同手掌仍全部输出 `P31 留一手`。因此 `f3d2afd` 不再视为可接受状态，不再标记为待复测通过版本。

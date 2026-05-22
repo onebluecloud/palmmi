@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const childProcess = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
@@ -1731,6 +1732,220 @@ function validateRealQwenSmokeDryRun() {
     mode: summary.status,
     api_calls_made: summary.api_calls_made,
     models: summary.models,
+  };
+}
+
+function withTemporarySmokeImages(fileNames, callback) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "palmmi-smoke-selection-"));
+  try {
+    for (const fileName of fileNames) {
+      fs.writeFileSync(path.join(directory, fileName), "stage6f smoke fixture");
+    }
+    return callback(directory);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+function runSmokeCli(args, allowFailure = false) {
+  try {
+    const output = childProcess.execFileSync(process.execPath, [
+      path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"),
+      ...args,
+    ], {
+      cwd: root,
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    return JSON.parse(output);
+  } catch (error) {
+    if (!allowFailure) {
+      throw error;
+    }
+    const stdout = error && typeof error.stdout === "string" ? error.stdout : "";
+    return JSON.parse(stdout);
+  }
+}
+
+function validateStage6FSmokeMultiPalmSelection() {
+  const smoke = require(path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"));
+  return withTemporarySmokeImages([
+    "not-palm-beer.jpg",
+    "palm-1.jpg",
+    "palm-2.jpg",
+    "palm-3.jpg",
+    "palm-4.jpg",
+    "palm-5.jpg",
+  ], (directory) => {
+    const options = smoke.parseArgs([
+      "--real",
+      "--image-dir",
+      directory,
+      "--models",
+      "qwen3-vl-flash",
+      "--collapse-check",
+      "--debug-classifier",
+      "--min-palm-samples",
+      "5",
+      "--min-unique-personalities",
+      "2",
+      "--max-real-calls",
+      "12",
+    ]);
+    const selected = smoke.selectSamples(options);
+    assert.equal(selected.ok, true, "collapse-check image-dir must accept not-palm plus palm-1..palm-5");
+    assert.equal(selected.mode, "collapse-check", "collapse-check selection should report collapse-check mode");
+    assert.equal(path.basename(selected.samples.not_palm), "not-palm-beer.jpg");
+    const palmNames = Object.entries(selected.samples)
+      .filter(([name]) => /^palm_\d+$/.test(name))
+      .map(([, filePath]) => path.basename(filePath));
+    assert.deepEqual(palmNames, [
+      "palm-1.jpg",
+      "palm-2.jpg",
+      "palm-3.jpg",
+      "palm-4.jpg",
+      "palm-5.jpg",
+    ], "collapse-check must preserve ordered palm numbered samples");
+    assert.equal(Boolean(selected.samples.palm_faint), false, "collapse-check must not require palm_faint");
+    assert.equal(Boolean(selected.samples.palm_clear), false, "collapse-check must not require palm_clear");
+    const estimatedCalls = smoke.estimateRealCalls(
+      Object.keys(selected.samples).map((name) => ({ name })),
+      options.models
+    );
+    assert.equal(estimatedCalls, 11, "1 not-palm plus 5 palm samples should estimate 11 calls for one model");
+
+    const explicitOptions = smoke.parseArgs([
+      "--real",
+      "--not-palm",
+      path.join(directory, "not-palm-beer.jpg"),
+      "--palm-sample",
+      path.join(directory, "palm-1.jpg"),
+      "--palm-sample",
+      path.join(directory, "palm-2.jpg"),
+      "--palm-sample",
+      path.join(directory, "palm-3.jpg"),
+      "--palm-sample",
+      path.join(directory, "palm-4.jpg"),
+      "--palm-sample",
+      path.join(directory, "palm-5.jpg"),
+      "--collapse-check",
+      "--min-palm-samples",
+      "5",
+      "--max-real-calls",
+      "12",
+    ]);
+    const explicitSelected = smoke.selectSamples(explicitOptions);
+    assert.equal(explicitOptions.palmSamples.length, 5, "parseArgs must support repeated --palm-sample");
+    assert.equal(explicitSelected.ok, true, "explicit repeated --palm-sample paths must be accepted");
+
+    return {
+      status: "PASS",
+      not_palm: path.basename(selected.samples.not_palm),
+      palm_samples: palmNames,
+      estimated_real_calls: estimatedCalls,
+      explicit_palm_sample_count: explicitOptions.palmSamples.length,
+    };
+  });
+}
+
+function validateStage6FSmokeSelectionFailures() {
+  const smoke = require(path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"));
+
+  const insufficient = withTemporarySmokeImages([
+    "not-palm-beer.jpg",
+    "palm-1.jpg",
+    "palm-2.jpg",
+    "palm-3.jpg",
+    "palm-4.jpg",
+  ], (directory) => {
+    const options = smoke.parseArgs([
+      "--real",
+      "--image-dir",
+      directory,
+      "--collapse-check",
+      "--min-palm-samples",
+      "5",
+    ]);
+    const selected = smoke.selectSamples(options);
+    assert.equal(selected.ok, false);
+    assert.equal(selected.status, "INSUFFICIENT_PALM_SAMPLES");
+    assert.equal(selected.api_calls_made || 0, 0);
+    return selected.status;
+  });
+
+  const missingNotPalm = withTemporarySmokeImages([
+    "palm-1.jpg",
+    "palm-2.jpg",
+    "palm-3.jpg",
+    "palm-4.jpg",
+    "palm-5.jpg",
+  ], (directory) => {
+    const options = smoke.parseArgs([
+      "--real",
+      "--image-dir",
+      directory,
+      "--collapse-check",
+      "--min-palm-samples",
+      "5",
+    ]);
+    const selected = smoke.selectSamples(options);
+    assert.equal(selected.ok, false);
+    assert.equal(selected.status, "NOT_PALM_SAMPLE_MISSING");
+    assert.equal(selected.api_calls_made || 0, 0);
+    return selected.status;
+  });
+
+  const maxExceeded = withTemporarySmokeImages([
+    "not-palm-beer.jpg",
+    "palm-1.jpg",
+    "palm-2.jpg",
+    "palm-3.jpg",
+    "palm-4.jpg",
+    "palm-5.jpg",
+  ], (directory) => runSmokeCli([
+    "--real",
+    "--image-dir",
+    directory,
+    "--models",
+    "qwen3-vl-flash",
+    "--collapse-check",
+    "--min-palm-samples",
+    "5",
+    "--max-real-calls",
+    "10",
+  ], true));
+  assert.equal(maxExceeded.status, "MAX_REAL_CALLS_EXCEEDED");
+  assert.equal(maxExceeded.estimated_real_calls, 11);
+  assert.equal(maxExceeded.api_calls_made, 0);
+
+  const dryRun = withTemporarySmokeImages([
+    "not-palm-beer.jpg",
+    "palm-1.jpg",
+    "palm-2.jpg",
+    "palm-3.jpg",
+    "palm-4.jpg",
+    "palm-5.jpg",
+  ], (directory) => runSmokeCli([
+    "--image-dir",
+    directory,
+    "--collapse-check",
+    "--debug-classifier",
+    "--min-palm-samples",
+    "5",
+    "--max-real-calls",
+    "12",
+  ]));
+  assert.equal(dryRun.status, "REAL_QWEN_DISABLED");
+  assert.equal(dryRun.api_calls_made, 0);
+  const dryRunLeakCheck = JSON.stringify(dryRun).replace(/printed_raw_response/g, "printedRawResponse");
+  assert.deepEqual(leakFlags(dryRunLeakCheck, RESPONSE_LEAK_MARKERS), [], "dry-run selection summary must not leak secrets or image payloads");
+
+  return {
+    status: "PASS",
+    insufficient_palm_samples: insufficient,
+    not_palm_missing: missingNotPalm,
+    max_real_calls_exceeded: maxExceeded.status,
+    dry_run: dryRun.status,
   };
 }
 
@@ -3576,6 +3791,8 @@ async function main() {
       poster_regression: validateStage6FFinalClassifierHardFixPosterRegression(),
       non_palm_regression: await validateStage6FFinalClassifierHardFixNonPalmRegression(),
       collapse_hard_fail: validateStage6FFinalClassifierHardFixCollapseHardFail(),
+      smoke_multi_palm_selection: validateStage6FSmokeMultiPalmSelection(),
+      smoke_selection_failures: validateStage6FSmokeSelectionFailures(),
     };
     summary.real_qwen_smoke = validateRealQwenSmokeDryRun();
 

@@ -83,6 +83,7 @@ function parseArgs(argv) {
     minPalmSamples: DEFAULT_MIN_PALM_SAMPLES,
     minUniquePersonalities: DEFAULT_MIN_UNIQUE_PERSONALITIES,
     samples: {},
+    palmSamples: [],
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -97,6 +98,11 @@ function parseArgs(argv) {
       options.samples.palm_faint = argv[++index] || "";
     } else if (arg === "--palm-clear") {
       options.samples.palm_clear = argv[++index] || "";
+    } else if (arg === "--palm-sample") {
+      const value = argv[++index] || "";
+      if (value) {
+        options.palmSamples.push(value);
+      }
     } else if (arg === "--timeout-ms") {
       options.timeoutMs = Number.parseInt(argv[++index] || "", 10) || DEFAULT_TIMEOUT_MS;
     } else if (arg === "--model") {
@@ -173,21 +179,91 @@ function findByPatterns(files, patterns) {
   }) || "";
 }
 
-function optionalCollapsePalmSamples(files, selected) {
+function palmSampleNumber(filePath) {
+  const name = path.basename(filePath, path.extname(filePath)).toLowerCase();
+  const match = name.match(/(?:^|[-_ ])(?:palm|hand)[-_ ]?(\d+)$/i)
+    || name.match(/^(?:palm|hand)(\d+)$/i)
+    || name.match(/^手掌[-_ ]?(\d+)$/u);
+  return match ? Number.parseInt(match[1], 10) : Number.POSITIVE_INFINITY;
+}
+
+function isNumberedPalmSample(filePath) {
+  const fileName = path.basename(filePath);
+  return /^(?:palm|hand)[-_ ]?\d+\.(jpe?g|png|webp)$/i.test(fileName)
+    || /^(?:palm|hand)\d+\.(jpe?g|png|webp)$/i.test(fileName)
+    || /^手掌[-_ ]?\d+\.(jpe?g|png|webp)$/u.test(fileName);
+}
+
+function numberedPalmSamples(files, selected = {}) {
   const selectedPaths = new Set(Object.values(selected));
   return files
-    .filter((filePath) => {
-      const fileName = path.basename(filePath).toLowerCase();
-      return /^palm[-_ ]?\d+\.(jpe?g|png|webp)$/i.test(path.basename(filePath))
-        && !selectedPaths.has(filePath)
-        && !/faint|weak|unclear|clear|good|not[-_ ]?palm|beer|beverage|drink/.test(fileName);
-    })
-    .slice(0, 8)
-    .map((filePath, index) => ({
-      name: `palm_${index + 2}`,
-      expected: "VALID_PERSONALITY",
-      filePath,
-    }));
+    .filter((filePath) => isNumberedPalmSample(filePath) && !selectedPaths.has(filePath))
+    .sort((left, right) => {
+      const leftNumber = palmSampleNumber(left);
+      const rightNumber = palmSampleNumber(right);
+      if (leftNumber !== rightNumber) {
+        return leftNumber - rightNumber;
+      }
+      return path.basename(left).localeCompare(path.basename(right));
+    });
+}
+
+function uniquePaths(paths) {
+  const seen = new Set();
+  const output = [];
+  for (const filePath of paths) {
+    if (!filePath || seen.has(filePath)) {
+      continue;
+    }
+    seen.add(filePath);
+    output.push(filePath);
+  }
+  return output;
+}
+
+function collapseSampleSelection({ notPalmPath, palmPaths, available, mode, options }) {
+  const minPalmSamples = Number.isFinite(options.minPalmSamples)
+    ? options.minPalmSamples
+    : DEFAULT_MIN_PALM_SAMPLES;
+  const palms = uniquePaths(palmPaths);
+  const sampleSelection = {
+    not_palm: notPalmPath ? path.basename(notPalmPath) : null,
+    palm_samples: palms.map((filePath) => path.basename(filePath)),
+    min_palm_samples: minPalmSamples,
+  };
+  if (!notPalmPath) {
+    return {
+      ok: false,
+      status: "NOT_PALM_SAMPLE_MISSING",
+      samples: {},
+      available,
+      mode: "collapse-check",
+      sampleSelection,
+      api_calls_made: 0,
+    };
+  }
+  if (palms.length < minPalmSamples) {
+    return {
+      ok: false,
+      status: "INSUFFICIENT_PALM_SAMPLES",
+      samples: { not_palm: notPalmPath },
+      available,
+      mode: "collapse-check",
+      sampleSelection,
+      api_calls_made: 0,
+    };
+  }
+  const samples = { not_palm: notPalmPath };
+  palms.forEach((filePath, index) => {
+    samples[`palm_${index + 1}`] = filePath;
+  });
+  return {
+    ok: true,
+    samples,
+    available,
+    mode: mode || "collapse-check",
+    sampleSelection,
+  };
 }
 
 function sampleDefinitionsFor(selectedSamples) {
@@ -207,7 +283,23 @@ function selectSamples(options) {
       explicit[sample.name] = resolvePath(options.samples[sample.name]);
     }
   }
-  if (Object.keys(explicit).length > 0) {
+  const explicitPalmSamples = Array.isArray(options.palmSamples)
+    ? options.palmSamples.map((filePath) => resolvePath(filePath)).filter(Boolean)
+    : [];
+  if (options.collapseCheck && (Object.keys(explicit).length > 0 || explicitPalmSamples.length > 0)) {
+    return collapseSampleSelection({
+      notPalmPath: explicit.not_palm || "",
+      palmPaths: [
+        ...explicitPalmSamples,
+        explicit.palm_faint || "",
+        explicit.palm_clear || "",
+      ],
+      available: [],
+      mode: "collapse-check",
+      options,
+    });
+  }
+  if (Object.keys(explicit).length > 0 || explicitPalmSamples.length > 0) {
     return {
       ok: SAMPLE_DEFINITIONS.every((sample) => explicit[sample.name]),
       samples: explicit,
@@ -235,9 +327,17 @@ function selectSamples(options) {
     }
   }
   if (options.collapseCheck) {
-    for (const sample of optionalCollapsePalmSamples(files, samples)) {
-      samples[sample.name] = sample.filePath;
-    }
+    return collapseSampleSelection({
+      notPalmPath: samples.not_palm || "",
+      palmPaths: [
+        ...numberedPalmSamples(files, samples),
+        samples.palm_faint || "",
+        samples.palm_clear || "",
+      ],
+      available: files.map((filePath) => path.basename(filePath)),
+      mode: "collapse-check",
+      options,
+    });
   }
   return {
     ok: SAMPLE_DEFINITIONS.every((sample) => samples[sample.name]),
@@ -697,8 +797,8 @@ function disabledSummary(options) {
     status: "REAL_QWEN_DISABLED",
     message: "No API call was made.",
     notice: [
-      "This script validates up to 3 required samples; --collapse-check may include extra palm samples.",
-      "Complete provider.analyze() may make up to 5 calls for 3 samples per model.",
+      "This script validates legacy 3-sample smoke or collapse-check multi-palm smoke when --real is provided.",
+      "Complete provider.analyze() may make about 1 call for not-palm and 2 calls per valid palm sample per model.",
       "It may consume quota.",
       "Use --real to confirm.",
     ],
@@ -750,6 +850,7 @@ async function main() {
       usage: [
         "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\"",
         "npm run smoke:stage6f:qwen -- --real --not-palm <path> --palm-faint <path> --palm-clear <path>",
+        "npm run smoke:stage6f:qwen -- --real --not-palm <path> --palm-sample <path> --palm-sample <path> --collapse-check --min-palm-samples 5",
         "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\" --models qwen3-vl-flash,qwen3.6-flash --collapse-check --max-real-calls 10",
         "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\" --collapse-check --debug-classifier --min-palm-samples 5 --min-unique-personalities 2 --max-real-calls 10",
       ],
@@ -770,14 +871,22 @@ async function main() {
 
   const selected = selectSamples(options);
   if (!selected.ok) {
+    const status = selected.status || "IMAGE_SELECTION_REQUIRED";
     printJson({
       ok: false,
-      status: "IMAGE_SELECTION_REQUIRED",
+      status,
       message: selected.mode === "none"
         ? "Provide --image-dir or explicit --not-palm / --palm-faint / --palm-clear paths."
-        : "Could not identify all three samples from file names. Use explicit paths.",
-      expected_samples: SAMPLE_DEFINITIONS.map((sample) => sample.name),
+        : status === "NOT_PALM_SAMPLE_MISSING"
+          ? "Could not identify a not-palm sample. Provide --not-palm or include a not-palm / beer / beverage image."
+          : status === "INSUFFICIENT_PALM_SAMPLES"
+            ? "Not enough palm samples were found for --collapse-check."
+            : "Could not identify all required samples from file names. Use explicit paths.",
+      expected_samples: options.collapseCheck
+        ? ["not_palm", `palm_samples >= ${options.minPalmSamples}`]
+        : SAMPLE_DEFINITIONS.map((sample) => sample.name),
       available_images: selected.available,
+      sample_selection: selected.sampleSelection || null,
       api_calls_made: 0,
       safety: {
         printed_key: false,
@@ -815,6 +924,7 @@ async function main() {
       status: "MAX_REAL_CALLS_EXCEEDED",
       message: "Estimated real Qwen calls exceed --max-real-calls. Increase the limit explicitly if you want to run this smoke.",
       sample_count: selectedDefinitions.length,
+      sample_selection: selected.sampleSelection || null,
       models: options.models,
       estimated_real_calls: estimatedRealCalls,
       max_real_calls: options.maxRealCalls,
@@ -931,6 +1041,7 @@ async function main() {
     endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
     mode: selected.mode,
     sample_count: selectedDefinitions.length,
+    sample_selection: selected.sampleSelection || null,
     estimated_real_calls: estimatedRealCalls,
     max_real_calls: options.maxRealCalls,
     debug_classifier: options.debugClassifier,

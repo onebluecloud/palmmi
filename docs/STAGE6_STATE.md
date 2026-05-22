@@ -2,13 +2,13 @@
 
 ## 当前阶段
 
-Stage 6F：Final-Classifier-Hard-Fix 代码层已完成，微信真机仍需最终复测。
+Stage 6F：Smoke Script Fix 已完成，微信真机和真实 collapse smoke 仍需复测。
 
-Stage 6F status: FINAL_CLASSIFIER_HARD_FIX_CODE_PASS / ANDROID_WECHAT_RETEST_REQUIRED
+Stage 6F status: SMOKE_SCRIPT_FIX_CODE_PASS / REAL_COLLAPSE_SMOKE_REQUIRED / ANDROID_WECHAT_RETEST_REQUIRED
 
 Stage 6G: BLOCKED
 
-Reason: 用户安卓微信真机复测已证明 commit `f3d2afdc93aa87b58b54436616e13562d18434a7` 失败：非手掌识别、正常手掌识别、海报生成均可用，但多个不同手掌仍全部输出 `P31 留一手`。本轮 Hard-Fix 新增 `LOW_INFORMATION_FEATURE_SET`、feature information gate、score margin 诊断、P31 合法输出条件、`P31_COLLAPSE_CONFIRMED` 和 collapse hard fail。Stage 6G 仍 BLOCKED，原因是新 commit 仍需安卓微信最终真机复测和 iOS 微信真机验收。
+Reason: 用户运行 collapse smoke 时，本地目录已有 `not-palm-beer.jpg` 和 `palm-1.jpg` 到 `palm-5.jpg`，但脚本仍要求旧三样本 `palm_faint` / `palm_clear`，导致未调用 Qwen 且无法执行 5 手掌塌缩检查。本轮只修复 smoke 脚本样本选择逻辑：`--collapse-check` 可识别 numbered palm 样本、支持重复 `--palm-sample`、按 `not_palm * 1 + palm * 2` 估算调用次数，并在样本不足 / not-palm 缺失 / 超过 `--max-real-calls` 时不调用 Qwen。Stage 6G 仍 BLOCKED，原因是新 commit 仍需真实 collapse smoke、安卓微信最终真机复测和 iOS 微信真机验收。
 
 ## 已完成
 
@@ -20,6 +20,14 @@ Reason: 用户安卓微信真机复测已证明 commit `f3d2afdc93aa87b58b544366
 - Stage 6E：公网真实 Qwen 链路验证已完成。
 - Stage 6E-Fix：公网 Qwen 请求失败修复已完成，状态 PASS。
 - Stage 6F：移动端模拟、生产页面访问、安全扫描和微信人工闸门已完成。
+- Stage 6F Smoke Script Fix：
+  - 修复 `scripts/stage6f/real-qwen-smoke.cjs` 的 collapse-check 选择逻辑。
+  - `--image-dir` 下可自动识别 `not-palm-beer.jpg` 和 `palm-1.jpg` 到 `palm-5.jpg`。
+  - `--collapse-check --min-palm-samples 5` 不再强制要求 `palm-faint` / `palm-clear`。
+  - 支持重复 `--palm-sample <path>` 显式传入多张真实手掌样本。
+  - 预计调用次数按 `not_palm_count * 1 + palm_sample_count * 2` 计算；1 张 not-palm + 5 张 palm + 1 模型估算为 11 次，`--max-real-calls 12` 可运行。
+  - 样本不足返回 `INSUFFICIENT_PALM_SAMPLES`，not-palm 缺失返回 `NOT_PALM_SAMPLE_MISSING`，超过上限返回 `MAX_REAL_CALLS_EXCEEDED`，均不调用 Qwen。
+  - 无 `--real` 仍输出 `REAL_QWEN_DISABLED`，`api_calls_made=0`。
 - Stage 6F-Fix：修复结果字段不完整、二次结果读取失败和“检查照片”按钮问题，但后续安卓微信复测发现仍未修干净。
 - Stage 6F-Fix-2：
   - 上传页在同一 JS 上下文内完成图片 decode、压缩、API 请求、结果写入和回读。
