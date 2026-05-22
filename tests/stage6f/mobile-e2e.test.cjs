@@ -1769,6 +1769,12 @@ async function validateStage6FFix5ValidPalmProducesPersonalityResult() {
           },
           palm_features: {
             main_line_type: "M1",
+            line_depth: "medium",
+            line_complexity: "simple",
+            line_continuity: "continuous",
+            branch_density: "low",
+            palm_shape_hint: "wide",
+            visible_features: ["HEAD_LINE_DEPTH", "OVERALL_CLARITY"],
             confidence: 0.42,
           },
           result: {
@@ -1839,7 +1845,16 @@ async function validateStage6FFix5ValidPalmMissingResultDiagnosed() {
                 image_quality: "clear",
                 reject_reason: "",
               },
-              palm_features: fetchCount === 1 ? null : { main_line_type: "M1", confidence: 0.6 },
+              palm_features: fetchCount === 1 ? null : {
+                main_line_type: "M1",
+                line_depth: "medium",
+                line_complexity: "simple",
+                line_continuity: "continuous",
+                branch_density: "low",
+                palm_shape_hint: "wide",
+                visible_features: ["HEAD_LINE_DEPTH", "OVERALL_CLARITY"],
+                confidence: 0.6,
+              },
               result: null,
             }),
           },
@@ -1982,6 +1997,11 @@ async function validateStage6FFinalP25RequiresReason() {
           },
           palm_features: {
             main_line_type: "M1",
+            line_depth: "medium",
+            line_complexity: "simple",
+            line_continuity: "continuous",
+            branch_density: "low",
+            palm_shape_hint: "wide",
             visible_features: ["HEAD_LINE_DEPTH"],
             confidence: 0.62,
           },
@@ -2528,6 +2548,239 @@ async function validateStage6FFinalFixMissingPersonalityDoesNotDefaultP25() {
   };
 }
 
+async function runStage6FCalibrationMockAnalysis(palmFeatures, requestId = "req_stage6f_classifier_calibration") {
+  const { runAnalyzeApi } = require(path.join(root, "server", "stage5p", "analyze-service.js"));
+  const env = {
+    PALMMI_VLM_PROVIDER: "qwen",
+    PALMMI_VLM_MODE: "real-only",
+    PALMMI_QWEN_API_KEY: "stage6f-test-key",
+    QWEN_API_KEY: "",
+  };
+  let fetchCount = 0;
+  const response = await runAnalyzeApi({
+    request_id: requestId,
+    anonymous_device_id: "anon_stage6f_classifier_calibration",
+    locale: "zh-CN",
+    image: {
+      file_name: `${requestId}.jpg`,
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+      side: "unknown",
+    },
+  }, {
+    env,
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return qwenChatResponse(fetchCount === 1
+        ? {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "clear",
+            reject_reason: "",
+          },
+          palm_features: null,
+          result: null,
+        }
+        : {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "acceptable",
+            reject_reason: "",
+          },
+          palm_features: {
+            confidence: 0.64,
+            visible_features: ["HEAD_LINE_DEPTH", "LINE_COMPLEXITY"],
+            feature_reasons: ["mock palm feature vector for classifier calibration"],
+            ...palmFeatures,
+          },
+          result: null,
+        });
+    },
+  });
+
+  return { response, fetchCount };
+}
+
+async function validateStage6FClassifierCalibrationNoDefaultLiuyishou() {
+  const { response, fetchCount } = await runStage6FCalibrationMockAnalysis({
+    main_line_type: "unknown",
+    line_depth: "unknown",
+    line_complexity: "unknown",
+    line_continuity: "unknown",
+    branch_density: "unknown",
+    palm_shape_hint: "unknown",
+    visible_features: ["OVERALL_CLARITY"],
+    feature_reasons: ["visible palm but classifier features are unknown"],
+  }, "req_stage6f_classifier_no_default_liuyishou");
+
+  assert.equal(fetchCount, 2, "valid palm should still run the analysis feature request");
+  assert.equal(response.ok, false, "all-unknown palm_features must not be classified");
+  assert.equal(response.error.code, "ANALYSIS_UNRELIABLE");
+  assert.doesNotMatch(JSON.stringify(response), /P31|留一手/, "unknown palm_features must not default to 留一手");
+  assertNoResponseLeaks(response, "stage6f classifier no default liuyishou response");
+
+  return {
+    status: "PASS",
+    code: response.error.code,
+    fetch_count: fetchCount,
+  };
+}
+
+async function validateStage6FClassifierCalibrationDiverseCandidates() {
+  const sharedWeakFeatures = {
+    line_depth: "faint",
+    line_complexity: "simple",
+    line_continuity: "continuous",
+    branch_density: "low",
+    palm_shape_hint: "wide",
+    confidence: 0.62,
+  };
+  const cases = [
+    { label: "M1", features: { ...sharedWeakFeatures, main_line_type: "M1" } },
+    { label: "M2", features: { ...sharedWeakFeatures, main_line_type: "M2" } },
+    { label: "M3", features: { ...sharedWeakFeatures, main_line_type: "M3" } },
+    { label: "M4", features: { ...sharedWeakFeatures, main_line_type: "M4" } },
+  ];
+  const results = [];
+  for (const item of cases) {
+    const { response } = await runStage6FCalibrationMockAnalysis(item.features, `req_stage6f_classifier_diverse_${item.label}`);
+    assert.equal(response.ok, true, `${item.label} calibrated feature vector should stay classifiable`);
+    results.push({
+      label: item.label,
+      personality_id: response.analysis_result.personality_id,
+      personality_name: response.analysis_result.personality_name,
+      candidate_ids: response.analysis_result.candidate_results.map((candidate) => candidate.personality_id),
+    });
+  }
+
+  const ids = results.map((item) => item.personality_id);
+  const uniqueIds = [...new Set(ids)];
+  assert.ok(uniqueIds.length >= 2, "different main_line_type signals must produce at least two distinct personality ids");
+  assert.ok(!ids.every((id) => id === "P31"), "classifier must not collapse all weak-but-different palm_features to 留一手");
+
+  return {
+    status: "PASS",
+    unique_personality_count: uniqueIds.length,
+    results,
+  };
+}
+
+async function validateStage6FClassifierCalibrationDeterministic() {
+  const features = {
+    main_line_type: "M3",
+    line_depth: "medium",
+    line_complexity: "complex",
+    line_continuity: "broken",
+    branch_density: "high",
+    palm_shape_hint: "long",
+    confidence: 0.66,
+  };
+  const runs = [];
+  for (let index = 0; index < 5; index += 1) {
+    const { response } = await runStage6FCalibrationMockAnalysis(features, `req_stage6f_classifier_deterministic_${index}`);
+    assert.equal(response.ok, true, "deterministic calibration sample should be classifiable");
+    runs.push({
+      personality_id: response.analysis_result.personality_id,
+      candidate_ids: response.analysis_result.candidate_results.map((candidate) => candidate.personality_id),
+    });
+  }
+
+  for (const run of runs.slice(1)) {
+    assert.equal(run.personality_id, runs[0].personality_id, "same palm_features must produce the same personality_id");
+    assert.deepEqual(run.candidate_ids, runs[0].candidate_ids, "same palm_features must produce identical candidate ranking");
+  }
+
+  return {
+    status: "PASS",
+    personality_id: runs[0].personality_id,
+    candidate_ids: runs[0].candidate_ids,
+  };
+}
+
+async function validateStage6FClassifierCalibrationScoreBreakdown() {
+  const { response } = await runStage6FCalibrationMockAnalysis({
+    main_line_type: "M2",
+    line_depth: "deep",
+    line_complexity: "medium",
+    line_continuity: "continuous",
+    branch_density: "medium",
+    palm_shape_hint: "square",
+    confidence: 0.7,
+  }, "req_stage6f_classifier_score_breakdown");
+
+  assert.equal(response.ok, true, "score breakdown sample should be classifiable");
+  for (const candidate of response.analysis_result.candidate_results) {
+    assert.equal(typeof candidate.score, "number", "candidate must include score");
+    assert.equal(typeof candidate.confidence, "number", "candidate must include confidence");
+    assert.equal(typeof candidate.reason, "string", "candidate must include reason");
+    assert.ok(candidate.reason.length > 0, "candidate reason must not be empty");
+    assert.ok(candidate.score_breakdown && typeof candidate.score_breakdown === "object", "candidate must include score_breakdown");
+    for (const key of ["main_line_type", "line_depth", "line_complexity", "line_continuity", "branch_density", "palm_shape_hint"]) {
+      assert.equal(typeof candidate.score_breakdown[key], "number", `score_breakdown.${key} must be numeric`);
+    }
+  }
+
+  return {
+    status: "PASS",
+    candidate_count: response.analysis_result.candidate_results.length,
+  };
+}
+
+function validateStage6FClassifierCalibrationCollapseDiagnostics() {
+  const smoke = require(path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"));
+  const analysis = smoke.buildCollapseAnalysis([
+    {
+      by_model: {
+        "qwen3-vl-flash": {
+          valid_palm: true,
+          personality_id: "P31",
+          has_personality_result: true,
+          candidate_ids: ["P31", "P25", "P12"],
+        },
+      },
+    },
+    {
+      by_model: {
+        "qwen3-vl-flash": {
+          valid_palm: true,
+          personality_id: "P31",
+          has_personality_result: true,
+          candidate_ids: ["P31", "P06", "P12"],
+        },
+      },
+    },
+    {
+      by_model: {
+        "qwen3-vl-flash": {
+          valid_palm: true,
+          personality_id: "P31",
+          has_personality_result: true,
+          candidate_ids: ["P31", "P04", "P33"],
+        },
+      },
+    },
+  ], ["qwen3-vl-flash"]);
+
+  const modelAnalysis = analysis["qwen3-vl-flash"];
+  assert.equal(modelAnalysis.collapse_risk, true);
+  assert.equal(modelAnalysis.diagnostic_code, "PERSONALITY_COLLAPSE_RISK");
+  assert.match(modelAnalysis.notes, /留一手/, "collapse diagnostics must explicitly identify 留一手 collapse");
+  assert.equal(modelAnalysis.candidate_distribution.P31, 3, "collapse diagnostics must include candidate_distribution");
+
+  return {
+    status: "PASS",
+    diagnostic_code: modelAnalysis.diagnostic_code,
+    notes: modelAnalysis.notes,
+  };
+}
+
 async function validateApiEndpoint() {
   const getResponse = await stage6Fetch(API_URL, { method: "GET" });
   const getJson = await getResponse.json();
@@ -2843,6 +3096,13 @@ async function main() {
     summary.stage6f_final_fix.smoke_uses_local_candidates = await validateStage6FFinalFixSmokeUsesLocalCandidates();
     summary.stage6f_final_fix.poster_main_candidate_mismatch_blocked = validateStage6FFinalFixPosterMainCandidateMismatchBlocked();
     summary.stage6f_final_fix.missing_personality_no_p25 = await validateStage6FFinalFixMissingPersonalityDoesNotDefaultP25();
+    summary.stage6f_classifier_calibration = {
+      no_default_liuyishou: await validateStage6FClassifierCalibrationNoDefaultLiuyishou(),
+      diverse_candidates: await validateStage6FClassifierCalibrationDiverseCandidates(),
+      deterministic: await validateStage6FClassifierCalibrationDeterministic(),
+      score_breakdown: await validateStage6FClassifierCalibrationScoreBreakdown(),
+      collapse_diagnostics: validateStage6FClassifierCalibrationCollapseDiagnostics(),
+    };
     summary.real_qwen_smoke = validateRealQwenSmokeDryRun();
 
     for (const device of deviceMatrix(playwright)) {

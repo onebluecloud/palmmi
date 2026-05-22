@@ -169,6 +169,20 @@ function lineFeature(line = {}, summary = {}, visibleFallback = false) {
   };
 }
 
+function palmFeatureSummaryOutput(parsed, summary, confidence) {
+  return {
+    main_line_type: parsed.mainLineType || "unknown",
+    line_depth: summary.line_depth || "unknown",
+    line_complexity: summary.line_complexity || "unknown",
+    line_continuity: summary.line_continuity || "unknown",
+    branch_density: summary.branch_density || "unknown",
+    palm_shape_hint: summary.palm_shape_hint || "unknown",
+    visible_features: Array.isArray(parsed.visibleFeatures) ? parsed.visibleFeatures : [],
+    confidence,
+    feature_reasons: Array.isArray(parsed.uncertainty) ? parsed.uncertainty : [],
+  };
+}
+
 function imageQualityValue(parsed, key, fallback = "unknown") {
   const quality = String(parsed.imageQuality || "").toLowerCase();
   if (key === "sharpness") {
@@ -206,6 +220,7 @@ function buildVlmFeatures(parsed) {
   const visiblePalm = parsed.isValidPalmImage === true;
   return {
     schema_version: "palm_features.v1",
+    palm_features: palmFeatureSummaryOutput(parsed, summary, confidence),
     hand: {
       visible_side: parsed.isPalmSideVisible ? "palm" : "unknown",
       handedness: "unknown",
@@ -287,6 +302,17 @@ function hasMajorLineSignal(parsed) {
     || hasVisibleLine(majorLines.headLine)
     || hasVisibleLine(majorLines.heartLine)
     || hasVisibleLine(minorLines.fateLine);
+}
+
+function concretePalmFeatureSignalCount(parsed) {
+  const summary = parsed && parsed.palmFeatureSummary ? parsed.palmFeatureSummary : {};
+  return [
+    summary.line_depth,
+    summary.line_complexity,
+    summary.line_continuity,
+    summary.branch_density,
+    summary.palm_shape_hint,
+  ].map(normalizedToken).filter((value) => value && value !== "unknown" && value !== "unclear").length;
 }
 
 function validationDiagnostics(reason, parsed) {
@@ -371,9 +397,7 @@ function validateParsedForAnalysis(parsed) {
     };
   }
 
-  if ((!Array.isArray(parsed.visibleFeatures) || parsed.visibleFeatures.length === 0)
-    && !parsed.mainLineType
-    && !hasMajorLineSignal(parsed)) {
+  if (concretePalmFeatureSignalCount(parsed) < 2 && !hasMajorLineSignal(parsed)) {
     return {
       ok: false,
       code: ERROR_CODES.ANALYSIS_UNRELIABLE,

@@ -281,6 +281,41 @@ function readPersonaExplanation(recognitionResult) {
   return nestedObject(recognitionResult, ["recognition", "explanation", "persona"]);
 }
 
+function roundNumber(value) {
+  return Number.isFinite(value) ? Number(value.toFixed(4)) : 0;
+}
+
+function candidateScoreBreakdown(candidate) {
+  const score = numberOrNull(candidate.score) || 0;
+  const matchedFeatures = safeArray(candidate.matched_features);
+  const has = (patterns) => matchedFeatures.some((feature) => patterns.some((pattern) => feature.includes(pattern)));
+  const raw = {
+    main_line_type: stringOrNull(candidate.mother_type) ? 1 : 0,
+    line_depth: has(["_DEPTH"]) ? 1 : 0,
+    line_complexity: has(["LINE_COMPLEXITY"]) ? 1 : 0,
+    line_continuity: has(["FATE_LINE_CLARITY", "CHUAN_PALM", "SIMIAN_LINE", "HEAD_LIFE_GAP"]) ? 1 : 0,
+    branch_density: has(["FATE_LINE_CLARITY", "SUN_LINE_PRESENCE", "MOUNT_", "HEAD_LINE_END_FORK", "HEART_LINE_END_FORK"]) ? 1 : 0,
+    palm_shape_hint: has(["PALM_LENGTH_RATIO", "THUMB_LENGTH_RATIO", "INDEX_LENGTH_RATIO", "PINKY_LENGTH_RATIO", "HAND_ASPECT_RATIO", "FINGERTIP_SHAPE", "FINGER_SPREAD"]) ? 1 : 0,
+  };
+  const total = Object.values(raw).reduce((sum, value) => sum + value, 0) || 1;
+  return Object.fromEntries(Object.entries(raw).map(([key, value]) => [
+    key,
+    roundNumber((score * value) / total),
+  ]));
+}
+
+function candidateReason(candidate) {
+  const reasonCodes = safeArray(candidate.reason_codes);
+  const matchedFeatures = safeArray(candidate.matched_features);
+  if (matchedFeatures.length > 0) {
+    return `基于 ${matchedFeatures.slice(0, 4).join("、")} 的本地规则匹配。`;
+  }
+  if (reasonCodes.length > 0) {
+    return `基于 ${reasonCodes.slice(0, 4).join("、")} 的本地规则匹配。`;
+  }
+  return "基于本地 Stage 3 冻结规则的候选排序。";
+}
+
 function readCandidateResults(recognitionResult, primaryPersona, displayContent) {
   const top3 = safeArray(recognitionResult.top3);
   const candidates = top3.length ? top3 : [primaryPersona];
@@ -301,6 +336,9 @@ function readCandidateResults(recognitionResult, primaryPersona, displayContent)
           || stringOrNull(displayContent && displayContent.main_line_type)
           || "",
         score: numberOrNull(candidate.score),
+        confidence: numberOrNull(candidate.score) || numberOrNull(candidate.confidence) || 0,
+        reason: candidateReason(candidate),
+        score_breakdown: candidateScoreBreakdown(candidate),
       };
     })
     .filter((candidate) => candidate.personality_id && candidate.personality_name);
@@ -319,6 +357,9 @@ function readCandidateResults(recognitionResult, primaryPersona, displayContent)
       || stringOrNull(displayContent && displayContent.main_line_type)
       || "",
     score: numberOrNull(primaryPersona.score),
+    confidence: numberOrNull(primaryPersona.score) || numberOrNull(primaryPersona.confidence) || 0,
+    reason: candidateReason(primaryPersona),
+    score_breakdown: candidateScoreBreakdown(primaryPersona),
   };
 
   return [

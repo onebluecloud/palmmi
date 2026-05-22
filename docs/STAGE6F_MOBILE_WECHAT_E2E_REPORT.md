@@ -2,6 +2,55 @@
 
 Date: 2026-05-22
 
+## Stage 6F-Classifier-Calibration 追加记录
+
+本轮不是 Stage 6G，不重做 Stage 5 主链路，不继续修微信上传、非手掌和海报链路。用户安卓微信复测显示：非手掌识别通过、正常手掌能进入结果页、有效结果能生成海报，但多个不同手掌最终人格全部变成 `P31 留一手`。
+
+```text
+Stage 6F: CLASSIFIER_CALIBRATION_CODE_PASS / ANDROID_WECHAT_FINAL_RETEST_REQUIRED
+Android WeChat: MANUAL_RETEST_REQUIRED
+iOS WeChat: MANUAL_REQUIRED
+Stage 6G: BLOCKED
+```
+
+### 本轮定位
+
+| 项目 | 结果 | 说明 |
+|---|---|---|
+| 默认 `留一手` 搜索 | PASS | 代码中未发现默认 P31 兜底；`留一手` 只存在于 Stage3 冻结 persona catalog / 文档映射 |
+| 根因 | CONFIRMED | Stage5 adapter 未保留 Qwen 高层 `main_line_type`，且低信息字段以 0 进入规则时容易误命中 P31 的低值规则 |
+| Stage3 冻结内容 | PASS | 未修改 Stage3 规则、权重、阈值或 36 型人格正文 |
+
+### Classifier-Calibration 修复内容
+
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| 多维特征打分 | PASS | 本地 adapter 使用 `main_line_type`、`line_depth`、`line_complexity`、`line_continuity`、`branch_density`、`palm_shape_hint`、`confidence` 校准 rule input |
+| 禁止 all-unknown 分类 | PASS | `palm_features` 全 unknown 时返回 `ANALYSIS_UNRELIABLE`，不进入人格结果 |
+| 默认 `留一手` 兜底 | PASS | 未新增、未保留任何默认 P31；不通过排除 P31 或随机轮换解决 |
+| score_breakdown | PASS | 每个 candidate 增加 `score`、`confidence`、`reason`、`score_breakdown` |
+| 塌缩诊断 | PASS | smoke collapse 增加 `candidate_distribution`；全部 P31 时输出 `All tested palm samples collapsed to 留一手.` |
+| 主候选一致 | PASS | 继续保证 `personality_id === candidate_results[0].personality_id` |
+| NOT_PALM / 海报回归 | PASS | 非手掌拦截和 LOW_CONFIDENCE 海报能力未回退 |
+
+### Classifier-Calibration 自动化复测结果
+
+| 场景 | 结果 | 说明 |
+|---|---|---|
+| 禁止默认“留一手” | PASS | all-unknown `palm_features` 返回 `ANALYSIS_UNRELIABLE`，不输出 P31 / 留一手 |
+| 不同特征产生不同候选 | PASS | 4 组 mock palm_features 产生 4 个不同主结果：`P25`、`P35`、`P12`、`P15` |
+| classifier deterministic | PASS | 同一 palm_features 连续 5 次输出相同主结果和候选排序 |
+| score breakdown | PASS | 每个 candidate 包含 `score`、`confidence`、`reason`、`score_breakdown` |
+| 海报回归 | PASS | `LOW_CONFIDENCE` + 合法人格仍可生成海报；`NOT_PALM` 继续阻止海报 |
+| 非手掌回归 | PASS | `NOT_PALM` 拦截不回退，不出人格，不生成海报 |
+| `npm test` | NOT_AVAILABLE | `package.json` 无总 `test` 脚本，未伪造 PASS |
+| `npm run build` | PASS | Cloudflare Pages static output written to `dist` |
+| `npm run test:stage6f` | PASS | 命令退出码 0；生产旧部署上传子项仍记录等待部署后复测 |
+| `node scripts/stage6f/security-scan.cjs` | PASS | finding_count 0 |
+| `npm run smoke:stage6f:qwen` | PASS | 无 `--real`，`REAL_QWEN_DISABLED`，`api_calls_made=0` |
+
+Stage 6G 继续 `BLOCKED`：本轮代码层和 mock 回归已通过，但仍需等待 Cloudflare 部署后，用户用安卓微信最终复测多个不同手掌是否不再全部输出 `P31 留一手` 或另一个固定人格；iPhone 微信仍需真机测试。
+
 ## Stage 6F-Final-Fix 追加记录
 
 本轮不是 Stage 6G。用户已完成真实 A/B smoke，两个模型都能拒绝非手掌，但两张手掌主结果均为 `P25`，且主结果与候选列表脱节；因此本轮判断为模型切换无明确收益，生产默认继续 `qwen3-vl-flash`，不切 `qwen3.6-flash`。

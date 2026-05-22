@@ -441,6 +441,13 @@ function topPersonalityCount(ids) {
   return [...counts.entries()].sort((left, right) => right[1] - left[1])[0] || [null, 0];
 }
 
+function personalityDistribution(ids) {
+  return ids.reduce((distribution, id) => {
+    distribution[id] = (distribution[id] || 0) + 1;
+    return distribution;
+  }, {});
+}
+
 function buildCollapseAnalysis(samples, models) {
   const analysis = {};
   for (const model of models) {
@@ -461,15 +468,21 @@ function buildCollapseAnalysis(samples, models) {
     const [topPersonality] = topPersonalityCount(personalityIds);
     const collapseRisk = personalityIds.length >= 3 && unique.length <= 1;
     const allP25 = collapseRisk && topPersonality === "P25";
+    const allLiuyishou = collapseRisk && topPersonality === "P31";
     analysis[model] = {
       palm_sample_count: personalityIds.length,
       unique_personality_count: unique.length,
       top_personality: topPersonality,
       collapse_risk: collapseRisk,
       diagnostic_code: collapseRisk ? "PERSONALITY_COLLAPSE_RISK" : null,
+      candidate_distribution: personalityDistribution(personalityIds),
       notes: collapseRisk
-        ? (allP25 ? "All tested palm samples collapsed to P25." : "All tested palm samples collapsed to one personality.")
-        : (personalityIds.length >= 3 ? "No collapse risk detected in tested palm samples." : "INSUFFICIENT_PALM_SAMPLES"),
+        ? (allP25
+          ? "All tested palm samples collapsed to P25."
+          : allLiuyishou
+            ? "All tested palm samples collapsed to 留一手."
+            : "All tested palm samples collapsed to one personality.")
+        : (personalityIds.length >= 3 ? "No collapse risk detected in tested palm samples." : "INSUFFICIENT_PALM_SAMPLES_FOR_COLLAPSE_DECISION"),
     };
   }
   return analysis;

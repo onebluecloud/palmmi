@@ -170,6 +170,7 @@ function collectFieldStates(palmFeatureSet) {
   const fateLine = objectAt(majorLines, "fateLine");
   const palmShape = objectAt(palmFeatureSet, "palmShape");
   const specialMarks = objectAt(palmFeatureSet, "specialMarks");
+  const classificationSignals = objectAt(palmFeatureSet, "classificationSignals");
 
   return {
     hand,
@@ -180,6 +181,7 @@ function collectFieldStates(palmFeatureSet) {
     fateLine,
     palmShape,
     specialMarks,
+    classificationSignals,
   };
 }
 
@@ -234,6 +236,15 @@ function lowConfidenceFieldCount(states) {
 function buildReadableFeatures(states) {
   return {
     handSide: handSide(states.hand.side),
+    classificationSignals: {
+      mainLineType: normalizeMainLineType(states.classificationSignals.mainLineType),
+      lineDepth: text(states.classificationSignals.lineDepth) || UNKNOWN,
+      lineComplexity: text(states.classificationSignals.lineComplexity) || UNKNOWN,
+      lineContinuity: text(states.classificationSignals.lineContinuity) || UNKNOWN,
+      branchDensity: text(states.classificationSignals.branchDensity) || UNKNOWN,
+      palmShapeHint: text(states.classificationSignals.palmShapeHint) || UNKNOWN,
+      confidence: clampConfidence(states.classificationSignals.confidence),
+    },
 
     lifeLine: {
       visible: states.lifeLine.visible === true,
@@ -285,6 +296,143 @@ function buildReadableFeatures(states) {
   };
 }
 
+function normalizeMainLineType(value) {
+  const token = text(value).toUpperCase();
+  return /^M[1-8]$/.test(token) ? token : UNKNOWN;
+}
+
+function scoreSignal(value, mapping) {
+  const token = text(value);
+  return Number.isFinite(mapping[token]) ? mapping[token] : null;
+}
+
+function depthSignal(value) {
+  return scoreSignal(value, { faint: 1, shallow: 1, medium: 2, deep: 3 });
+}
+
+function complexitySignal(value) {
+  return scoreSignal(value, { simple: 0, medium: 2, complex: 3 });
+}
+
+function continuitySignal(value) {
+  return scoreSignal(value, { broken: 1, mixed: 2, partial: 2, continuous: 3 });
+}
+
+function branchSignal(value) {
+  return scoreSignal(value, { low: 0, medium: 1, high: 3 });
+}
+
+function shapeSignal(value, key) {
+  const token = text(value);
+  if (key === "width") {
+    return { long: 1, square: 2, wide: 3 }[token] ?? null;
+  }
+  if (key === "length") {
+    return { wide: 1, square: 2, long: 3 }[token] ?? null;
+  }
+  return null;
+}
+
+function maxField(fields, key, value) {
+  if (Number.isFinite(value)) {
+    fields[key] = Math.max(fields[key] || 0, value);
+  }
+}
+
+function concreteSignalCount(signals) {
+  return [
+    signals.lineDepth,
+    signals.lineComplexity,
+    signals.lineContinuity,
+    signals.branchDensity,
+    signals.palmShapeHint,
+  ].map(text).filter((value) => value && value !== UNKNOWN && value !== "unclear").length;
+}
+
+function applyMainLineTypeCalibration(fields, signals) {
+  const mainLineType = normalizeMainLineType(signals.mainLineType);
+  const concreteCount = concreteSignalCount(signals);
+  if (mainLineType === UNKNOWN || concreteCount < 2) {
+    return;
+  }
+
+  const depth = depthSignal(signals.lineDepth);
+  const complexity = complexitySignal(signals.lineComplexity);
+  const continuity = continuitySignal(signals.lineContinuity);
+  const branches = branchSignal(signals.branchDensity);
+  const width = shapeSignal(signals.palmShapeHint, "width");
+  const length = shapeSignal(signals.palmShapeHint, "length");
+
+  fields.FINGER_SPREAD = Math.max(fields.FINGER_SPREAD || 0, 2);
+  fields.FINGERTIP_SHAPE = Math.max(fields.FINGERTIP_SHAPE || 0, 1);
+  maxField(fields, "PALM_LENGTH_RATIO", length);
+  maxField(fields, "THUMB_LENGTH_RATIO", length === null ? null : Math.max(1, Math.min(3, length)));
+  maxField(fields, "INDEX_LENGTH_RATIO", length);
+  maxField(fields, "HAND_ASPECT_RATIO", width === null ? null : Math.min(2, Math.max(0, width - 1)));
+  if (complexity !== null) {
+    fields.LINE_COMPLEXITY = complexity;
+  }
+  maxField(fields, "FATE_LINE_CLARITY", branches);
+
+  switch (mainLineType) {
+    case "M1":
+      maxField(fields, "HEAD_LINE_DEPTH", depth);
+      maxField(fields, "HEAD_LINE_LENGTH", Math.max(2, length || 0));
+      maxField(fields, "OVERALL_CLARITY", continuity === null ? 2 : Math.max(2, continuity));
+      fields.LINE_COMPLEXITY = complexity === null ? fields.LINE_COMPLEXITY : Math.min(fields.LINE_COMPLEXITY, complexity);
+      maxField(fields, "MOUNT_JUPITER", width && width >= 2 ? 1 : 0);
+      break;
+    case "M2":
+      maxField(fields, "HEART_LINE_DEPTH", Math.max(2, depth || 0));
+      maxField(fields, "HEART_LINE_LENGTH", Math.max(2, length || 0));
+      maxField(fields, "HEART_LINE_CURVE", Math.max(2, complexity || 0));
+      maxField(fields, "MOUNT_VENUS", width && width >= 2 ? 2 : 1);
+      break;
+    case "M3":
+      maxField(fields, "LINE_COMPLEXITY", Math.max(2, complexity || 0));
+      maxField(fields, "HEART_LINE_DEPTH", Math.max(1, depth || 0));
+      maxField(fields, "MOUNT_LUNA", Math.max(1, branches || 0));
+      maxField(fields, "MOUNT_MERCURY", branches && branches >= 2 ? 1 : 0);
+      break;
+    case "M4":
+      fields.CHUAN_PALM = 1;
+      maxField(fields, "HEAD_LIFE_GAP", 2);
+      fields.FINGER_SPREAD = continuity === 3 ? 1 : 2;
+      maxField(fields, "HEART_LINE_DEPTH", depth);
+      break;
+    case "M5":
+      fields.SIMIAN_LINE = 1;
+      maxField(fields, "THUMB_LENGTH_RATIO", 2);
+      maxField(fields, "FATE_LINE_CLARITY", Math.max(2, branches || 0));
+      maxField(fields, "LIFE_LINE_DEPTH", Math.max(1, depth || 0));
+      break;
+    case "M6":
+      maxField(fields, "FATE_LINE_CLARITY", Math.max(2, branches || 0));
+      if (branches !== null && branches >= 1) {
+        fields.SUN_LINE_PRESENCE = 1;
+      }
+      maxField(fields, "THUMB_LENGTH_RATIO", 2);
+      maxField(fields, "OVERALL_CLARITY", 2);
+      break;
+    case "M7":
+      maxField(fields, "MOUNT_LUNA", Math.max(1, branches || 0));
+      maxField(fields, "HEAD_LINE_SLOPE", continuity === 3 ? 2 : 3);
+      maxField(fields, "HEART_LINE_DEPTH", Math.max(1, depth || 0));
+      maxField(fields, "FINGERTIP_SHAPE", 2);
+      break;
+    case "M8":
+      maxField(fields, "LINE_COMPLEXITY", Math.max(2, complexity || 0));
+      maxField(fields, "HEART_LINE_DEPTH", Math.max(2, depth || 0));
+      fields.HEAD_LINE_END_FORK = 1;
+      if (continuity !== null && continuity < 3) {
+        fields.CHUAN_PALM = 1;
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 function buildNormalized33Fields(states) {
   const fields = createEmptyFields();
 
@@ -322,6 +470,8 @@ function buildNormalized33Fields(states) {
   setFinite(fields, "SIMIAN_LINE", toBinary(states.simianLine));
   setFinite(fields, "CHUAN_PALM", toBinary(states.chuanPalm));
   setFinite(fields, "SUN_LINE_PRESENCE", toBinary(states.sunLinePresence));
+
+  applyMainLineTypeCalibration(fields, states.classificationSignals);
 
   return fields;
 }

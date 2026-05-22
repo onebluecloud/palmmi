@@ -237,7 +237,22 @@ function aggregateCount(...values) {
 }
 
 function highLevelSummary(source) {
-  return firstObject(source.palmFeatureSummary, source.palm_features);
+  const legacySummary = firstObject(source.palmFeatureSummary);
+  const palmFeatures = firstObject(source.palm_features);
+  const summary = {
+    ...legacySummary,
+    ...palmFeatures,
+  };
+  const mainLineType = firstString(
+    summary.main_line_type,
+    summary.mainLineType,
+    source.mainLineType,
+    source.main_line_type
+  );
+  if (mainLineType) {
+    summary.main_line_type = mainLineType;
+  }
+  return summary;
 }
 
 function visiblePalmFromSource(source) {
@@ -322,6 +337,11 @@ function fallbackShape(summary, key) {
   return "unknown";
 }
 
+function normalizeMainLineType(value) {
+  const token = normalizeToken(value).toUpperCase();
+  return /^M[1-8]$/.test(token) ? token : "unknown";
+}
+
 function applyHighLevelLineFallback(line, summary, options = {}) {
   const confidence = clampConfidence(summary.confidence ?? options.confidence);
   if (options.visible && line.visible !== true) {
@@ -396,6 +416,15 @@ function applyFeatureSource(featureSet, source, rawResult, options) {
   const summary = highLevelSummary(source);
   const hasVisiblePalm = visiblePalmFromSource(source);
   const summaryConfidence = clampConfidence(summary.confidence ?? source.confidence);
+  featureSet.classificationSignals = {
+    mainLineType: normalizeMainLineType(summary.main_line_type),
+    lineDepth: pickEnum(summary.line_depth, ["deep", "medium", "faint", "unknown"]),
+    lineComplexity: pickEnum(summary.line_complexity, ["simple", "medium", "complex", "unknown"]),
+    lineContinuity: pickEnum(summary.line_continuity, ["continuous", "broken", "mixed", "unknown"]),
+    branchDensity: pickEnum(summary.branch_density, ["low", "medium", "high", "unknown"]),
+    palmShapeHint: pickEnum(summary.palm_shape_hint, ["long", "square", "wide", "unknown"]),
+    confidence: summaryConfidence,
+  };
 
   featureSet.hand.side = pickEnum(firstString(hand.side, source.side, rawResult.side, options.side), [
     "left",
