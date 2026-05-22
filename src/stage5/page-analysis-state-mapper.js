@@ -86,16 +86,14 @@ function hasCompletePosterPayload(input) {
   const summary = readNestedObject(data, "summary");
   const uiConsumable = readNestedObject(data, "uiConsumable");
   return Boolean(
-    summary &&
     uiConsumable &&
-    (hasText(summary.title) || hasText(summary.shortText)) &&
+    (hasText(data.summary) || (summary && (hasText(summary.title) || hasText(summary.shortText)))) &&
     hasText(uiConsumable.personaId) &&
     hasText(uiConsumable.personaName) &&
     hasText(data.personality_id) &&
     hasText(data.personality_name) &&
     hasText(data.main_line_type) &&
     hasText(data.description) &&
-    hasText(data.evidence) &&
     (hasText(data.poster_title) || hasText(data.title)) &&
     (hasText(data.poster_quote) || hasText(data.summary))
   );
@@ -246,7 +244,7 @@ function mapAnalysisStatusToResultPageState(input = {}) {
 
     case ANALYSIS_PAGE_STATUSES.ANALYSIS_LOW_CONFIDENCE:
       return mapping("result", analysisStatus, {
-        pageState: STAGE4_PAGE_STATES.PARTIAL_RESULT,
+        pageState: personaAvailable ? STAGE4_PAGE_STATES.READY : STAGE4_PAGE_STATES.PARTIAL_RESULT,
         canRenderResult: personaAvailable,
         canRenderPoster: personaAvailable && posterPayloadComplete,
         allowsPartialResult: personaAvailable,
@@ -340,7 +338,7 @@ function mapAnalysisStatusToPosterPageState(input = {}) {
 
     case ANALYSIS_PAGE_STATUSES.ANALYSIS_LOW_CONFIDENCE:
       return mapping("poster", analysisStatus, {
-        pageState: STAGE4_PAGE_STATES.PARTIAL_RESULT,
+        pageState: canRenderPoster ? STAGE4_PAGE_STATES.READY : STAGE4_PAGE_STATES.PARTIAL_RESULT,
         canRenderResult: personaAvailable,
         canRenderPoster,
         allowsPartialResult: personaAvailable,

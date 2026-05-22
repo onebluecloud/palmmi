@@ -117,6 +117,32 @@ function normalizeCandidateResults(...values) {
     .filter((candidate) => candidate.personality_id);
 }
 
+function normalizeCollapseGuard(value) {
+  const source = normalizeObject(value);
+  return {
+    not_default_personality: normalizeBoolean(source.not_default_personality),
+    reason_not_p25_if_not_p25: firstText(source.reason_not_p25_if_not_p25, source.reasonNotP25IfNotP25),
+    reason_if_p25: firstText(source.reason_if_p25, source.reasonIfP25),
+  };
+}
+
+function hasCollapseGuardSignal(collapseGuard) {
+  return Boolean(
+    collapseGuard.not_default_personality ||
+    collapseGuard.reason_not_p25_if_not_p25 ||
+    collapseGuard.reason_if_p25
+  );
+}
+
+function collapseRiskHint(topCandidateId, candidateResults, collapseGuard) {
+  if (!topCandidateId) {
+    return false;
+  }
+  const candidateIds = candidateResults.map((candidate) => candidate.personality_id).filter(Boolean);
+  const allSame = candidateIds.length >= 2 && candidateIds.every((id) => id === topCandidateId);
+  return topCandidateId === "P25" && (allSame || !hasCollapseGuardSignal(collapseGuard));
+}
+
 function normalizeParsedPalmFeatures(parsed) {
   const source = normalizeObject(parsed);
   const hasValidityObject = isPlainObject(source.validity);
@@ -136,6 +162,7 @@ function normalizeParsedPalmFeatures(parsed) {
   const validity = normalizeObject(source.validity);
   const palmFeatures = normalizeObject(source.palm_features);
   const result = normalizeObject(resultSource);
+  const collapseGuard = normalizeCollapseGuard(result.collapse_guard || result.collapseGuard || source.collapse_guard || source.collapseGuard);
   const legacyExplicitValid = source.isValidPalmImage === true;
   const normalizedValidity = {
     is_palm_photo: normalizeBoolean(validity.is_palm_photo) || legacyExplicitValid,
@@ -156,6 +183,17 @@ function normalizeParsedPalmFeatures(parsed) {
     Number.isFinite(palmFeatures.confidence) ? palmFeatures.confidence : source.confidence
   );
 
+  const candidateResults = normalizeCandidateResults(
+    result.candidate_results,
+    result.candidateResults,
+    result.candidates,
+    source.candidate_results,
+    source.candidateResults,
+    source.candidates
+  );
+  const personalityId = readPersonaId(result) || readPersonaId(source);
+  const topCandidateId = personalityId || (candidateResults[0] && candidateResults[0].personality_id) || "";
+
   return {
     hasValidity: hasValidityObject || legacyExplicitValid,
     hasPalmFeatures: hasPalmFeaturesObject,
@@ -174,17 +212,25 @@ function normalizeParsedPalmFeatures(parsed) {
     uncertainty: normalizeArray(source.uncertainty),
     confidence,
     mainLineType: firstText(palmFeatures.main_line_type, source.mainLineType, source.main_line_type),
+    palmFeatureSummary: {
+      line_depth: firstText(palmFeatures.line_depth, palmFeatures.lineDepth),
+      line_complexity: firstText(palmFeatures.line_complexity, palmFeatures.lineComplexity),
+      line_continuity: firstText(palmFeatures.line_continuity, palmFeatures.lineContinuity),
+      branch_density: firstText(palmFeatures.branch_density, palmFeatures.branchDensity),
+      palm_shape_hint: firstText(palmFeatures.palm_shape_hint, palmFeatures.palmShapeHint),
+    },
     result: {
-      personalityId: readPersonaId(result) || readPersonaId(source),
+      personalityId,
       mainLineType: firstText(readMainLineType(result), palmFeatures.main_line_type, source.mainLineType, source.main_line_type),
-      candidateResults: normalizeCandidateResults(
-        result.candidate_results,
-        result.candidateResults,
-        result.candidates,
-        source.candidate_results,
-        source.candidateResults,
-        source.candidates
-      ),
+      candidateResults,
+      collapseGuard,
+    },
+    diagnostics: {
+      candidate_count: candidateResults.length,
+      top_candidate_id: topCandidateId,
+      has_collapse_guard: hasCollapseGuardSignal(collapseGuard),
+      low_confidence: confidence > 0 && confidence < 0.55,
+      collapse_risk_hint: collapseRiskHint(topCandidateId, candidateResults, collapseGuard),
     },
   };
 }

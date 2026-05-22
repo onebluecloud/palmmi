@@ -25,6 +25,7 @@ const {
 const ROOT = path.resolve(__dirname, "..", "..");
 const DEFAULT_IMAGE_DIR = "E:\\其他\\Palmmi\\Palmmi-test-images";
 const DEFAULT_TIMEOUT_MS = 60000;
+const DEFAULT_MAX_REAL_CALLS = 5;
 const SAMPLE_DEFINITIONS = Object.freeze([
   {
     name: "not_palm",
@@ -73,6 +74,9 @@ function parseArgs(argv) {
     imageDir: "",
     timeoutMs: DEFAULT_TIMEOUT_MS,
     model: DEFAULT_QWEN_MODEL,
+    models: [DEFAULT_QWEN_MODEL],
+    maxRealCalls: DEFAULT_MAX_REAL_CALLS,
+    collapseCheck: false,
     samples: {},
   };
 
@@ -92,6 +96,19 @@ function parseArgs(argv) {
       options.timeoutMs = Number.parseInt(argv[++index] || "", 10) || DEFAULT_TIMEOUT_MS;
     } else if (arg === "--model") {
       options.model = argv[++index] || DEFAULT_QWEN_MODEL;
+      options.models = [options.model];
+    } else if (arg === "--models") {
+      const value = argv[++index] || "";
+      const models = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      options.models = models.length ? [...new Set(models)] : [DEFAULT_QWEN_MODEL];
+      options.model = options.models[0];
+    } else if (arg === "--max-real-calls") {
+      options.maxRealCalls = Number.parseInt(argv[++index] || "", 10) || DEFAULT_MAX_REAL_CALLS;
+    } else if (arg === "--collapse-check") {
+      options.collapseCheck = true;
     } else if (arg === "--help" || arg === "-h") {
       options.help = true;
     } else {
@@ -145,6 +162,33 @@ function findByPatterns(files, patterns) {
   }) || "";
 }
 
+function optionalCollapsePalmSamples(files, selected) {
+  const selectedPaths = new Set(Object.values(selected));
+  return files
+    .filter((filePath) => {
+      const fileName = path.basename(filePath).toLowerCase();
+      return /^palm[-_ ]?\d+\.(jpe?g|png|webp)$/i.test(path.basename(filePath))
+        && !selectedPaths.has(filePath)
+        && !/faint|weak|unclear|clear|good|not[-_ ]?palm|beer|beverage|drink/.test(fileName);
+    })
+    .slice(0, 8)
+    .map((filePath, index) => ({
+      name: `palm_${index + 2}`,
+      expected: "VALID_PERSONALITY",
+      filePath,
+    }));
+}
+
+function sampleDefinitionsFor(selectedSamples) {
+  return Object.keys(selectedSamples).map((name) => {
+    const definition = SAMPLE_DEFINITIONS.find((item) => item.name === name);
+    return {
+      name,
+      expected: definition ? definition.expected : "VALID_PERSONALITY",
+    };
+  });
+}
+
 function selectSamples(options) {
   const explicit = {};
   for (const sample of SAMPLE_DEFINITIONS) {
@@ -177,6 +221,11 @@ function selectSamples(options) {
     const match = findByPatterns(files, sample.patterns);
     if (match) {
       samples[sample.name] = match;
+    }
+  }
+  if (options.collapseCheck) {
+    for (const sample of optionalCollapsePalmSamples(files, samples)) {
+      samples[sample.name] = sample.filePath;
     }
   }
   return {
@@ -229,7 +278,7 @@ function sampleBase(sampleName) {
   const definition = SAMPLE_DEFINITIONS.find((item) => item.name === sampleName);
   return {
     name: sampleName,
-    expected: definition ? definition.expected : "UNKNOWN",
+    expected: definition ? definition.expected : "VALID_PERSONALITY",
   };
 }
 
@@ -368,6 +417,78 @@ function noteFor(result) {
   return "Review required.";
 }
 
+function estimatedCallsForSample(sample) {
+  return sample && sample.name === "not_palm" ? 1 : 2;
+}
+
+function estimateRealCalls(samples, models) {
+  const modelCount = Array.isArray(models) && models.length ? models.length : 1;
+  return samples.reduce((sum, sample) => sum + estimatedCallsForSample(sample), 0) * modelCount;
+}
+
+function topPersonalityCount(ids) {
+  const counts = new Map();
+  ids.forEach((id) => counts.set(id, (counts.get(id) || 0) + 1));
+  return [...counts.entries()].sort((left, right) => right[1] - left[1])[0] || [null, 0];
+}
+
+function buildCollapseAnalysis(samples, models) {
+  const analysis = {};
+  for (const model of models) {
+    const personalityIds = [];
+    for (const sample of samples) {
+      const byModel = sample && sample.by_model ? sample.by_model : {};
+      const result = byModel[model];
+      if (
+        result &&
+        result.valid_palm === true &&
+        result.has_personality_result === true &&
+        isKnownPersonaId(result.personality_id)
+      ) {
+        personalityIds.push(result.personality_id);
+      }
+    }
+    const unique = [...new Set(personalityIds)];
+    const [topPersonality] = topPersonalityCount(personalityIds);
+    const collapseRisk = personalityIds.length >= 3 && unique.length <= 1;
+    const allP25 = collapseRisk && topPersonality === "P25";
+    analysis[model] = {
+      palm_sample_count: personalityIds.length,
+      unique_personality_count: unique.length,
+      top_personality: topPersonality,
+      collapse_risk: collapseRisk,
+      diagnostic_code: collapseRisk ? "PERSONALITY_COLLAPSE_RISK" : null,
+      notes: collapseRisk
+        ? (allP25 ? "All tested palm samples collapsed to P25." : "All tested palm samples collapsed to one personality.")
+        : (personalityIds.length >= 3 ? "No collapse risk detected in tested palm samples." : "INSUFFICIENT_PALM_SAMPLES"),
+    };
+  }
+  return analysis;
+}
+
+function buildRecommendation(collapseAnalysis, models) {
+  const viable = models
+    .map((model) => ({ model, analysis: collapseAnalysis[model] || {} }))
+    .filter((entry) => entry.analysis.palm_sample_count >= 3 && entry.analysis.collapse_risk === false);
+  if (viable.length === 1) {
+    return {
+      preferred_model: viable[0].model,
+      reason: "Only one tested model avoided personality collapse across at least three palm samples.",
+    };
+  }
+  if (viable.length > 1) {
+    viable.sort((left, right) => right.analysis.unique_personality_count - left.analysis.unique_personality_count);
+    return {
+      preferred_model: viable[0].model,
+      reason: "This model produced the highest unique personality count among tested palm samples.",
+    };
+  }
+  return {
+    preferred_model: "inconclusive",
+    reason: "A/B smoke has insufficient varied palm samples or all tested models still need review.",
+  };
+}
+
 async function runSample({ provider, sampleName, filePath, model }) {
   const start = Date.now();
   const buffer = fs.readFileSync(filePath);
@@ -394,6 +515,7 @@ async function runSample({ provider, sampleName, filePath, model }) {
       personality_id: null,
       has_personality_result: false,
       candidate_count: 0,
+      candidate_ids: [],
       notes: "Unsupported image extension.",
       usage: null,
       api_calls_made: 0,
@@ -452,6 +574,7 @@ async function runSample({ provider, sampleName, filePath, model }) {
       personality_id: null,
       has_personality_result: false,
       candidate_count: 0,
+      candidate_ids: [],
       notes: diagnosticCode === "VALIDITY_PASS_RESULT_MISSING"
         ? "Validity passed, but the personality result was missing after full analysis."
         : diagnosticCode === "SMOKE_PIPELINE_INCOMPLETE"
@@ -467,6 +590,9 @@ async function runSample({ provider, sampleName, filePath, model }) {
   const parsedCandidateCount = parsed.result && Array.isArray(parsed.result.candidateResults)
     ? parsed.result.candidateResults.length
     : 0;
+  const parsedCandidateIds = parsed.result && Array.isArray(parsed.result.candidateResults)
+    ? parsed.result.candidateResults.map((candidate) => candidate.personality_id).filter(Boolean)
+    : [];
   let contractSummary = null;
   try {
     contractSummary = await buildContractSummary(parsed, image, sampleName, model);
@@ -493,6 +619,7 @@ async function runSample({ provider, sampleName, filePath, model }) {
     candidate_count: contractSummary && Number.isFinite(contractSummary.candidate_count)
       ? contractSummary.candidate_count
       : parsedCandidateCount,
+    candidate_ids: parsedCandidateIds.slice(0, 3),
     notes: "",
   };
   result.notes = noteFor(result);
@@ -506,11 +633,15 @@ function disabledSummary(options) {
     status: "REAL_QWEN_DISABLED",
     message: "No API call was made.",
     notice: [
-      "This script validates up to 3 samples and may make up to 5 real Qwen API calls.",
+      "This script validates up to 3 required samples; --collapse-check may include extra palm samples.",
+      "Complete provider.analyze() may make up to 5 calls for 3 samples per model.",
       "It may consume quota.",
       "Use --real to confirm.",
     ],
     model: options.model,
+    models: options.models,
+    collapse_check: options.collapseCheck,
+    max_real_calls: options.maxRealCalls,
     endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
     api_calls_made: 0,
     safety: {
@@ -552,6 +683,7 @@ async function main() {
       usage: [
         "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\"",
         "npm run smoke:stage6f:qwen -- --real --not-palm <path> --palm-faint <path> --palm-clear <path>",
+        "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\" --models qwen3-vl-flash,qwen3.6-flash --collapse-check --max-real-calls 10",
       ],
       api_calls_made: 0,
       safety: {
@@ -589,14 +721,35 @@ async function main() {
     return;
   }
 
-  const missing = SAMPLE_DEFINITIONS
-    .map((sample) => selected.samples[sample.name])
+  const selectedDefinitions = sampleDefinitionsFor(selected.samples);
+  const missing = Object.values(selected.samples)
     .filter((filePath) => !fs.existsSync(filePath));
   if (missing.length > 0) {
     printJson({
       ok: false,
       status: "IMAGE_FILE_MISSING",
       missing_files: missing.map((filePath) => path.basename(filePath)),
+      api_calls_made: 0,
+      safety: {
+        printed_key: false,
+        printed_base64: false,
+        printed_raw_response: false,
+      },
+    });
+    process.exitCode = 1;
+    return;
+  }
+
+  const estimatedRealCalls = estimateRealCalls(selectedDefinitions, options.models);
+  if (estimatedRealCalls > options.maxRealCalls) {
+    printJson({
+      ok: false,
+      status: "MAX_REAL_CALLS_EXCEEDED",
+      message: "Estimated real Qwen calls exceed --max-real-calls. Increase the limit explicitly if you want to run this smoke.",
+      sample_count: selectedDefinitions.length,
+      models: options.models,
+      estimated_real_calls: estimatedRealCalls,
+      max_real_calls: options.maxRealCalls,
       api_calls_made: 0,
       safety: {
         printed_key: false,
@@ -615,6 +768,7 @@ async function main() {
       status: "QWEN_API_KEY_MISSING",
       message: "QWEN_API_KEY_MISSING",
       model: options.model,
+      models: options.models,
       endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
       api_calls_made: 0,
       safety: {
@@ -632,6 +786,7 @@ async function main() {
       ok: false,
       status: "FETCH_UNAVAILABLE",
       model: options.model,
+      models: options.models,
       endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
       api_calls_made: 0,
       safety: {
@@ -644,39 +799,73 @@ async function main() {
     return;
   }
 
-  const env = {
-    ...process.env,
-    PALMMI_QWEN_API_KEY: apiKey,
-    PALMMI_QWEN_MODEL: options.model,
-    PALMMI_VLM_TIMEOUT_MS: String(options.timeoutMs),
-  };
-  const provider = new QwenVlmProvider({
-    env,
-    model: options.model,
-    timeoutMs: options.timeoutMs,
-    fetchImpl: fetch,
-  });
+  const bySample = selectedDefinitions.map((sample) => ({
+    name: sample.name,
+    expected: sample.expected,
+    file_name: path.basename(selected.samples[sample.name]),
+    file_size_bytes: fs.statSync(selected.samples[sample.name]).size,
+    by_model: {},
+  }));
+  let apiCallsMade = 0;
+  for (const model of options.models) {
+    const env = {
+      ...process.env,
+      PALMMI_QWEN_API_KEY: apiKey,
+      PALMMI_QWEN_MODEL: model,
+      PALMMI_VLM_TIMEOUT_MS: String(options.timeoutMs),
+    };
+    const provider = new QwenVlmProvider({
+      env,
+      model,
+      timeoutMs: options.timeoutMs,
+      fetchImpl: fetch,
+    });
 
-  const samples = [];
-  for (const sample of SAMPLE_DEFINITIONS) {
-    samples.push(await runSample({
-      provider,
-      sampleName: sample.name,
-      filePath: selected.samples[sample.name],
-      model: provider.model,
-    }));
+    for (const sample of selectedDefinitions) {
+      const result = await runSample({
+        provider,
+        sampleName: sample.name,
+        filePath: selected.samples[sample.name],
+        model: provider.model,
+      });
+      apiCallsMade += result.api_calls_made || 0;
+      const publicResult = {
+        duration_ms: result.duration_ms,
+        usage: result.usage,
+        status: result.status,
+        actual_code: result.actual_code,
+        actual_quality_status: result.actual_quality_status,
+        diagnostic_code: result.diagnostic_code || null,
+        valid_palm: result.valid_palm,
+        personality_id: result.personality_id,
+        has_personality_result: result.has_personality_result,
+        candidate_count: result.candidate_count,
+        candidate_ids: result.candidate_ids || [],
+        notes: result.notes,
+      };
+      const sampleEntry = bySample.find((item) => item.name === sample.name);
+      sampleEntry.by_model[provider.model] = publicResult;
+    }
   }
 
-  const apiCallsMade = samples.reduce((sum, sample) => sum + (sample.api_calls_made || 0), 0);
+  const collapseAnalysis = options.collapseCheck
+    ? buildCollapseAnalysis(bySample, options.models)
+    : null;
   const summary = {
-    ok: samples.every((sample) => sample.status === "PASS" || sample.status === "PASS_OR_REVIEW"),
-    model: provider.model,
-    endpoint: endpointLabel(provider.endpoint),
+    ok: bySample.every((sample) => Object.values(sample.by_model)
+      .every((result) => result.status === "PASS" || result.status === "PASS_OR_REVIEW")),
+    models: options.models,
+    endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
     mode: selected.mode,
-    samples: samples.map((sample) => {
-      const { api_calls_made: ignored, ...publicSample } = sample;
-      return publicSample;
-    }),
+    sample_count: selectedDefinitions.length,
+    estimated_real_calls: estimatedRealCalls,
+    max_real_calls: options.maxRealCalls,
+    samples: bySample,
+    collapse_analysis: collapseAnalysis,
+    recommendation: collapseAnalysis ? buildRecommendation(collapseAnalysis, options.models) : {
+      preferred_model: "inconclusive",
+      reason: "Run with --collapse-check and at least three palm samples to compare model collapse risk.",
+    },
     api_calls_made: apiCallsMade,
     safety: {
       printed_key: false,
@@ -688,17 +877,28 @@ async function main() {
   process.exitCode = summary.ok ? 0 : 1;
 }
 
-main().catch((error) => {
-  printJson({
-    ok: false,
-    status: "SMOKE_SCRIPT_FAILED",
-    message: error && error.message ? error.message.slice(0, 160) : "unknown",
-    api_calls_made: 0,
-    safety: {
-      printed_key: false,
-      printed_base64: false,
-      printed_raw_response: false,
-    },
+if (require.main === module) {
+  main().catch((error) => {
+    printJson({
+      ok: false,
+      status: "SMOKE_SCRIPT_FAILED",
+      message: error && error.message ? error.message.slice(0, 160) : "unknown",
+      api_calls_made: 0,
+      safety: {
+        printed_key: false,
+        printed_base64: false,
+        printed_raw_response: false,
+      },
+    });
+    process.exitCode = 1;
   });
-  process.exitCode = 1;
-});
+}
+
+module.exports = {
+  buildCollapseAnalysis,
+  buildRecommendation,
+  disabledSummary,
+  estimateRealCalls,
+  parseArgs,
+  selectSamples,
+};

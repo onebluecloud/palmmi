@@ -1,6 +1,93 @@
 # Stage 6F Mobile / WeChat / E2E Regression Report
 
-Date: 2026-05-21
+Date: 2026-05-22
+
+## Stage 6F-Final-Stabilization 追加记录
+
+本轮不是 Stage 6G。本轮集中修复模型 A/B smoke、P25 人格塌缩诊断和 LOW_CONFIDENCE 海报 contract。用户尚未提供本轮部署后的安卓微信最终复测结果，因此 Stage 6G 继续 `BLOCKED`。
+
+```text
+Stage 6F: FINAL_STABILIZATION_CODE_PASS / MANUAL_RETEST_REQUIRED
+Android WeChat: MANUAL_RETEST_REQUIRED
+iOS WeChat: MANUAL_REQUIRED
+Stage 6G: BLOCKED
+```
+
+### 当前真实 smoke 背景
+
+用户已完成真实 Qwen smoke，核心链路通过：
+
+| 样本 | 当前结论 | 说明 |
+|---|---|---|
+| not_palm | PASS | 返回 `NOT_PALM`，无人格结果 |
+| palm_faint | PASS_OR_REVIEW | `valid_palm=true`，`LOW_CONFIDENCE`，有 `P25` 和 3 个候选 |
+| palm_clear | PASS | `valid_palm=true`，`LOW_CONFIDENCE`，有 `P25` 和 3 个候选 |
+
+剩余风险：
+
+- 多个手掌在真实 smoke / 安卓微信中仍高度集中到 `P25 老干部`，需要 A/B smoke 和多图复测判断是否存在 `PERSONALITY_COLLAPSE_RISK`。
+- 安卓微信反馈“生成海报仍然不行”，需要修复 `LOW_CONFIDENCE` 有效结果的 poster contract，并等待部署后真机复测。
+
+### Final Stabilization 修复内容
+
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| 模型配置 | PASS | provider 支持显式 `model`、`PALMMI_QWEN_MODEL`、`QWEN_MODEL`；默认仍为 `qwen3-vl-flash` |
+| 生产模型 | PASS | 未直接切换生产模型，仍为 `qwen3-vl-flash` |
+| A/B smoke | PASS | `scripts/stage6f/real-qwen-smoke.cjs` 支持 `--models qwen3-vl-flash,qwen3.6-flash` |
+| 调用预算 | PASS | 新增 `--max-real-calls`；标准 3 样本 x 2 模型预算为 10 次真实 Qwen 调用；超过限制拒绝运行 |
+| collapse check | PASS | 新增 `--collapse-check`；3 个及以上 palm 样本全部同一人格时标记 `PERSONALITY_COLLAPSE_RISK` |
+| prompt 反塌缩 | PASS | 要求先提取 palm features，再输出 top 3 candidates 和差异理由 |
+| P25 保护 | PASS | 禁止默认 P25；合法 P25 必须有具体 palm feature reason / collapse guard |
+| parser diagnostics | PASS | 增加 `candidate_count`、`top_candidate_id`、`has_collapse_guard`、`low_confidence`、`collapse_risk_hint` |
+| LOW_CONFIDENCE 海报 | PASS | `valid_palm=true` + 合法人格 + `OK` / `LOW_CONFIDENCE` 允许生成基础海报 |
+| result / poster contract | PASS | poster 最低 contract 不再因缺少非必要 evidence 阻塞 `LOW_CONFIDENCE` 有效结果 |
+| poster 错误码 | PASS | 增加 `POSTER_RESULT_READ_FAILED` / `POSTER_CONTRACT_INVALID` / `POSTER_NOT_ALLOWED_FOR_INVALID_IMAGE` |
+
+### A/B Smoke 使用方式
+
+默认命令仍不会调用真实 Qwen：
+
+```bash
+npm run smoke:stage6f:qwen
+```
+
+人工显式 A/B 命令：
+
+```powershell
+npm run smoke:stage6f:qwen -- --real `
+  --image-dir "E:\其他\Palmmi\Palmmi-test-images" `
+  --models qwen3-vl-flash,qwen3.6-flash `
+  --collapse-check `
+  --max-real-calls 10
+```
+
+说明：
+
+- 脚本默认不调用真实 Qwen。
+- 必须显式传 `--real` 才会调用。
+- 不输出 Key / Token / base64 / raw Qwen response。
+- 不提交用户图片。
+- A/B 结果只用于建议，不自动切生产模型。
+
+### Final Stabilization 自动化复测结果
+
+| 场景 | 结果 | 说明 |
+|---|---|---|
+| `npm test` | NOT_AVAILABLE | `package.json` 无总 `test` 脚本，未伪造 PASS |
+| `npm run build` | PASS | Cloudflare Pages static output written to `dist` |
+| `npm run test:stage6f` | PASS | 命令退出码 0；Final Stabilization mock 回归通过 |
+| `node scripts/stage6f/security-scan.cjs` | PASS | finding_count 0 |
+| `npm run smoke:stage6f:qwen` | PASS | 无 `--real`，`REAL_QWEN_DISABLED`，`api_calls_made=0` |
+| `PALMMI_QWEN_MODEL` / `QWEN_MODEL` | PASS | env model 和显式 model 优先级正确 |
+| 非手掌 mock | PASS | `NOT_PALM`，无人格结果，无海报 |
+| LOW_CONFIDENCE 海报 | PASS | 有效人格结果可生成基础海报 |
+| P25 默认兜底 | PASS | result 缺失不能变成 P25；合法 P25 必须有 reason |
+| 多手掌塌缩诊断 | PASS | 3 个 palm 全 P25 时标记 `PERSONALITY_COLLAPSE_RISK`；多人格时不标记 |
+| Poster contract | PASS | `OK` / `LOW_CONFIDENCE` + 合法人格可生成；`NOT_PALM` / `ANALYSIS_UNRELIABLE` 禁止 |
+| smoke dry run | PASS | 无 `--real` 输出 `REAL_QWEN_DISABLED`，`api_calls_made=0` |
+
+`npm run test:stage6f` 命令已通过；测试输出中仍记录当前已部署生产版本的真实上传海报读取失败，这是部署前线上旧版本风险记录，不代表本轮代码层修复已完成真机验收。部署后仍需安卓微信最终复测。
 
 ## Stage 6F Real Qwen Smoke PASS 记录
 
@@ -610,7 +697,7 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 
 是否可以进入 Stage 6G: BLOCKED
 
-条件：本次 Fix-5 部署后，必须补充真实 Qwen 小样本复测、安卓微信拍照上传、相册上传、非手掌稳定 `NOT_PALM` 且不超时、多手掌不塌缩 P25、海报生成和 iPhone 微信真机测试；在用户提供真实复测通过结果前，不允许进入 Stage 6G。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
+条件：真实 Qwen smoke 已通过，Final Stabilization 代码层和 mock 回归已通过。但在本轮部署后，仍必须补充 A/B smoke（用于判断是否建议切模型）、安卓微信拍照上传、相册上传、非手掌稳定 `NOT_PALM` 且不超时、多手掌不塌缩 P25 或有明确模型建议、海报生成和 iPhone 微信真机测试；在用户提供真实复测通过结果前，不允许进入 Stage 6G。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
 
 ## 17. 当前阻塞项
 
@@ -618,6 +705,7 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 |---|---|---|
 | iPhone 微信真机测试 | MANUAL_REQUIRED | Codex 不能自动完成 |
 | 安卓微信真机测试 | MANUAL_REQUIRED | Codex 不能自动完成 |
+| 真实 A/B smoke | MANUAL_REQUIRED | 需要用户显式运行 `--real --models qwen3-vl-flash,qwen3.6-flash --collapse-check --max-real-calls 10` |
 | 偏暗图 fixture | BLOCKED_BY_MISSING_FIXTURE | 仓库未发现明确图片 fixture |
 | 模糊图 fixture | BLOCKED_BY_MISSING_FIXTURE | 仓库未发现明确图片 fixture |
 | 裁切不完整图 fixture | BLOCKED_BY_MISSING_FIXTURE | 仓库未发现明确图片 fixture |

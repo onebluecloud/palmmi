@@ -2,13 +2,13 @@
 
 ## 当前阶段
 
-Stage 6F：真实 Qwen smoke 已通过核心验收，微信真机仍需复测。
+Stage 6F：Final Stabilization 代码层已完成，微信真机仍需最终复测。
 
-Stage 6F status: REAL_QWEN_SMOKE_PASS / MANUAL_RETEST_REQUIRED
+Stage 6F status: FINAL_STABILIZATION_CODE_PASS / MANUAL_RETEST_REQUIRED
 
 Stage 6G: BLOCKED
 
-Reason: 用户在 Fix-5 后运行真实 Qwen smoke，`not_palm` 返回 `NOT_PALM`，`palm_faint` / `palm_clear` 均为 `valid_palm=true` 且有合法人格结果，说明有效手掌人格结果 pipeline 已恢复。Stage 6G 仍 BLOCKED，原因是安卓微信真机仍需复测，iOS 微信也仍未真机验收。
+Reason: 用户在 Fix-5 后运行真实 Qwen smoke，`not_palm` 返回 `NOT_PALM`，`palm_faint` / `palm_clear` 均为 `valid_palm=true` 且有合法人格结果，说明有效手掌人格结果 pipeline 已恢复。本轮 Final Stabilization 增加模型 A/B smoke、P25 塌缩诊断、P25 palm feature reason 约束，并修复 `LOW_CONFIDENCE` 有效结果的海报 contract。Stage 6G 仍 BLOCKED，原因是安卓微信最终真机复测和 iOS 微信真机验收尚未完成。
 
 ## 已完成
 
@@ -67,6 +67,19 @@ Reason: 用户在 Fix-5 后运行真实 Qwen smoke，`not_palm` 返回 `NOT_PALM
   - `api_calls_made=5`，符合完整 pipeline 的两阶段调用成本预期修正。
   - 未输出 Key / Token / base64 / raw Qwen response。
   - 两张手掌均返回 P25：当前不判定失败，但后续安卓微信多图复测必须继续观察是否存在人格塌缩。
+- Stage 6F-Final-Stabilization：
+  - 生产默认模型保持 `qwen3-vl-flash`，未直接切换到 `qwen3.6-flash`。
+  - provider 支持显式 `model`、`PALMMI_QWEN_MODEL`、`QWEN_MODEL`，优先级为显式参数 > `PALMMI_QWEN_MODEL` > `QWEN_MODEL` > 默认 `qwen3-vl-flash`。
+  - `scripts/stage6f/real-qwen-smoke.cjs` 支持 `--models`、`--collapse-check`、`--max-real-calls`，可人工执行 `qwen3-vl-flash` vs `qwen3.6-flash` A/B smoke。
+  - smoke 默认无 `--real` 仍输出 `REAL_QWEN_DISABLED`，不调用真实 Qwen。
+  - 标准 3 样本 x 2 模型预计最多 10 次真实 Qwen API 调用；如果目录中加入更多 palm 样本且预计调用超过 `--max-real-calls`，脚本会拒绝运行。
+  - Qwen prompt 增加反塌缩约束：先提取 palm features，再输出 top 3 candidates，每个候选必须给出掌纹特征理由。
+  - 合法 P25 允许展示，但必须有具体 palm feature reason；缺少 reason 的 P25 返回 `ANALYSIS_UNRELIABLE`，不允许作为默认兜底。
+  - parser 增加 `candidate_count`、`top_candidate_id`、`has_collapse_guard`、`low_confidence`、`collapse_risk_hint` 诊断。
+  - 多图 smoke 中 3 个及以上 palm 样本全部同一人格时标记 `PERSONALITY_COLLAPSE_RISK`，但不自动修改人格结果。
+  - `LOW_CONFIDENCE` + `valid_palm=true` + 合法人格结果允许生成基础海报；`NOT_PALM` / `ANALYSIS_UNRELIABLE` 仍禁止生成海报。
+  - poster 页增加 `POSTER_RESULT_READ_FAILED`、`POSTER_CONTRACT_INVALID`、`POSTER_NOT_ALLOWED_FOR_INVALID_IMAGE` 错误码。
+  - `npm run test:stage6f` 已覆盖 Final Stabilization mock 回归并通过；当前生产旧部署仍需等待本次提交部署后由用户复测。
 
 ## 用户真机复测失败记录
 
@@ -184,10 +197,36 @@ Stage 6F-Fix-3 部署到 `aa51bf5bdfe1822cb98059878ab3c74f6cb5e708` 后，用户
 | Real Qwen smoke result after Fix-5 | PASS | not_palm / palm_faint / palm_clear 核心验收通过 |
 | Real Qwen smoke API calls | RECORDED | `api_calls_made=5`；最多 3 个样本，但有效手掌两阶段导致最多约 5 次真实调用 |
 | Real Qwen smoke P25 observation | REVIEW_IN_WECHAT_RETEST | 两张手掌均返回 P25，暂不判定失败，后续多图复测继续观察人格塌缩 |
+| Real Qwen A/B smoke | READY_NOT_RUN | 支持 `qwen3-vl-flash` vs `qwen3.6-flash`，需用户显式 `--real --models ... --collapse-check` |
+| PERSONALITY_COLLAPSE_RISK | READY | 仅用于 smoke / 报告诊断，不作为前端用户错误展示 |
 | 用户本地图片目录 | READY_FOR_USER_RUN | `E:\其他\Palmmi\Palmmi-test-images`，不提交进 Git |
 | 目录模式 | READY | `npm run smoke:stage6f:qwen -- --real --image-dir "E:\其他\Palmmi\Palmmi-test-images"` |
 | 显式路径模式 | READY | 支持 `--not-palm` / `--palm-faint` / `--palm-clear` |
 | 输出安全 | PASS | 脱敏 summary；不输出 Key / Token / base64 / raw Qwen response |
+
+## Stage 6F-Final-Stabilization 状态
+
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| `PALMMI_QWEN_MODEL` / `QWEN_MODEL` | PASS | 支持 env 配置；显式 model 参数优先 |
+| 生产默认模型 | PASS | 仍为 `qwen3-vl-flash`，未直接切生产模型 |
+| A/B smoke `--models` | PASS | 支持 `qwen3-vl-flash,qwen3.6-flash` |
+| A/B smoke `--collapse-check` | PASS | 多 palm 样本统计塌缩风险 |
+| A/B smoke `--max-real-calls` | PASS | 预计调用数超过限制时拒绝运行 |
+| P25 默认兜底 | PASS | 继续禁止；缺 result 不会补 P25 |
+| P25 palm feature reason | PASS | 合法 P25 必须有掌纹特征理由或 collapse guard |
+| `PERSONALITY_COLLAPSE_RISK` | PASS | 3 个及以上 palm 样本全部同一人格时标记 |
+| LOW_CONFIDENCE 海报 | PASS | 有效低置信人格结果允许生成基础海报 |
+| result / poster contract | PASS | poster 最低字段与 result 读取保持一致 |
+| 海报按钮逻辑 | PASS | `OK` / `LOW_CONFIDENCE` 有效结果可进入海报；无效图片继续阻止 |
+| `npm test` | NOT_AVAILABLE | `package.json` 无总 `test` 脚本 |
+| `npm run build` | PASS | Cloudflare Pages 静态产物构建成功 |
+| `npm run test:stage6f` | PASS | 命令退出码 0；Final Stabilization mock 回归通过 |
+| 安全扫描 | PASS | `finding_count=0` |
+| smoke dry run | PASS | 无 `--real`，`REAL_QWEN_DISABLED`，`api_calls_made=0` |
+| 真实 A/B smoke | NOT_RUN | 本轮 Codex 未执行 `--real`，需用户手动运行 |
+| 安卓微信最终复测 | MANUAL_RETEST_REQUIRED | 部署后需要用户测非手掌、正常手掌、海报 |
+| iOS 微信测试 | MANUAL_REQUIRED | 仍未真机验收 |
 
 ## 当前微信真机测试状态
 
@@ -248,6 +287,7 @@ Codex 没有把微信真机测试伪造成 PASS。
 | 安卓微信海报生成复测 | MANUAL_RETEST_REQUIRED | 有效结果页能展示人格时，海报页也必须能生成基础海报 |
 | 安卓微信正常手掌人格结果复测 | MANUAL_RETEST_REQUIRED | 真实 Qwen smoke 已 PASS，但微信内置浏览器仍需确认正常手掌能出人格结果 |
 | 安卓微信 P25 塌缩观察 | MANUAL_RETEST_REQUIRED | 两张 smoke 手掌均为 P25，需用更多真机样本观察是否仍全部 P25 |
+| 真实 A/B smoke | MANUAL_REQUIRED | 用户需显式运行 `--real --models qwen3-vl-flash,qwen3.6-flash --collapse-check --max-real-calls 10` 后再决定是否建议切模型 |
 | 偏暗图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
 | 模糊图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
 | 裁切不完整图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
@@ -256,7 +296,7 @@ Codex 没有把微信真机测试伪造成 PASS。
 
 是否可以进入 Stage 6G: BLOCKED
 
-条件：真实 Qwen smoke 已通过核心验收。只有在 Fix-5 部署后安卓微信拍照上传 / 相册上传 / 非手掌稳定 `NOT_PALM` 且不超时 / 正常手掌能出人格结果 / 多手掌不塌缩 P25 / 海报生成真机复测通过，且继续保持无 Key / Token / base64 / raw response 泄露，才允许重新评估 Stage 6G。
+条件：真实 Qwen smoke 已通过核心验收，Final Stabilization 代码层和 mock 回归已通过。只有在本轮部署后安卓微信拍照上传 / 相册上传 / 非手掌稳定 `NOT_PALM` 且不超时 / 正常手掌能出人格结果 / 多手掌不塌缩 P25 或 A/B smoke 给出明确模型建议 / 海报生成真机复测通过，且继续保持无 Key / Token / base64 / raw response 泄露，才允许重新评估 Stage 6G。
 
 ## 当前禁止修改
 
@@ -280,8 +320,9 @@ Codex 没有把微信真机测试伪造成 PASS。
 - 暂时不要绑定正式域名。
 - 暂时不要修改 DNS。
 - 暂时不要接支付 / 打赏 / 登录。
-- 等待本次 Fix-4 部署后，补充安卓微信拍照上传复测结果。
-- 等待本次 Fix-4 部署后，补充安卓微信相册上传复测结果。
-- 等待本次 Fix-4 部署后，补充安卓微信非手掌图片拒绝且不超时复测结果。
-- 等待本次 Fix-4 部署后，补充安卓微信海报生成复测结果。
+- 等待本次 Final Stabilization 部署后，补充安卓微信拍照上传复测结果。
+- 等待本次 Final Stabilization 部署后，补充安卓微信相册上传复测结果。
+- 等待本次 Final Stabilization 部署后，补充安卓微信非手掌图片拒绝且不超时复测结果。
+- 等待本次 Final Stabilization 部署后，补充安卓微信海报生成复测结果。
+- 用户显式运行 A/B smoke 后，再判断是否建议通过配置切换模型。
 - 补充 iPhone 微信真机验收结果。

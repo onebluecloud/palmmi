@@ -238,6 +238,17 @@
     };
   }
 
+  function posterErrorCode(pageResponse, mapping) {
+    if (!pageResponse || pageResponse.ok !== true) {
+      return "POSTER_RESULT_READ_FAILED";
+    }
+    const qualityStatus = firstText(pageResponse.data && pageResponse.data.quality_status).toUpperCase();
+    if (["NOT_PALM", "IMAGE_NOT_CLEAR", "ANALYSIS_UNRELIABLE", "RETRY_REQUIRED", "REJECTED"].includes(qualityStatus)) {
+      return "POSTER_NOT_ALLOWED_FOR_INVALID_IMAGE";
+    }
+    return "POSTER_CONTRACT_INVALID";
+  }
+
   function readAnalysisResult(input = {}) {
     const options = normalizeReadOptions(input);
     const pageReader = resolvePageReader(options);
@@ -266,6 +277,7 @@
       return {
         ok: false,
         state: mapping.pageState,
+        error_code: posterErrorCode(pageResponse, mapping),
         message: mapping.message,
         mapping,
       };

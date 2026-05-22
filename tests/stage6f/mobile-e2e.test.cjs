@@ -1705,6 +1705,11 @@ async function validateStage6FFix4FetchTimeoutOnlyForRealTimeout() {
 function validateRealQwenSmokeDryRun() {
   const output = childProcess.execFileSync(process.execPath, [
     path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"),
+    "--models",
+    "qwen3-vl-flash,qwen3.6-flash",
+    "--collapse-check",
+    "--max-real-calls",
+    "10",
   ], {
     cwd: root,
     encoding: "utf8",
@@ -1714,6 +1719,7 @@ function validateRealQwenSmokeDryRun() {
   assert.equal(summary.ok, true, "real Qwen smoke dry run should exit successfully");
   assert.equal(summary.status, "REAL_QWEN_DISABLED", "real Qwen smoke must be disabled without --real");
   assert.equal(summary.api_calls_made, 0, "real Qwen smoke dry run must not call Qwen");
+  assert.deepEqual(summary.models, ["qwen3-vl-flash", "qwen3.6-flash"], "dry run should preserve requested A/B models");
   assert.equal(summary.safety.printed_key, false, "dry run summary must not print keys");
   assert.equal(summary.safety.printed_base64, false, "dry run summary must not print base64");
   assert.equal(summary.safety.printed_raw_response, false, "dry run summary must not print raw responses");
@@ -1724,6 +1730,7 @@ function validateRealQwenSmokeDryRun() {
     status: "PASS",
     mode: summary.status,
     api_calls_made: summary.api_calls_made,
+    models: summary.models,
   };
 }
 
@@ -1904,6 +1911,324 @@ function validateStage6FFix5ParserPersonaAliases() {
   };
 }
 
+function validateStage6FFinalModelConfig() {
+  const {
+    QwenVlmProvider,
+  } = require(path.join(root, "server", "stage5p", "providers", "qwen-vlm-provider.js"));
+
+  const envModel = new QwenVlmProvider({
+    env: {
+      PALMMI_QWEN_API_KEY: "stage6f-test-key",
+      PALMMI_QWEN_MODEL: "qwen3.6-flash",
+      QWEN_MODEL: "qwen3-vl-flash",
+    },
+    fetchImpl: async () => new Response("{}"),
+  });
+  assert.equal(envModel.model, "qwen3.6-flash", "PALMMI_QWEN_MODEL must configure the provider model");
+
+  const explicitModel = new QwenVlmProvider({
+    env: {
+      PALMMI_QWEN_API_KEY: "stage6f-test-key",
+      PALMMI_QWEN_MODEL: "qwen3.6-flash",
+      QWEN_MODEL: "qwen3-vl-flash",
+    },
+    model: "qwen3-vl-flash",
+    fetchImpl: async () => new Response("{}"),
+  });
+  assert.equal(explicitModel.model, "qwen3-vl-flash", "explicit model must override env model");
+
+  return {
+    status: "PASS",
+    env_model: envModel.model,
+    explicit_model: explicitModel.model,
+  };
+}
+
+async function validateStage6FFinalP25RequiresReason() {
+  const {
+    QwenVlmProvider,
+  } = require(path.join(root, "server", "stage5p", "providers", "qwen-vlm-provider.js"));
+
+  let fetchCount = 0;
+  const missingReasonProvider = new QwenVlmProvider({
+    env: {
+      PALMMI_QWEN_API_KEY: "stage6f-test-key",
+      QWEN_API_KEY: "",
+    },
+    fetchImpl: async () => {
+      fetchCount += 1;
+      const payload = fetchCount === 1
+        ? {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "clear",
+            reject_reason: "",
+          },
+          palm_features: null,
+          result: null,
+        }
+        : {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "clear",
+            reject_reason: "",
+          },
+          palm_features: {
+            main_line_type: "M1",
+            visible_features: ["HEAD_LINE_DEPTH"],
+            confidence: 0.62,
+          },
+          result: {
+            personality_id: "P25",
+            candidate_results: [{
+              personality_id: "P25",
+              main_line_type: "M1",
+              confidence: 0.62,
+            }],
+          },
+        };
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(payload) } }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    },
+  });
+
+  const missingReason = await missingReasonProvider.analyze({
+    request_id: "req_stage6f_final_p25_missing_reason",
+    image: {
+      file_name: "p25-missing-reason.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+    },
+  });
+  assert.equal(missingReason.ok, false, "P25 without palm feature reason must not be accepted");
+  assert.equal(missingReason.error.code, "ANALYSIS_UNRELIABLE");
+  assert.equal(missingReason.diagnostics && missingReason.diagnostics.errorType, "p25_reason_missing");
+
+  let validFetchCount = 0;
+  const validReasonProvider = new QwenVlmProvider({
+    env: {
+      PALMMI_QWEN_API_KEY: "stage6f-test-key",
+      QWEN_API_KEY: "",
+    },
+    fetchImpl: async () => {
+      validFetchCount += 1;
+      const payload = validFetchCount === 1
+        ? {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "clear",
+            reject_reason: "",
+          },
+          palm_features: null,
+          result: null,
+        }
+        : {
+          validity: {
+            is_palm_photo: true,
+            is_single_hand: true,
+            is_palm_side_visible: true,
+            palm_lines_visible: true,
+            image_quality: "acceptable",
+            reject_reason: "",
+          },
+          palm_features: {
+            main_line_type: "M1",
+            line_depth: "medium",
+            line_complexity: "simple",
+            line_continuity: "continuous",
+            branch_density: "low",
+            palm_shape_hint: "square",
+            visible_features: ["HEAD_LINE_DEPTH", "LINE_COMPLEXITY"],
+            confidence: 0.62,
+          },
+          result: {
+            personality_id: "P25",
+            candidate_results: [{
+              personality_id: "P25",
+              main_line_type: "M1",
+              confidence: 0.62,
+              reason: "P25 is selected because palm_features show medium line_depth, simple line_complexity, continuous line_continuity, and low branch_density.",
+            }],
+            collapse_guard: {
+              not_default_personality: true,
+              reason_if_p25: "Specific palm feature evidence supports P25; it is not a fallback.",
+            },
+          },
+        };
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(payload) } }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    },
+  });
+  const validReason = await validReasonProvider.analyze({
+    request_id: "req_stage6f_final_p25_valid_reason",
+    image: {
+      file_name: "p25-valid-reason.jpg",
+      content_type: "image/jpeg",
+      size_bytes: syntheticPngBuffer().length,
+      buffer: syntheticPngBuffer(),
+    },
+  });
+  assert.equal(validReason.ok, true, "legal P25 with specific palm feature reason must still be allowed");
+  assert.equal(validReason.parsed.result.personalityId, "P25");
+  assert.equal(validReason.parsed.diagnostics.has_collapse_guard, true);
+
+  return {
+    status: "PASS",
+    missing_reason_code: missingReason.error.code,
+    missing_reason_diagnostic: missingReason.diagnostics && missingReason.diagnostics.errorType,
+    valid_personality_id: validReason.parsed.result.personalityId,
+  };
+}
+
+function validateStage6FFinalSmokeCollapseDiagnostics() {
+  const smoke = require(path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"));
+  assert.equal(typeof smoke.parseArgs, "function", "smoke script must export parseArgs for testable CLI parsing");
+  assert.equal(typeof smoke.estimateRealCalls, "function", "smoke script must export estimateRealCalls");
+  assert.equal(typeof smoke.buildCollapseAnalysis, "function", "smoke script must export collapse analysis helper");
+
+  const args = smoke.parseArgs([
+    "--models",
+    "qwen3-vl-flash,qwen3.6-flash",
+    "--collapse-check",
+    "--max-real-calls",
+    "10",
+  ]);
+  assert.deepEqual(args.models, ["qwen3-vl-flash", "qwen3.6-flash"]);
+  assert.equal(args.collapseCheck, true);
+  assert.equal(args.maxRealCalls, 10);
+
+  const estimated = smoke.estimateRealCalls([
+    { name: "not_palm" },
+    { name: "palm_faint" },
+    { name: "palm_clear" },
+  ], args.models);
+  assert.equal(estimated, 10, "two-model smoke over three standard samples should budget 10 real Qwen calls");
+
+  const collapse = smoke.buildCollapseAnalysis([
+    {
+      name: "palm_1",
+      by_model: {
+        "qwen3-vl-flash": { valid_palm: true, personality_id: "P25", has_personality_result: true },
+        "qwen3.6-flash": { valid_palm: true, personality_id: "P01", has_personality_result: true },
+      },
+    },
+    {
+      name: "palm_2",
+      by_model: {
+        "qwen3-vl-flash": { valid_palm: true, personality_id: "P25", has_personality_result: true },
+        "qwen3.6-flash": { valid_palm: true, personality_id: "P08", has_personality_result: true },
+      },
+    },
+    {
+      name: "palm_3",
+      by_model: {
+        "qwen3-vl-flash": { valid_palm: true, personality_id: "P25", has_personality_result: true },
+        "qwen3.6-flash": { valid_palm: true, personality_id: "P12", has_personality_result: true },
+      },
+    },
+  ], args.models);
+
+  assert.equal(collapse["qwen3-vl-flash"].collapse_risk, true, "all palm samples on one personality should mark collapse risk");
+  assert.equal(collapse["qwen3-vl-flash"].diagnostic_code, "PERSONALITY_COLLAPSE_RISK");
+  assert.match(collapse["qwen3-vl-flash"].notes, /collapsed to P25/);
+  assert.equal(collapse["qwen3.6-flash"].collapse_risk, false, "varied palm personalities should not mark collapse risk");
+
+  return {
+    status: "PASS",
+    estimated_calls: estimated,
+    collapse_code: collapse["qwen3-vl-flash"].diagnostic_code,
+    varied_collapse_risk: collapse["qwen3.6-flash"].collapse_risk,
+  };
+}
+
+function validateStage6FFinalLowConfidencePosterContract() {
+  const resultPage = require(path.join(root, "scripts", "palmmi-result.js"));
+  const posterPage = require(path.join(root, "scripts", "palmmi-poster.js"));
+  const storage = createMemoryStorage();
+  const lowConfidence = completeAnalysisResult({
+    status: "degraded",
+    extra: {
+      valid_palm: true,
+      quality_status: "LOW_CONFIDENCE",
+      evidence: "",
+      user_message: "这次图片可读性一般，结果更适合作为娱乐参考。",
+      diagnostics: {
+        lowConfidenceFieldCount: 1,
+        missingFieldCount: 0,
+        unknownFieldCount: 0,
+        adapterWarnings: [],
+        providerWarnings: [],
+        matcherWarnings: [],
+        contractWarnings: ["CONTRACT_DEGRADED"],
+      },
+      uiConsumable: {
+        personaId: "P25",
+        personaName: "老干部",
+        confidence: 0.48,
+        status: "degraded",
+        qualityStatus: "LOW_CONFIDENCE",
+        primaryDisplayText: "老干部",
+        secondaryDisplayText: "别人还在情绪开会，你已经端着保温杯散会了。",
+        warningBadges: ["CONTRACT_DEGRADED"],
+      },
+    },
+  });
+  storage.setItem(STORAGE_KEYS.stableAnalysis, JSON.stringify({
+    version: 1,
+    analysis_id: "analysis_stage6f_final_low_confidence_poster",
+    created_at: "2026-05-22T00:00:00.000Z",
+    provider: "qwen",
+    analysis_result: lowConfidence,
+  }));
+
+  const resultRead = resultPage.readAnalysisResult({ storage });
+  const posterRead = posterPage.readAnalysisResult({ storage });
+  assert.equal(resultRead.ok, true, "LOW_CONFIDENCE valid palm must render result page");
+  assert.equal(posterRead.ok, true, "LOW_CONFIDENCE valid palm must render a basic poster");
+
+  const resultView = resultPage.createResultViewModel(resultRead.result);
+  const posterView = posterPage.createPosterViewModel(posterRead.result);
+  assert.equal(resultView.posterEnabled, true, "LOW_CONFIDENCE valid result should keep poster action enabled");
+  assert.equal(posterView.problem, undefined, "LOW_CONFIDENCE valid result must not become a poster problem view");
+  assert.notEqual(posterView.state, "partial-result", "LOW_CONFIDENCE poster rendering should be ready when minimum contract exists");
+
+  const notPalmStorage = createMemoryStorage();
+  const notPalm = {
+    ...completeAnalysisResult(),
+    status: "failed",
+    valid_palm: false,
+    quality_status: "NOT_PALM",
+    user_message: "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。",
+  };
+  notPalmStorage.setItem(STORAGE_KEYS.stableAnalysis, JSON.stringify({
+    version: 1,
+    analysis_id: "analysis_stage6f_final_not_palm_poster",
+    created_at: "2026-05-22T00:00:00.000Z",
+    provider: "qwen",
+    analysis_result: notPalm,
+  }));
+  const notPalmRead = posterPage.readAnalysisResult({ storage: notPalmStorage });
+  assert.equal(notPalmRead.ok, false, "NOT_PALM must remain blocked from poster generation");
+
+  return {
+    status: "PASS",
+    low_confidence_poster: "PASS",
+    not_palm_poster_blocked: "PASS",
+  };
+}
+
 async function validateApiEndpoint() {
   const getResponse = await stage6Fetch(API_URL, { method: "GET" });
   const getJson = await getResponse.json();
@@ -1968,14 +2293,24 @@ async function validateNormalPalmUpload(context, fixturePath) {
   const apiResponses = [];
   page.on("response", async (response) => {
     if (response.url() === API_URL && response.request().method() === "POST") {
-      const parsed = await response.json();
-      assertNoResponseLeaks(parsed, "normal palm API response");
-      apiResponses.push({
-        http_status: response.status(),
-        ok: parsed.ok,
-        provider: parsed.provider || null,
-        has_analysis_result: Boolean(parsed.analysis_result),
-      });
+      try {
+        const parsed = await response.json();
+        assertNoResponseLeaks(parsed, "normal palm API response");
+        apiResponses.push({
+          http_status: response.status(),
+          ok: parsed.ok,
+          provider: parsed.provider || null,
+          has_analysis_result: Boolean(parsed.analysis_result),
+        });
+      } catch (error) {
+        apiResponses.push({
+          http_status: response.status(),
+          ok: false,
+          provider: null,
+          has_analysis_result: false,
+          response_read_error: true,
+        });
+      }
     }
   });
 
@@ -2182,6 +2517,7 @@ async function main() {
     stage6f_fix3: {},
     stage6f_fix4: {},
     stage6f_fix5: {},
+    stage6f_final: {},
     real_qwen_smoke: null,
     abnormal_inputs: {},
     simulated_qwen_errors: null,
@@ -2199,6 +2535,10 @@ async function main() {
     summary.stage6f_fix5.valid_palm_personality = await validateStage6FFix5ValidPalmProducesPersonalityResult();
     summary.stage6f_fix5.valid_palm_missing_result = await validateStage6FFix5ValidPalmMissingResultDiagnosed();
     summary.stage6f_fix5.parser_persona_aliases = validateStage6FFix5ParserPersonaAliases();
+    summary.stage6f_final.model_config = validateStage6FFinalModelConfig();
+    summary.stage6f_final.p25_requires_reason = await validateStage6FFinalP25RequiresReason();
+    summary.stage6f_final.smoke_collapse_diagnostics = validateStage6FFinalSmokeCollapseDiagnostics();
+    summary.stage6f_final.low_confidence_poster_contract = validateStage6FFinalLowConfidencePosterContract();
     summary.real_qwen_smoke = validateRealQwenSmokeDryRun();
 
     for (const device of deviceMatrix(playwright)) {

@@ -38,12 +38,15 @@ const DEFAULT_ANALYSIS_PROMPT = [
   "The image has passed the initial palm validity check.",
   "Return one strict JSON object only. Do not include markdown or natural language outside JSON.",
   "If the image is actually not a clear single palm after closer inspection, return invalid validity and do not output a personality result.",
-  "For a valid palm, you must extract observable palm features and you must output a result object.",
-  "When validity is true, result.personality_id must be one legal id from P01 through P36 and result.candidate_results must contain 1 to 3 legal candidates.",
+  "For a valid palm, you must first extract observable palm structure features, then rank personality candidates from those features.",
+  "When validity is true, result.personality_id must be one legal id from P01 through P36 and result.candidate_results must contain the top 3 legal candidates whenever possible.",
   "If confidence is low but the image is still a palm, return the closest legal P01-P36 id with low confidence instead of leaving result empty.",
-  "Do not always choose the same id. Choose the closest id based only on visible palm features.",
+  "Do not always choose the same id. Do not choose P25, M1, or any personality because of uncertainty or missing fields.",
+  "Every candidate reason must cite concrete palm_features differences, such as line_depth, line_complexity, line_continuity, branch_density, palm_shape_hint, or visible major line evidence.",
+  "If several candidates are close, output all top 3 candidate_results and explain the difference for each candidate.",
+  "If you choose P25, collapse_guard.reason_if_p25 must state the concrete palm feature evidence. P25 is never allowed as a fallback.",
   "Use this schema exactly:",
-  "{\"validity\":{\"is_palm_photo\":true,\"is_single_hand\":true,\"is_palm_side_visible\":true,\"palm_lines_visible\":true,\"image_quality\":\"clear\",\"reject_reason\":\"\"},\"palm_features\":{\"main_line_type\":\"\",\"visible_features\":[\"OVERALL_CLARITY\"],\"confidence\":0.0},\"majorLines\":{\"lifeLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"curvature\":\"medium\",\"breaks\":\"none\",\"confidence\":0.0},\"headLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"slope\":\"flat\",\"breaks\":\"none\",\"confidence\":0.0},\"heartLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"curvature\":\"medium\",\"ending\":\"unknown\",\"breaks\":\"none\",\"confidence\":0.0}},\"minorLines\":{\"fateLine\":{\"visibility\":\"unknown\",\"strength\":\"unknown\",\"continuity\":\"unknown\",\"confidence\":0.0}},\"palmShape\":{\"palmWidth\":\"medium\",\"palmLength\":\"medium\",\"fingerLength\":\"medium\",\"confidence\":0.0},\"result\":{\"personality_id\":\"\",\"main_line_type\":\"\",\"candidate_results\":[{\"personality_id\":\"\",\"main_line_type\":\"\",\"confidence\":0.0,\"reason\":\"observable palm features only\"}]}}",
+  "{\"validity\":{\"is_palm_photo\":true,\"is_single_hand\":true,\"is_palm_side_visible\":true,\"palm_lines_visible\":true,\"image_quality\":\"clear|acceptable|low_confidence|not_palm\",\"reject_reason\":\"\"},\"palm_features\":{\"main_line_type\":\"\",\"line_depth\":\"deep|medium|faint\",\"line_complexity\":\"simple|medium|complex\",\"line_continuity\":\"continuous|broken|mixed\",\"branch_density\":\"low|medium|high\",\"palm_shape_hint\":\"long|square|wide|unknown\",\"visible_features\":[\"OVERALL_CLARITY\"],\"confidence\":0.0},\"majorLines\":{\"lifeLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"curvature\":\"medium\",\"breaks\":\"none\",\"confidence\":0.0},\"headLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"slope\":\"flat\",\"breaks\":\"none\",\"confidence\":0.0},\"heartLine\":{\"visibility\":\"clear\",\"length\":\"medium\",\"depth\":\"medium\",\"curvature\":\"medium\",\"ending\":\"unknown\",\"breaks\":\"none\",\"confidence\":0.0}},\"minorLines\":{\"fateLine\":{\"visibility\":\"unknown\",\"strength\":\"unknown\",\"continuity\":\"unknown\",\"confidence\":0.0}},\"palmShape\":{\"palmWidth\":\"medium\",\"palmLength\":\"medium\",\"fingerLength\":\"medium\",\"shapeHint\":\"unknown\",\"confidence\":0.0},\"result\":{\"personality_id\":\"\",\"main_line_type\":\"\",\"candidate_results\":[{\"personality_id\":\"\",\"main_line_type\":\"\",\"confidence\":0.0,\"reason\":\"must cite palm_features differences\"}],\"collapse_guard\":{\"not_default_personality\":true,\"reason_not_p25_if_not_p25\":\"\",\"reason_if_p25\":\"specific palm feature evidence if P25 is selected\"}}}",
   "Never choose P25, M1, or any personality as a fallback. If unsure among valid palms, lower confidence and choose the closest legal id; if not a palm, return invalid validity and null result.",
   "Do not infer health, wealth, lifespan, marriage, fate, fortune, or any sensitive trait.",
 ].join("\n");
@@ -203,6 +206,28 @@ function isKnownPersonaId(personalityId) {
     && VALID_PERSONA_IDS.has(personalityId.trim());
 }
 
+function hasP25PalmFeatureReason(parsed) {
+  if (!parsed || !parsed.result || parsed.result.personalityId !== "P25") {
+    return true;
+  }
+  const candidateReasons = Array.isArray(parsed.result.candidateResults)
+    ? parsed.result.candidateResults
+      .filter((candidate) => candidate && candidate.personality_id === "P25")
+      .map((candidate) => candidate.reason)
+    : [];
+  const collapseGuard = parsed.result.collapseGuard || {};
+  const reasons = [
+    ...candidateReasons,
+    collapseGuard.reason_if_p25,
+    collapseGuard.reasonIfP25,
+  ].filter((reason) => typeof reason === "string" && reason.trim());
+
+  return reasons.some((reason) => {
+    const text = reason.trim();
+    return text.length >= 8 && /palm_features|palm features|observable palm|line_|line depth|line_depth|complexity|continuity|branch|density|shape|掌纹|掌心|智慧线|生命线|感情线|主线|分支|纹路|清晰|连续|复杂|M\d|HEAD_LINE|LIFE_LINE|HEART_LINE|LINE_/i.test(text);
+  });
+}
+
 function validationDiagnostics(reason, parsed) {
   return {
     errorType: reason,
@@ -302,6 +327,14 @@ function validateParsedForAnalysis(parsed) {
       ok: false,
       code: ERROR_CODES.ANALYSIS_UNRELIABLE,
       diagnostics: validationDiagnostics("provider_persona_missing_or_unknown", parsed),
+    };
+  }
+
+  if (!hasP25PalmFeatureReason(parsed)) {
+    return {
+      ok: false,
+      code: ERROR_CODES.ANALYSIS_UNRELIABLE,
+      diagnostics: validationDiagnostics("p25_reason_missing", parsed),
     };
   }
 
@@ -575,6 +608,10 @@ class QwenVlmProvider {
       },
       error_codes: [],
       response_ref: "qwen:redacted",
+      diagnostics: {
+        ...(parsed.diagnostics || {}),
+        model: this.model,
+      },
     };
   }
 }
