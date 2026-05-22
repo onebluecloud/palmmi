@@ -52,6 +52,55 @@ function pickEnum(value, allowed, fallback = "unknown") {
   return allowed.includes(token) ? token : fallback;
 }
 
+function firstValueByKeys(source, keys) {
+  for (const key of keys) {
+    if (source && source[key] !== undefined && source[key] !== null && source[key] !== "") {
+      return source[key];
+    }
+  }
+  return "";
+}
+
+function normalizeClassifierEnum(value, kind) {
+  const raw = compactString(value);
+  const token = normalizeToken(raw);
+  const chinese = raw.replace(/\s+/g, "");
+  const mappings = {
+    lineDepth: {
+      deep: ["deep", "clear", "strong", "obvious", "明显", "清晰", "深", "强"],
+      medium: ["medium", "normal", "moderate", "中等", "适中", "一般"],
+      faint: ["faint", "shallow", "weak", "blur", "blurry", "unclear", "浅", "淡", "模糊", "不明显"],
+    },
+    lineComplexity: {
+      simple: ["simple", "low", "few", "sparse", "简单", "少", "稀疏"],
+      medium: ["medium", "moderate", "normal", "中等", "适中", "一般"],
+      complex: ["complex", "high", "many", "dense", "复杂", "多", "密集"],
+    },
+    lineContinuity: {
+      continuous: ["continuous", "connected", "smooth", "连续", "连贯"],
+      broken: ["broken", "interrupted", "discontinuous", "断裂", "断续"],
+      mixed: ["mixed", "partial", "crossed", "混合", "交错"],
+    },
+    branchDensity: {
+      low: ["low", "few", "sparse", "simple", "少", "稀疏", "简单"],
+      medium: ["medium", "moderate", "normal", "中等", "适中", "一般"],
+      high: ["high", "many", "dense", "complex", "多", "密集", "复杂"],
+    },
+    palmShapeHint: {
+      long: ["long", "narrow", "长", "长形"],
+      square: ["square", "boxy", "方", "方形"],
+      wide: ["wide", "broad", "宽", "宽掌"],
+    },
+  };
+  const mapping = mappings[kind] || {};
+  for (const [canonical, aliases] of Object.entries(mapping)) {
+    if (aliases.includes(token) || aliases.includes(chinese)) {
+      return canonical;
+    }
+  }
+  return "unknown";
+}
+
 function hasForbiddenText(value) {
   const text = compactString(value);
   return FORBIDDEN_TEXT.some((forbidden) => text.includes(forbidden));
@@ -238,7 +287,7 @@ function aggregateCount(...values) {
 
 function highLevelSummary(source) {
   const legacySummary = firstObject(source.palmFeatureSummary);
-  const palmFeatures = firstObject(source.palm_features);
+  const palmFeatures = firstObject(source.palm_features, source.palmFeatures, source.features);
   const summary = {
     ...legacySummary,
     ...palmFeatures,
@@ -246,12 +295,29 @@ function highLevelSummary(source) {
   const mainLineType = firstString(
     summary.main_line_type,
     summary.mainLineType,
+    summary.line_type,
+    summary.lineType,
+    summary.primary_line_type,
+    summary.primaryLineType,
+    summary.dominant_line_type,
+    summary.dominantLineType,
     source.mainLineType,
-    source.main_line_type
+    source.main_line_type,
+    source.line_type,
+    source.lineType,
+    source.primary_line_type,
+    source.dominant_line_type
   );
   if (mainLineType) {
     summary.main_line_type = mainLineType;
   }
+  summary.line_depth = firstValueByKeys(summary, ["line_depth", "lineDepth", "depth", "line_strength", "lineStrength"]);
+  summary.line_complexity = firstValueByKeys(summary, ["line_complexity", "lineComplexity", "complexity", "texture_complexity", "textureComplexity"]);
+  summary.line_continuity = firstValueByKeys(summary, ["line_continuity", "lineContinuity", "continuity", "line_pattern", "linePattern"]);
+  summary.branch_density = firstValueByKeys(summary, ["branch_density", "branchDensity", "branches", "branch_level", "branchLevel", "branch_count", "branchCount"]);
+  summary.palm_shape_hint = firstValueByKeys(summary, ["palm_shape_hint", "palmShapeHint", "palm_shape", "palmShape", "shape", "hand_shape", "handShape"]);
+  summary.confidence = firstValueByKeys(summary, ["confidence", "score", "feature_confidence", "featureConfidence"])
+    || firstValueByKeys(source, ["confidence", "score", "feature_confidence", "featureConfidence"]);
   return summary;
 }
 
@@ -418,11 +484,11 @@ function applyFeatureSource(featureSet, source, rawResult, options) {
   const summaryConfidence = clampConfidence(summary.confidence ?? source.confidence);
   featureSet.classificationSignals = {
     mainLineType: normalizeMainLineType(summary.main_line_type),
-    lineDepth: pickEnum(summary.line_depth, ["deep", "medium", "faint", "unknown"]),
-    lineComplexity: pickEnum(summary.line_complexity, ["simple", "medium", "complex", "unknown"]),
-    lineContinuity: pickEnum(summary.line_continuity, ["continuous", "broken", "mixed", "unknown"]),
-    branchDensity: pickEnum(summary.branch_density, ["low", "medium", "high", "unknown"]),
-    palmShapeHint: pickEnum(summary.palm_shape_hint, ["long", "square", "wide", "unknown"]),
+    lineDepth: pickEnum(summary.line_depth, ["deep", "medium", "faint", "unknown"], normalizeClassifierEnum(summary.line_depth, "lineDepth")),
+    lineComplexity: pickEnum(summary.line_complexity, ["simple", "medium", "complex", "unknown"], normalizeClassifierEnum(summary.line_complexity, "lineComplexity")),
+    lineContinuity: pickEnum(summary.line_continuity, ["continuous", "broken", "mixed", "unknown"], normalizeClassifierEnum(summary.line_continuity, "lineContinuity")),
+    branchDensity: pickEnum(summary.branch_density, ["low", "medium", "high", "unknown"], normalizeClassifierEnum(summary.branch_density, "branchDensity")),
+    palmShapeHint: pickEnum(summary.palm_shape_hint, ["long", "square", "wide", "unknown"], normalizeClassifierEnum(summary.palm_shape_hint, "palmShapeHint")),
     confidence: summaryConfidence,
   };
 

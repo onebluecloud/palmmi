@@ -26,6 +26,8 @@ const DEFAULT_ANALYSIS_PROMPT = [
   "Return one strict JSON object only. Do not include markdown or natural language outside JSON.",
   "If the image is actually not a clear single palm after closer inspection, return invalid validity and do not output palm features.",
   "For a valid palm, extract only observable palm structure features. The application will run a local frozen Stage 3 classifier to decide the final personality.",
+  "Always output palm_features for valid palms. If a field cannot be judged, output the field with value unknown instead of omitting it.",
+  "Use these exact palm_features enum values: main_line_type M1/M2/M3/M4/M5/unknown; line_depth deep/medium/faint/unknown; line_complexity simple/medium/complex/unknown; line_continuity continuous/broken/mixed/unknown; branch_density low/medium/high/unknown; palm_shape_hint long/square/wide/unknown; confidence 0.0-1.0.",
   "Do not decide the final personality. Do not output result.personality_id as an authoritative answer.",
   "Do not choose P25, M1, or any personality because of uncertainty or missing fields. Final personality selection is local and feature-driven.",
   "Every feature_reasons item must cite concrete palm_features differences, such as line_depth, line_complexity, line_continuity, branch_density, palm_shape_hint, or visible major line evidence.",
@@ -321,6 +323,12 @@ function hasMainLineTypeSignal(parsed) {
   return /^M[1-8]$/.test(mainLineType);
 }
 
+function hasLineComplexitySignal(parsed) {
+  const summary = parsed && parsed.palmFeatureSummary ? parsed.palmFeatureSummary : {};
+  const value = normalizedToken(summary.line_complexity);
+  return value && value !== "unknown" && value !== "unclear";
+}
+
 function usableClassifierFeatureCount(parsed) {
   return (hasMainLineTypeSignal(parsed) ? 1 : 0) + concretePalmFeatureSignalCount(parsed);
 }
@@ -330,6 +338,19 @@ function unknownClassifierFeatureCount(parsed) {
 }
 
 function validationDiagnostics(reason, parsed) {
+  const summary = parsed && parsed.palmFeatureSummary ? parsed.palmFeatureSummary : {};
+  const palmFeatures = {
+    main_line_type: parsed && parsed.mainLineType ? parsed.mainLineType : "unknown",
+    line_depth: summary.line_depth || "unknown",
+    line_complexity: summary.line_complexity || "unknown",
+    line_continuity: summary.line_continuity || "unknown",
+    branch_density: summary.branch_density || "unknown",
+    palm_shape_hint: summary.palm_shape_hint || "unknown",
+    confidence: Number.isFinite(parsed && parsed.confidence) ? parsed.confidence : 0,
+  };
+  const missingFeatures = Object.entries(palmFeatures)
+    .filter(([key, value]) => key !== "confidence" && (!value || value === "unknown" || value === "unclear"))
+    .map(([key]) => key);
   return {
     errorType: reason,
     validityImageQuality: typeof parsed.imageQuality === "string" ? parsed.imageQuality.slice(0, 40) : "unknown",
@@ -337,6 +358,25 @@ function validationDiagnostics(reason, parsed) {
     usableFeatureCount: usableClassifierFeatureCount(parsed || {}),
     unknownFeatureCount: unknownClassifierFeatureCount(parsed || {}),
     classifierVersion: "stage6f-hard-fix.v1",
+    palmFeatures,
+    normalizedFeatures: {
+      mainLineType: palmFeatures.main_line_type,
+      lineDepth: palmFeatures.line_depth,
+      lineComplexity: palmFeatures.line_complexity,
+      lineContinuity: palmFeatures.line_continuity,
+      branchDensity: palmFeatures.branch_density,
+      palmShapeHint: palmFeatures.palm_shape_hint,
+      confidence: palmFeatures.confidence,
+    },
+    ruleInput: null,
+    missingFeatures,
+    lowInformationReason: reason === "LOW_INFORMATION_FEATURE_SET"
+      ? (usableClassifierFeatureCount(parsed || {}) === 0 ? "all_classifier_features_unknown" : "insufficient_classifier_features")
+      : null,
+    scoreMargin: null,
+    topCandidates: [],
+    diagnosticCode: reason,
+    mainLineTypeMissing: !hasMainLineTypeSignal(parsed || {}),
   };
 }
 
@@ -414,7 +454,12 @@ function validateParsedForAnalysis(parsed) {
     };
   }
 
-  if (!hasMainLineTypeSignal(parsed) || usableClassifierFeatureCount(parsed) < MIN_CLASSIFIER_USABLE_FEATURES) {
+  const usableFeatureCount = usableClassifierFeatureCount(parsed);
+  if (
+    usableFeatureCount === 0 ||
+    usableFeatureCount < 2 ||
+    (usableFeatureCount < MIN_CLASSIFIER_USABLE_FEATURES && !hasMainLineTypeSignal(parsed) && !hasLineComplexitySignal(parsed))
+  ) {
     return {
       ok: false,
       code: ERROR_CODES.LOW_INFORMATION_FEATURE_SET,
@@ -422,7 +467,7 @@ function validateParsedForAnalysis(parsed) {
     };
   }
 
-  if (concretePalmFeatureSignalCount(parsed) < 2 && !hasMajorLineSignal(parsed)) {
+  if (usableFeatureCount < 2 && !hasMajorLineSignal(parsed)) {
     return {
       ok: false,
       code: ERROR_CODES.LOW_INFORMATION_FEATURE_SET,

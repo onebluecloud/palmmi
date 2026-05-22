@@ -2,6 +2,22 @@
 
 Date: 2026-05-22
 
+## Stage 6F-Final-Classifier-Hard-Fix-2 追加记录
+
+本轮不是 Stage 6G，不真实调用 Qwen。用户在 commit `66f83452894b6ea0db785ebefe2cb08c10b33ba1` 上运行真实 5 手掌 smoke：not-palm PASS，但 `palm-1` 到 `palm-5` 全部返回 `LOW_INFORMATION_FEATURE_SET`，`api_calls_made=11`。这证明非手掌闸门稳定，但上一轮 feature information gate 过度拦截真实手掌；同时 `--debug-classifier` 输出为 null、collapse_analysis 将 5 张 palm 统计为 0，诊断不可用。
+
+| 项目 | 结果 | 说明 |
+|---|---|---|
+| 真实 5 手掌 smoke 失败记录 | PASS | 已记录 not-palm PASS、5 palm 全 LOW_INFORMATION、`api_calls_made=11` |
+| LOW_INFORMATION debug | PASS | smoke 失败分支也输出脱敏 `classifier_debug`，含 palm_features / normalized_features / usable / unknown / missing |
+| 中文 palm_features normalize | PASS | 支持 `浅`、`复杂`、`混合`、`密集`、`方形` 等值映射 |
+| 别名字段 normalize | PASS | 支持 `mainLineType`、`depth`、`complexity`、`continuity`、`branches`、`shape` |
+| feature information gate | PASS | all unknown 仍阻断；2 个可用高信号特征可进入 LOW_CONFIDENCE 分类，不再被直接误杀 |
+| collapse_analysis | PASS | 统计 palm sample 总数、valid personality 数、low information 数；5 palm 全低信息返回 `ALL_PALM_LOW_INFORMATION` hard fail |
+| NOT_PALM / 海报回归 | PASS | 非手掌拦截和 `LOW_CONFIDENCE` 有效结果海报能力未回退 |
+
+Stage 6G 继续 `BLOCKED`。下一步必须由用户在新 commit 部署后重新运行真实 5 手掌 collapse smoke；如果仍全低信息，脚本会以 `ALL_PALM_LOW_INFORMATION` 失败并输出 debug，而不是静默统计成 0。
+
 ## Stage 6F Smoke Script Fix 追加记录
 
 本轮不是 Stage 6G，也不改业务主链路。用户运行 collapse smoke 时，本地目录已经包含 `not-palm-beer.jpg` 和 `palm-1.jpg` 到 `palm-5.jpg`，但脚本仍硬性要求旧三样本 `palm_faint` / `palm_clear`，导致 `IMAGE_SELECTION_REQUIRED` 且 `api_calls_made=0`。本轮只修复 `scripts/stage6f/real-qwen-smoke.cjs` 的样本选择逻辑。

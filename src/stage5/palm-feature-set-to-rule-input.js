@@ -353,10 +353,11 @@ function concreteSignalCount(signals) {
 
 function classifierSignalInfo(signals) {
   const mainLineType = normalizeMainLineType(signals.mainLineType);
+  const lineComplexity = text(signals.lineComplexity) || UNKNOWN;
   const values = {
     mainLineType,
     lineDepth: text(signals.lineDepth) || UNKNOWN,
-    lineComplexity: text(signals.lineComplexity) || UNKNOWN,
+    lineComplexity,
     lineContinuity: text(signals.lineContinuity) || UNKNOWN,
     branchDensity: text(signals.branchDensity) || UNKNOWN,
     palmShapeHint: text(signals.palmShapeHint) || UNKNOWN,
@@ -366,12 +367,18 @@ function classifierSignalInfo(signals) {
   const usableFeatureCount = usableEntries.length;
   const unknownFeatureCount = Object.keys(values).length - usableFeatureCount;
   const hasMainLineType = mainLineType !== UNKNOWN;
+  const hasLineComplexity = lineComplexity !== UNKNOWN && lineComplexity !== "unclear";
+  const lowInformationFeatureSet = usableFeatureCount === 0
+    || usableFeatureCount < 2
+    || (usableFeatureCount < MIN_USABLE_CLASSIFIER_FEATURES && !hasMainLineType && !hasLineComplexity);
   return {
     values,
     hasMainLineType,
+    hasLineComplexity,
     usableFeatureCount,
     unknownFeatureCount,
-    lowInformationFeatureSet: !hasMainLineType || usableFeatureCount < MIN_USABLE_CLASSIFIER_FEATURES,
+    lowInformationFeatureSet,
+    mainLineTypeMissing: !hasMainLineType,
   };
 }
 
@@ -546,6 +553,7 @@ function palmFeatureSetToRuleInput(palmFeatureSet = {}, options = {}) {
       unknownFeatureCount: signalInfo.unknownFeatureCount,
       usableFeatureCount: signalInfo.usableFeatureCount,
       lowInformationFeatureSet: signalInfo.lowInformationFeatureSet,
+      mainLineTypeMissing: signalInfo.mainLineTypeMissing,
       classifierVersion: CLASSIFIER_VERSION,
       lowConfidenceFieldCount: lowConfidenceCount,
       warnings: buildWarnings(states, unknownCount, lowConfidenceCount, signalInfo),

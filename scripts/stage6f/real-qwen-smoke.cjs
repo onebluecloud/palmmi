@@ -403,6 +403,9 @@ function diagnosticCodeFromFailure(response, sampleName, apiCalls) {
   const errorType = response && response.diagnostics && typeof response.diagnostics.errorType === "string"
     ? response.diagnostics.errorType
     : "";
+  if (errorType === "LOW_INFORMATION_FEATURE_SET") {
+    return "LOW_INFORMATION_FEATURE_SET";
+  }
   if (errorType === "VALIDITY_PASS_RESULT_MISSING") {
     return "VALIDITY_PASS_RESULT_MISSING";
   }
@@ -415,6 +418,60 @@ function diagnosticCodeFromFailure(response, sampleName, apiCalls) {
     return "SMOKE_PIPELINE_INCOMPLETE";
   }
   return errorType || null;
+}
+
+function classifierDebugFromDiagnostics(diagnostics) {
+  const source = diagnostics && typeof diagnostics === "object" && !Array.isArray(diagnostics)
+    ? diagnostics
+    : {};
+  const palmFeatures = source.palmFeatures && typeof source.palmFeatures === "object" && !Array.isArray(source.palmFeatures)
+    ? source.palmFeatures
+    : {};
+  const normalizedFeatures = source.normalizedFeatures && typeof source.normalizedFeatures === "object" && !Array.isArray(source.normalizedFeatures)
+    ? source.normalizedFeatures
+    : {};
+  return {
+    classifier_version: typeof source.classifierVersion === "string" ? source.classifierVersion : null,
+    palm_features: {
+      main_line_type: palmFeatures.main_line_type || "unknown",
+      line_depth: palmFeatures.line_depth || "unknown",
+      line_complexity: palmFeatures.line_complexity || "unknown",
+      line_continuity: palmFeatures.line_continuity || "unknown",
+      branch_density: palmFeatures.branch_density || "unknown",
+      palm_shape_hint: palmFeatures.palm_shape_hint || "unknown",
+      confidence: Number.isFinite(palmFeatures.confidence)
+        ? palmFeatures.confidence
+        : Number.isFinite(source.providerConfidence)
+          ? source.providerConfidence
+          : 0,
+    },
+    normalized_features: {
+      mainLineType: normalizedFeatures.mainLineType || "unknown",
+      lineDepth: normalizedFeatures.lineDepth || "unknown",
+      lineComplexity: normalizedFeatures.lineComplexity || "unknown",
+      lineContinuity: normalizedFeatures.lineContinuity || "unknown",
+      branchDensity: normalizedFeatures.branchDensity || "unknown",
+      palmShapeHint: normalizedFeatures.palmShapeHint || "unknown",
+      confidence: Number.isFinite(normalizedFeatures.confidence)
+        ? normalizedFeatures.confidence
+        : Number.isFinite(source.providerConfidence)
+          ? source.providerConfidence
+          : 0,
+    },
+    rule_input: source.ruleInput || null,
+    usable_feature_count: Number.isFinite(source.usableFeatureCount) ? source.usableFeatureCount : null,
+    unknown_feature_count: Number.isFinite(source.unknownFeatureCount) ? source.unknownFeatureCount : null,
+    missing_features: Array.isArray(source.missingFeatures) ? source.missingFeatures.slice(0, 12) : [],
+    low_information_reason: typeof source.lowInformationReason === "string" ? source.lowInformationReason : null,
+    score_margin: Number.isFinite(source.scoreMargin) ? source.scoreMargin : null,
+    top_candidates: Array.isArray(source.topCandidates) ? source.topCandidates.slice(0, 3) : [],
+    diagnostic_code: typeof source.diagnosticCode === "string"
+      ? source.diagnosticCode
+      : typeof source.errorType === "string"
+        ? source.errorType
+        : null,
+    main_line_type_missing: Boolean(source.mainLineTypeMissing),
+  };
 }
 
 async function buildContractSummary(parsed, image, sampleName, model) {
@@ -539,6 +596,9 @@ function noteFor(result) {
   if (result.actual_code === "NOT_PALM") {
     return "Rejected as non-palm.";
   }
+  if (result.actual_code === "LOW_INFORMATION_FEATURE_SET") {
+    return "Low-information palm feature set.";
+  }
   if (result.actual_code === "IMAGE_NOT_CLEAR") {
     return "Palm validity failed because palm lines were not clear enough.";
   }
@@ -581,6 +641,10 @@ function personalityDistribution(ids) {
   }, {});
 }
 
+function isPalmSampleName(name) {
+  return name !== "not_palm";
+}
+
 function buildCollapseAnalysis(samples, models, options = {}) {
   const minPalmSamples = Number.isFinite(options.minPalmSamples)
     ? options.minPalmSamples
@@ -591,11 +655,26 @@ function buildCollapseAnalysis(samples, models, options = {}) {
   const analysis = {};
   for (const model of models) {
     const personalityIds = [];
+    let palmSampleCount = 0;
+    let lowInformationCount = 0;
+    let unreliableCount = 0;
     for (const sample of samples) {
       const byModel = sample && sample.by_model ? sample.by_model : {};
       const result = byModel[model];
+      if (isPalmSampleName(sample && sample.name)) {
+        palmSampleCount += 1;
+      }
+      if (isPalmSampleName(sample && sample.name) && result) {
+        const code = result.diagnostic_code || result.actual_code || result.actual_quality_status;
+        if (code === "LOW_INFORMATION_FEATURE_SET") {
+          lowInformationCount += 1;
+        } else if (code === "ANALYSIS_UNRELIABLE") {
+          unreliableCount += 1;
+        }
+      }
       if (
         result &&
+        isPalmSampleName(sample && sample.name) &&
         result.valid_palm === true &&
         result.has_personality_result === true &&
         isKnownPersonaId(result.personality_id)
@@ -605,29 +684,42 @@ function buildCollapseAnalysis(samples, models, options = {}) {
     }
     const unique = [...new Set(personalityIds)];
     const [topPersonality] = topPersonalityCount(personalityIds);
-    const collapseRisk = personalityIds.length >= 3 && unique.length <= 1;
-    const hardFail = personalityIds.length >= minPalmSamples && unique.length < minUniquePersonalities;
+    const validPersonalityCount = personalityIds.length;
+    const allPalmLowInformation = palmSampleCount >= minPalmSamples && lowInformationCount === palmSampleCount;
+    const incompletePalmResults = palmSampleCount >= minPalmSamples && validPersonalityCount < minPalmSamples;
+    const collapseRisk = allPalmLowInformation || (validPersonalityCount >= 3 && unique.length <= 1);
+    const hardFail = allPalmLowInformation
+      || incompletePalmResults
+      || (validPersonalityCount >= minPalmSamples && unique.length < minUniquePersonalities);
     const allP25 = collapseRisk && topPersonality === "P25";
     const allLiuyishou = collapseRisk && topPersonality === "P31";
+    const diagnosticCode = allPalmLowInformation
+      ? "ALL_PALM_LOW_INFORMATION"
+      : hardFail && allLiuyishou
+        ? "P31_COLLAPSE_CONFIRMED"
+        : collapseRisk
+          ? "PERSONALITY_COLLAPSE_RISK"
+          : null;
     analysis[model] = {
-      palm_sample_count: personalityIds.length,
+      palm_sample_count: palmSampleCount,
+      valid_personality_count: validPersonalityCount,
+      low_information_count: lowInformationCount,
+      unreliable_count: unreliableCount,
       unique_personality_count: unique.length,
       top_personality: topPersonality,
       collapse_risk: collapseRisk,
       hard_fail: hardFail,
-      diagnostic_code: hardFail && allLiuyishou
-        ? "P31_COLLAPSE_CONFIRMED"
-        : collapseRisk
-          ? "PERSONALITY_COLLAPSE_RISK"
-          : null,
+      diagnostic_code: diagnosticCode,
       candidate_distribution: personalityDistribution(personalityIds),
-      notes: collapseRisk
+      notes: allPalmLowInformation
+        ? "All tested palm samples returned LOW_INFORMATION_FEATURE_SET."
+        : collapseRisk
         ? (allP25
           ? "All tested palm samples collapsed to P25."
           : allLiuyishou
             ? "All tested palm samples collapsed to 留一手."
             : "All tested palm samples collapsed to one personality.")
-        : (personalityIds.length >= 3 ? "No collapse risk detected in tested palm samples." : "INSUFFICIENT_PALM_SAMPLES_FOR_COLLAPSE_DECISION"),
+        : (palmSampleCount >= 3 ? "No collapse risk detected in tested palm samples." : "INSUFFICIENT_PALM_SAMPLES_FOR_COLLAPSE_DECISION"),
     };
   }
   return analysis;
@@ -654,6 +746,31 @@ function buildRecommendation(collapseAnalysis, models) {
     preferred_model: "inconclusive",
     reason: "A/B smoke has insufficient varied palm samples or all tested models still need review.",
   };
+}
+
+function publicResultFromSampleResult(result, options = {}) {
+  return {
+    duration_ms: result.duration_ms,
+    usage: result.usage,
+    status: result.status,
+    actual_code: result.actual_code,
+    actual_quality_status: result.actual_quality_status,
+    diagnostic_code: result.diagnostic_code || null,
+    valid_palm: result.valid_palm,
+    personality_id: result.personality_id,
+    has_personality_result: result.has_personality_result,
+    candidate_count: result.candidate_count,
+    candidate_ids: result.candidate_ids || [],
+    classifier_debug: options.debugClassifier ? (result.classifier_debug || null) : null,
+    notes: result.notes,
+  };
+}
+
+function smokeSummaryOk(samples, collapseAnalysis) {
+  const samplesOk = samples.every((sample) => Object.values(sample.by_model)
+    .every((result) => result.status === "PASS" || result.status === "PASS_OR_REVIEW"));
+  const collapseOk = !collapseAnalysis || Object.values(collapseAnalysis).every((analysis) => analysis.hard_fail !== true);
+  return samplesOk && collapseOk;
 }
 
 async function runSample({ provider, sampleName, filePath, model }) {
@@ -737,11 +854,14 @@ async function runSample({ provider, sampleName, filePath, model }) {
       actual_code: actualCode,
       actual_quality_status: diagnosticCode || actualCode,
       diagnostic_code: diagnosticCode,
-      valid_palm: diagnosticCode === "VALIDITY_PASS_RESULT_MISSING",
+      valid_palm: diagnosticCode === "VALIDITY_PASS_RESULT_MISSING" || diagnosticCode === "LOW_INFORMATION_FEATURE_SET",
       personality_id: null,
       has_personality_result: false,
       candidate_count: 0,
       candidate_ids: [],
+      classifier_debug: diagnosticCode === "LOW_INFORMATION_FEATURE_SET"
+        ? classifierDebugFromDiagnostics(providerResult && providerResult.diagnostics)
+        : null,
       notes: diagnosticCode === "VALIDITY_PASS_RESULT_MISSING"
         ? "Validity passed, but the personality result was missing after full analysis."
         : diagnosticCode === "SMOKE_PIPELINE_INCOMPLETE"
@@ -1007,21 +1127,7 @@ async function main() {
         model: provider.model,
       });
       apiCallsMade += result.api_calls_made || 0;
-      const publicResult = {
-        duration_ms: result.duration_ms,
-        usage: result.usage,
-        status: result.status,
-        actual_code: result.actual_code,
-        actual_quality_status: result.actual_quality_status,
-        diagnostic_code: result.diagnostic_code || null,
-        valid_palm: result.valid_palm,
-        personality_id: result.personality_id,
-        has_personality_result: result.has_personality_result,
-        candidate_count: result.candidate_count,
-        candidate_ids: result.candidate_ids || [],
-        classifier_debug: options.debugClassifier ? (result.classifier_debug || null) : null,
-        notes: result.notes,
-      };
+      const publicResult = publicResultFromSampleResult(result, options);
       const sampleEntry = bySample.find((item) => item.name === sample.name);
       sampleEntry.by_model[provider.model] = publicResult;
     }
@@ -1033,10 +1139,8 @@ async function main() {
       minUniquePersonalities: options.minUniquePersonalities,
     })
     : null;
-  const collapseOk = !collapseAnalysis || Object.values(collapseAnalysis).every((analysis) => analysis.hard_fail !== true);
   const summary = {
-    ok: bySample.every((sample) => Object.values(sample.by_model)
-      .every((result) => result.status === "PASS" || result.status === "PASS_OR_REVIEW")) && collapseOk,
+    ok: smokeSummaryOk(bySample, collapseAnalysis),
     models: options.models,
     endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
     mode: selected.mode,
@@ -1085,8 +1189,11 @@ module.exports = {
   buildCollapseAnalysis,
   buildContractSummary,
   buildRecommendation,
+  classifierDebugFromDiagnostics,
   disabledSummary,
   estimateRealCalls,
   parseArgs,
+  publicResultFromSampleResult,
   selectSamples,
+  smokeSummaryOk,
 };

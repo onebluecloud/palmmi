@@ -2881,7 +2881,7 @@ async function validateStage6FFinalClassifierHardFixAllUnknownNoDefaultLiuyishou
 
 async function validateStage6FFinalClassifierHardFixLowInformationFeatureSet() {
   const { response } = await runStage6FCalibrationMockAnalysis({
-    main_line_type: "M1",
+    main_line_type: "unknown",
     line_depth: "medium",
     line_complexity: "unknown",
     line_continuity: "unknown",
@@ -2899,6 +2899,219 @@ async function validateStage6FFinalClassifierHardFixLowInformationFeatureSet() {
   return {
     status: "PASS",
     code: response.error.code,
+  };
+}
+
+function validateStage6FFinalClassifierHardFix2LowInformationDebug() {
+  const smoke = require(path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"));
+  const result = smoke.publicResultFromSampleResult({
+    duration_ms: 123,
+    usage: null,
+    status: "FAIL",
+    actual_code: "LOW_INFORMATION_FEATURE_SET",
+    actual_quality_status: "LOW_INFORMATION_FEATURE_SET",
+    diagnostic_code: "LOW_INFORMATION_FEATURE_SET",
+    valid_palm: true,
+    personality_id: null,
+    has_personality_result: false,
+    candidate_count: 0,
+    candidate_ids: [],
+    classifier_debug: {
+      classifier_version: "stage6f-hard-fix.v1",
+      palm_features: {
+        main_line_type: "unknown",
+        line_depth: "unknown",
+        line_complexity: "unknown",
+        line_continuity: "unknown",
+        branch_density: "unknown",
+        palm_shape_hint: "unknown",
+        confidence: 0.46,
+      },
+      normalized_features: {
+        mainLineType: "unknown",
+        lineDepth: "unknown",
+        lineComplexity: "unknown",
+        lineContinuity: "unknown",
+        branchDensity: "unknown",
+        palmShapeHint: "unknown",
+        confidence: 0.46,
+      },
+      rule_input: null,
+      usable_feature_count: 0,
+      unknown_feature_count: 6,
+      missing_features: ["main_line_type", "line_depth", "line_complexity", "line_continuity", "branch_density", "palm_shape_hint"],
+      low_information_reason: "all_classifier_features_unknown",
+      score_margin: null,
+      top_candidates: [],
+      diagnostic_code: "LOW_INFORMATION_FEATURE_SET",
+    },
+    notes: "Low-information palm feature set.",
+  }, { debugClassifier: true });
+
+  assert.ok(result.classifier_debug, "LOW_INFORMATION_FEATURE_SET smoke result must include classifier_debug");
+  assert.equal(result.classifier_debug.diagnostic_code, "LOW_INFORMATION_FEATURE_SET");
+  assert.equal(result.classifier_debug.usable_feature_count, 0);
+  assert.ok(result.classifier_debug.unknown_feature_count >= 5);
+  assert.deepEqual(leakFlags(JSON.stringify(result.classifier_debug), RESPONSE_LEAK_MARKERS), [], "classifier debug must stay redacted");
+
+  return {
+    status: "PASS",
+    diagnostic_code: result.classifier_debug.diagnostic_code,
+    usable_feature_count: result.classifier_debug.usable_feature_count,
+    unknown_feature_count: result.classifier_debug.unknown_feature_count,
+  };
+}
+
+function validateStage6FFinalClassifierHardFix2ChineseNormalize() {
+  const { normalizeParsedPalmFeatures } = require(path.join(root, "server", "stage5p", "providers", "qwen-response-parser.js"));
+  const { normalizeVlmToPalmFeatureSet } = require(path.join(root, "src", "stage5", "normalize-vlm-to-palm-feature-set.js"));
+  const { palmFeatureSetToRuleInput } = require(path.join(root, "src", "stage5", "palm-feature-set-to-rule-input.js"));
+  const parsed = normalizeParsedPalmFeatures({
+    validity: {
+      is_palm_photo: true,
+      is_single_hand: true,
+      is_palm_side_visible: true,
+      palm_lines_visible: true,
+      image_quality: "acceptable",
+    },
+    palm_features: {
+      main_line_type: "M2",
+      line_depth: "浅",
+      line_complexity: "复杂",
+      line_continuity: "混合",
+      branch_density: "密集",
+      palm_shape_hint: "方形",
+      confidence: 0.52,
+    },
+  });
+  const featureSet = normalizeVlmToPalmFeatureSet({ parsed }, { provider: "qwen", model: "qwen3-vl-flash" });
+  const ruleInput = palmFeatureSetToRuleInput(featureSet);
+  const signals = featureSet.classificationSignals;
+
+  assert.equal(signals.mainLineType, "M2");
+  assert.equal(signals.lineDepth, "faint");
+  assert.equal(signals.lineComplexity, "complex");
+  assert.equal(signals.lineContinuity, "mixed");
+  assert.equal(signals.branchDensity, "high");
+  assert.equal(signals.palmShapeHint, "square");
+  assert.ok(ruleInput.diagnostics.usableFeatureCount >= 5, "Chinese palm_features should produce usable classifier fields");
+
+  return {
+    status: "PASS",
+    usable_feature_count: ruleInput.diagnostics.usableFeatureCount,
+    normalized: signals,
+  };
+}
+
+function validateStage6FFinalClassifierHardFix2AliasNormalize() {
+  const { normalizeParsedPalmFeatures } = require(path.join(root, "server", "stage5p", "providers", "qwen-response-parser.js"));
+  const { normalizeVlmToPalmFeatureSet } = require(path.join(root, "src", "stage5", "normalize-vlm-to-palm-feature-set.js"));
+  const { palmFeatureSetToRuleInput } = require(path.join(root, "src", "stage5", "palm-feature-set-to-rule-input.js"));
+  const parsed = normalizeParsedPalmFeatures({
+    validity: {
+      is_palm_photo: true,
+      is_single_hand: true,
+      is_palm_side_visible: true,
+      palm_lines_visible: true,
+      image_quality: "acceptable",
+    },
+    palm_features: {
+      mainLineType: "M3",
+      depth: "deep",
+      complexity: "medium",
+      continuity: "broken",
+      branches: "low",
+      shape: "long",
+      feature_confidence: 0.61,
+    },
+  });
+  const featureSet = normalizeVlmToPalmFeatureSet({ parsed }, { provider: "qwen", model: "qwen3-vl-flash" });
+  const ruleInput = palmFeatureSetToRuleInput(featureSet);
+  const signals = featureSet.classificationSignals;
+
+  assert.equal(signals.mainLineType, "M3");
+  assert.equal(signals.lineDepth, "deep");
+  assert.equal(signals.lineComplexity, "medium");
+  assert.equal(signals.lineContinuity, "broken");
+  assert.equal(signals.branchDensity, "low");
+  assert.equal(signals.palmShapeHint, "long");
+  assert.ok(ruleInput.diagnostics.usableFeatureCount >= 5, "alias palm_features should produce usable classifier fields");
+
+  return {
+    status: "PASS",
+    usable_feature_count: ruleInput.diagnostics.usableFeatureCount,
+    normalized: signals,
+  };
+}
+
+async function validateStage6FFinalClassifierHardFix2TwoUsableFeaturesNotOverblocked() {
+  const { response } = await runStage6FCalibrationMockAnalysis({
+    line_complexity: "complex",
+    branch_density: "high",
+    confidence: 0.4,
+    visible_features: ["LINE_COMPLEXITY", "BRANCH_DENSITY"],
+    feature_reasons: ["two concrete palm features without main line type"],
+  }, "req_stage6f_hard_fix2_two_usable_features");
+
+  assert.equal(response.ok, true, "two usable high-signal palm_features should not be overblocked");
+  assert.notEqual(response.analysis_result.quality_status, "LOW_INFORMATION_FEATURE_SET");
+  assert.ok(["OK", "LOW_CONFIDENCE"].includes(response.analysis_result.quality_status), "two-feature result should classify as OK or LOW_CONFIDENCE");
+  assert.ok(response.analysis_result.personality_id, "two-feature result should produce a personality");
+
+  return {
+    status: "PASS",
+    quality_status: response.analysis_result.quality_status,
+    personality_id: response.analysis_result.personality_id,
+  };
+}
+
+function validateStage6FFinalClassifierHardFix2AllPalmLowInformationHardFail() {
+  const smoke = require(path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"));
+  const samples = [
+    {
+      name: "not_palm",
+      by_model: {
+        "qwen3-vl-flash": {
+          actual_code: "NOT_PALM",
+          valid_palm: false,
+          has_personality_result: false,
+          personality_id: null,
+        },
+      },
+    },
+    ...Array.from({ length: 5 }, (_, index) => ({
+      name: `palm_${index + 1}`,
+      by_model: {
+        "qwen3-vl-flash": {
+          status: "FAIL",
+          actual_code: "LOW_INFORMATION_FEATURE_SET",
+          actual_quality_status: "LOW_INFORMATION_FEATURE_SET",
+          diagnostic_code: "LOW_INFORMATION_FEATURE_SET",
+          valid_palm: true,
+          personality_id: null,
+          has_personality_result: false,
+          candidate_count: 0,
+        },
+      },
+    })),
+  ];
+  const analysis = smoke.buildCollapseAnalysis(samples, ["qwen3-vl-flash"], {
+    minPalmSamples: 5,
+    minUniquePersonalities: 2,
+  });
+  const modelAnalysis = analysis["qwen3-vl-flash"];
+  assert.equal(modelAnalysis.palm_sample_count, 5);
+  assert.equal(modelAnalysis.valid_personality_count, 0);
+  assert.equal(modelAnalysis.low_information_count, 5);
+  assert.equal(modelAnalysis.hard_fail, true);
+  assert.equal(modelAnalysis.diagnostic_code, "ALL_PALM_LOW_INFORMATION");
+  assert.equal(smoke.smokeSummaryOk(samples, analysis), false);
+
+  return {
+    status: "PASS",
+    diagnostic_code: modelAnalysis.diagnostic_code,
+    palm_sample_count: modelAnalysis.palm_sample_count,
+    low_information_count: modelAnalysis.low_information_count,
   };
 }
 
@@ -3793,6 +4006,11 @@ async function main() {
       collapse_hard_fail: validateStage6FFinalClassifierHardFixCollapseHardFail(),
       smoke_multi_palm_selection: validateStage6FSmokeMultiPalmSelection(),
       smoke_selection_failures: validateStage6FSmokeSelectionFailures(),
+      low_information_debug: validateStage6FFinalClassifierHardFix2LowInformationDebug(),
+      chinese_feature_normalize: validateStage6FFinalClassifierHardFix2ChineseNormalize(),
+      alias_feature_normalize: validateStage6FFinalClassifierHardFix2AliasNormalize(),
+      two_usable_features_not_overblocked: await validateStage6FFinalClassifierHardFix2TwoUsableFeaturesNotOverblocked(),
+      all_palm_low_information_hard_fail: validateStage6FFinalClassifierHardFix2AllPalmLowInformationHardFail(),
     };
     summary.real_qwen_smoke = validateRealQwenSmokeDryRun();
 

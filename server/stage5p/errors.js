@@ -64,7 +64,53 @@ function sanitizeDiagnostics(diagnostics) {
     "scoreMargin",
     "collapseRiskHint",
     "classifierVersion",
+    "palmFeatures",
+    "normalizedFeatures",
+    "ruleInput",
+    "missingFeatures",
+    "lowInformationReason",
+    "topCandidates",
+    "diagnosticCode",
+    "mainLineTypeMissing",
   ]);
+  const safeNestedKeys = new Set([
+    "main_line_type",
+    "line_depth",
+    "line_complexity",
+    "line_continuity",
+    "branch_density",
+    "palm_shape_hint",
+    "confidence",
+    "mainLineType",
+    "lineDepth",
+    "lineComplexity",
+    "lineContinuity",
+    "branchDensity",
+    "palmShapeHint",
+  ]);
+  const sanitizeNested = (value) => {
+    if (Array.isArray(value)) {
+      return value
+        .filter((item) => typeof item === "string" || typeof item === "number" || item === null)
+        .map((item) => (typeof item === "string" ? item.slice(0, 80) : item))
+        .slice(0, 12);
+    }
+    if (value && typeof value === "object") {
+      const nested = {};
+      for (const [nestedKey, nestedValue] of Object.entries(value)) {
+        if (!safeNestedKeys.has(nestedKey)) {
+          continue;
+        }
+        if (typeof nestedValue === "string") {
+          nested[nestedKey] = nestedValue.slice(0, 80);
+        } else if (typeof nestedValue === "number" || typeof nestedValue === "boolean" || nestedValue === null) {
+          nested[nestedKey] = nestedValue;
+        }
+      }
+      return nested;
+    }
+    return null;
+  };
   const output = {};
   for (const [key, value] of Object.entries(diagnostics)) {
     if (!allowed.has(key)) {
@@ -74,6 +120,8 @@ function sanitizeDiagnostics(diagnostics) {
       output[key] = value.slice(0, 160);
     } else if (typeof value === "number" || typeof value === "boolean" || value === null) {
       output[key] = value;
+    } else if (key === "palmFeatures" || key === "normalizedFeatures" || key === "ruleInput" || key === "missingFeatures" || key === "topCandidates") {
+      output[key] = sanitizeNested(value);
     }
   }
   return Object.keys(output).length > 0 ? output : null;

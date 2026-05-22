@@ -39,6 +39,62 @@ function firstText(...values) {
   return "";
 }
 
+function firstValueByKeys(source, keys) {
+  for (const key of keys) {
+    if (source && source[key] !== undefined && source[key] !== null && source[key] !== "") {
+      return source[key];
+    }
+  }
+  return "";
+}
+
+function normalizeToken(value) {
+  return normalizeText(value).toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+function normalizeFeatureEnum(value, kind) {
+  const raw = normalizeText(value);
+  const token = normalizeToken(raw);
+  const chinese = raw.replace(/\s+/g, "");
+  const mappings = {
+    lineDepth: {
+      deep: ["deep", "clear", "strong", "obvious", "深", "清晰", "明显", "强"],
+      medium: ["medium", "normal", "moderate", "中等", "适中", "一般"],
+      faint: ["faint", "shallow", "weak", "blur", "blurry", "unclear", "浅", "淡", "模糊", "不明显"],
+    },
+    lineComplexity: {
+      simple: ["simple", "low", "few", "sparse", "简单", "少", "稀疏"],
+      medium: ["medium", "moderate", "normal", "中等", "适中", "一般"],
+      complex: ["complex", "high", "many", "dense", "复杂", "多", "密集"],
+    },
+    lineContinuity: {
+      continuous: ["continuous", "connected", "smooth", "连续", "连贯"],
+      broken: ["broken", "interrupted", "discontinuous", "断裂", "断续"],
+      mixed: ["mixed", "partial", "crossed", "混合", "交错"],
+    },
+    branchDensity: {
+      low: ["low", "few", "sparse", "simple", "少", "稀疏", "简单"],
+      medium: ["medium", "moderate", "normal", "中等", "适中", "一般"],
+      high: ["high", "many", "dense", "complex", "多", "密集", "复杂"],
+    },
+    palmShapeHint: {
+      long: ["long", "narrow", "长", "长形"],
+      square: ["square", "boxy", "方", "方形"],
+      wide: ["wide", "broad", "宽", "宽掌"],
+    },
+  };
+  const allowed = Object.keys(mappings[kind] || {});
+  if (allowed.includes(token)) {
+    return token;
+  }
+  for (const [canonical, aliases] of Object.entries(mappings[kind] || {})) {
+    if (aliases.includes(token) || aliases.includes(chinese)) {
+      return canonical;
+    }
+  }
+  return "";
+}
+
 let frozenDisplayContent = [];
 try {
   frozenDisplayContent = require("../../../PalmTag_rule_engine_v0/data/display_content.json");
@@ -146,7 +202,7 @@ function collapseRiskHint(topCandidateId, candidateResults, collapseGuard) {
 function normalizeParsedPalmFeatures(parsed) {
   const source = normalizeObject(parsed);
   const hasValidityObject = isPlainObject(source.validity);
-  const hasPalmFeaturesObject = isPlainObject(source.palm_features);
+  const hasPalmFeaturesObject = isPlainObject(source.palm_features) || isPlainObject(source.palmFeatures) || isPlainObject(source.features);
   const resultSource = isPlainObject(source.result)
     ? source.result
     : isPlainObject(source.analysis_result)
@@ -160,7 +216,7 @@ function normalizeParsedPalmFeatures(parsed) {
     || Array.isArray(source.candidate_results)
     || Array.isArray(source.candidates);
   const validity = normalizeObject(source.validity);
-  const palmFeatures = normalizeObject(source.palm_features);
+  const palmFeatures = normalizeObject(source.palm_features || source.palmFeatures || source.features);
   const result = normalizeObject(resultSource);
   const collapseGuard = normalizeCollapseGuard(result.collapse_guard || result.collapseGuard || source.collapse_guard || source.collapseGuard);
   const legacyExplicitValid = source.isValidPalmImage === true;
@@ -178,9 +234,17 @@ function normalizeParsedPalmFeatures(parsed) {
     && normalizedValidity.palm_lines_visible;
   const visibleFeatures = normalizeArray(palmFeatures.visible_features).length
     ? normalizeArray(palmFeatures.visible_features)
-    : normalizeArray(source.visibleFeatures);
+    : normalizeArray(palmFeatures.visibleFeatures).length
+      ? normalizeArray(palmFeatures.visibleFeatures)
+      : normalizeArray(source.visibleFeatures);
   const confidence = normalizeConfidence(
-    Number.isFinite(palmFeatures.confidence) ? palmFeatures.confidence : source.confidence
+    Number.isFinite(palmFeatures.confidence)
+      ? palmFeatures.confidence
+      : Number.isFinite(palmFeatures.score)
+        ? palmFeatures.score
+        : Number.isFinite(palmFeatures.feature_confidence)
+          ? palmFeatures.feature_confidence
+          : source.confidence
   );
 
   const candidateResults = normalizeCandidateResults(
@@ -211,13 +275,19 @@ function normalizeParsedPalmFeatures(parsed) {
     visibleFeatures,
     uncertainty: normalizeArray(source.uncertainty),
     confidence,
-    mainLineType: firstText(palmFeatures.main_line_type, source.mainLineType, source.main_line_type),
+    mainLineType: firstText(
+      firstValueByKeys(palmFeatures, ["main_line_type", "mainLineType", "line_type", "lineType", "primary_line_type", "primaryLineType", "dominant_line_type", "dominantLineType"]),
+      source.mainLineType,
+      source.main_line_type,
+      source.line_type,
+      source.lineType
+    ),
     palmFeatureSummary: {
-      line_depth: firstText(palmFeatures.line_depth, palmFeatures.lineDepth),
-      line_complexity: firstText(palmFeatures.line_complexity, palmFeatures.lineComplexity),
-      line_continuity: firstText(palmFeatures.line_continuity, palmFeatures.lineContinuity),
-      branch_density: firstText(palmFeatures.branch_density, palmFeatures.branchDensity),
-      palm_shape_hint: firstText(palmFeatures.palm_shape_hint, palmFeatures.palmShapeHint),
+      line_depth: normalizeFeatureEnum(firstValueByKeys(palmFeatures, ["line_depth", "lineDepth", "depth", "line_strength", "lineStrength"]), "lineDepth"),
+      line_complexity: normalizeFeatureEnum(firstValueByKeys(palmFeatures, ["line_complexity", "lineComplexity", "complexity", "texture_complexity", "textureComplexity"]), "lineComplexity"),
+      line_continuity: normalizeFeatureEnum(firstValueByKeys(palmFeatures, ["line_continuity", "lineContinuity", "continuity", "line_pattern", "linePattern"]), "lineContinuity"),
+      branch_density: normalizeFeatureEnum(firstValueByKeys(palmFeatures, ["branch_density", "branchDensity", "branches", "branch_level", "branchLevel", "branch_count", "branchCount"]), "branchDensity"),
+      palm_shape_hint: normalizeFeatureEnum(firstValueByKeys(palmFeatures, ["palm_shape_hint", "palmShapeHint", "palm_shape", "palmShape", "shape", "hand_shape", "handShape"]), "palmShapeHint"),
     },
     result: {
       personalityId,

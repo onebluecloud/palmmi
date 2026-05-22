@@ -2,13 +2,13 @@
 
 ## 当前阶段
 
-Stage 6F：Smoke Script Fix 已完成，微信真机和真实 collapse smoke 仍需复测。
+Stage 6F：Final-Classifier-Hard-Fix-2 代码层已完成，真实 collapse smoke 和微信真机仍需复测。
 
-Stage 6F status: SMOKE_SCRIPT_FIX_CODE_PASS / REAL_COLLAPSE_SMOKE_REQUIRED / ANDROID_WECHAT_RETEST_REQUIRED
+Stage 6F status: FINAL_CLASSIFIER_HARD_FIX_2_CODE_PASS / REAL_COLLAPSE_SMOKE_REQUIRED / ANDROID_WECHAT_RETEST_REQUIRED
 
 Stage 6G: BLOCKED
 
-Reason: 用户运行 collapse smoke 时，本地目录已有 `not-palm-beer.jpg` 和 `palm-1.jpg` 到 `palm-5.jpg`，但脚本仍要求旧三样本 `palm_faint` / `palm_clear`，导致未调用 Qwen 且无法执行 5 手掌塌缩检查。本轮只修复 smoke 脚本样本选择逻辑：`--collapse-check` 可识别 numbered palm 样本、支持重复 `--palm-sample`、按 `not_palm * 1 + palm * 2` 估算调用次数，并在样本不足 / not-palm 缺失 / 超过 `--max-real-calls` 时不调用 Qwen。Stage 6G 仍 BLOCKED，原因是新 commit 仍需真实 collapse smoke、安卓微信最终真机复测和 iOS 微信真机验收。
+Reason: 用户真实 5 手掌 smoke 已证明 commit `66f83452894b6ea0db785ebefe2cb08c10b33ba1` 仍不能进入 Stage 6G：not-palm PASS，但 5 张 palm 全部 `LOW_INFORMATION_FEATURE_SET`，`api_calls_made=11`，且 debug 缺失、collapse_analysis 将 palm 统计为 0。本轮修复中文 / 别名 palm_features normalize、放宽 feature information gate、LOW_INFORMATION debug 输出，以及 `ALL_PALM_LOW_INFORMATION` hard fail。Stage 6G 仍 BLOCKED，原因是新 commit 仍需真实 collapse smoke、安卓微信最终真机复测和 iOS 微信真机验收。
 
 ## 已完成
 
@@ -28,6 +28,13 @@ Reason: 用户运行 collapse smoke 时，本地目录已有 `not-palm-beer.jpg`
   - 预计调用次数按 `not_palm_count * 1 + palm_sample_count * 2` 计算；1 张 not-palm + 5 张 palm + 1 模型估算为 11 次，`--max-real-calls 12` 可运行。
   - 样本不足返回 `INSUFFICIENT_PALM_SAMPLES`，not-palm 缺失返回 `NOT_PALM_SAMPLE_MISSING`，超过上限返回 `MAX_REAL_CALLS_EXCEEDED`，均不调用 Qwen。
   - 无 `--real` 仍输出 `REAL_QWEN_DISABLED`，`api_calls_made=0`。
+- Stage 6F-Final-Classifier-Hard-Fix-2：
+  - 记录真实 5 手掌 smoke 失败：not-palm PASS，5 张 palm 全部 `LOW_INFORMATION_FEATURE_SET`，`api_calls_made=11`。
+  - 修复 `--debug-classifier` 下 LOW_INFORMATION 结果没有 `classifier_debug` 的问题。
+  - 增强 Qwen `palm_features` normalize：支持中文值和字段别名。
+  - 放宽 feature information gate：all unknown 继续阻断；2 个可用高信号字段可进入 `LOW_CONFIDENCE` 分类，不直接误杀。
+  - 修复 collapse_analysis：5 张 palm 全 LOW_INFORMATION 时统计为 `palm_sample_count=5`、`low_information_count=5`、`hard_fail=true`、`diagnostic_code=ALL_PALM_LOW_INFORMATION`。
+  - 保留 NOT_PALM 拦截和有效 LOW_CONFIDENCE 海报能力。
 - Stage 6F-Fix：修复结果字段不完整、二次结果读取失败和“检查照片”按钮问题，但后续安卓微信复测发现仍未修干净。
 - Stage 6F-Fix-2：
   - 上传页在同一 JS 上下文内完成图片 decode、压缩、API 请求、结果写入和回读。
