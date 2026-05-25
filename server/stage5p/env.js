@@ -1,6 +1,6 @@
 const DEFAULT_PROVIDER = "mock";
 const DEFAULT_MODE = "mock-only";
-const DEFAULT_QWEN_MODEL = "qwen3-vl-flash";
+const DEFAULT_QWEN_MODEL = "qwen3-vl-flash-2026-01-22";
 const DEFAULT_QWEN_ENDPOINT = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
 const DEFAULT_TIMEOUT_MS = 60000;
 const DEFAULT_MAX_IMAGE_BYTES = 8 * 1024 * 1024;

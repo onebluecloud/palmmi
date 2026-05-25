@@ -11,6 +11,10 @@ const {
   QwenVlmProvider,
 } = require(path.join(root, "server", "stage5p", "providers", "qwen-vlm-provider.js"));
 const {
+  DEFAULT_QWEN_MODEL,
+  resolveQwenConfig,
+} = require(path.join(root, "server", "stage5p", "env.js"));
+const {
   runAnalyzeApi,
 } = require(path.join(root, "server", "stage5p", "analyze-service.js"));
 const apiAnalyze = require(path.join(root, "api", "analyze.js"));
@@ -408,12 +412,25 @@ async function main() {
   }
 
   {
+    assert.equal(
+      DEFAULT_QWEN_MODEL,
+      "qwen3-vl-flash-2026-01-22",
+      "default Qwen model should target the enabled versioned DashScope model"
+    );
+    assert.equal(
+      resolveQwenConfig({ PALMMI_QWEN_API_KEY: "stage5p-test-key" }).model,
+      "qwen3-vl-flash-2026-01-22",
+      "missing env model should resolve to the enabled versioned DashScope model"
+    );
+  }
+
+  {
     const envExample = readSource(".env.example");
     for (const name of [
       "PALMMI_VLM_PROVIDER=mock",
       "PALMMI_VLM_MODE=mock-only",
       "PALMMI_QWEN_API_KEY=",
-      "PALMMI_QWEN_MODEL=qwen3-vl-flash",
+      "PALMMI_QWEN_MODEL=qwen3-vl-flash-2026-01-22",
       "PALMMI_VLM_TIMEOUT_MS=60000",
       "PALMMI_VLM_MAX_IMAGE_BYTES=8388608",
       "QWEN_API_KEY=",
