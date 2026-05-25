@@ -31,9 +31,21 @@ function elapsedMs(start) {
 function buildVlmFeatures(parsed) {
   const majorLines = parsed.majorLines || {};
   const palmShape = parsed.palmShape || {};
+  const summary = parsed.palmFeatureSummary || {};
   const confidence = Number.isFinite(parsed.confidence) ? parsed.confidence : 0;
   return {
     schema_version: "palm_features.v1",
+    palm_features: {
+      main_line_type: parsed.mainLineType || "M2",
+      line_depth: summary.line_depth || "medium",
+      line_complexity: summary.line_complexity || "medium",
+      line_continuity: summary.line_continuity || "continuous",
+      branch_density: summary.branch_density || "medium",
+      palm_shape_hint: summary.palm_shape_hint || "square",
+      visible_features: Array.isArray(parsed.visibleFeatures) ? parsed.visibleFeatures : [],
+      confidence,
+      feature_reasons: ["Mock palm features use the current Stage 6F feature contract."],
+    },
     hand: {
       visible_side: "palm",
       handedness: "unknown",
@@ -72,7 +84,25 @@ class MockVlmProvider {
     const start = nowMs();
     const imageBuffer = imageBufferFrom(input);
     const parsed = normalizeParsedPalmFeatures({
-      isValidPalmImage: true,
+      validity: {
+        is_palm_photo: true,
+        is_single_hand: true,
+        is_palm_side_visible: true,
+        palm_lines_visible: true,
+        image_quality: "clear",
+        reject_reason: "",
+      },
+      palm_features: {
+        main_line_type: "M2",
+        line_depth: "medium",
+        line_complexity: "medium",
+        line_continuity: "continuous",
+        branch_density: "medium",
+        palm_shape_hint: "square",
+        visible_features: ["life line", "head line", "heart line"],
+        confidence: 0.86,
+        feature_reasons: ["Major palm lines are visible and continuous."],
+      },
       majorLines: {
         lifeLine: {
           visibility: "clear",

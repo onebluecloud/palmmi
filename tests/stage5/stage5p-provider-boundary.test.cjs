@@ -46,6 +46,9 @@ function assertNoSensitiveOutput(value) {
     "Authorization",
     "PALMMI_QWEN_API_KEY",
     "QWEN_API_KEY",
+    "DASHSCOPE_API_KEY",
+    "TEST_QWEN_PRIMARY_KEY_PLACEHOLDER",
+    "TEST_QWEN_BACKUP_KEY_PLACEHOLDER",
     "TEST_QWEN_KEY_PLACEHOLDER",
     "recognition_result.debug",
     "PalmFeatureSet",
@@ -59,12 +62,97 @@ function assertNoSensitiveOutput(value) {
 
 function fakeQwenFetch() {
   let calls = 0;
+  const responses = [
+    {
+      validity: {
+        is_palm_photo: true,
+        is_single_hand: true,
+        is_palm_side_visible: true,
+        palm_lines_visible: true,
+        image_quality: "clear",
+        reject_reason: "",
+      },
+      palm_features: null,
+      result: null,
+    },
+    {
+      validity: {
+        is_palm_photo: true,
+        is_single_hand: true,
+        is_palm_side_visible: true,
+        palm_lines_visible: true,
+        image_quality: "clear",
+        reject_reason: "",
+      },
+      palm_features: {
+        main_line_type: "M2",
+        line_depth: "medium",
+        line_complexity: "medium",
+        line_continuity: "continuous",
+        branch_density: "medium",
+        palm_shape_hint: "square",
+        visible_features: ["life line", "head line", "heart line"],
+        confidence: 0.86,
+        feature_reasons: ["Major palm lines are visible and continuous."],
+      },
+      majorLines: {
+        lifeLine: {
+          visibility: "clear",
+          length: "long",
+          depth: "medium",
+          trend: "curved",
+          breaks: "none",
+          branches: "few",
+          islands: "none",
+          confidence: 0.86,
+        },
+        headLine: {
+          visibility: "clear",
+          length: "long",
+          depth: "medium",
+          trend: "slightly downward",
+          breaks: "none",
+          branches: "few",
+          islands: "none",
+          confidence: 0.84,
+        },
+        heartLine: {
+          visibility: "clear",
+          length: "medium",
+          depth: "medium",
+          trend: "curved",
+          breaks: "none",
+          branches: "few",
+          islands: "none",
+          confidence: 0.82,
+        },
+      },
+      minorLines: {
+        fateLine: {
+          visibility: "faint",
+          depth: "shallow",
+          breaks: "minor",
+          confidence: 0.62,
+        },
+      },
+      palmShape: {
+        shapeHint: "square",
+        palmWidth: "medium",
+        palmLength: "medium",
+        fingerLength: "medium",
+        confidence: 0.8,
+      },
+      result: null,
+      candidate_hints: [],
+    },
+  ];
   const fetchImpl = async (_url, init) => {
     calls += 1;
     assert.equal(init.method, "POST");
     assert.equal(typeof init.headers.Authorization, "string");
     assert.ok(init.headers.Authorization.endsWith("TEST_QWEN_KEY_PLACEHOLDER"));
     assert.doesNotMatch(init.body, /TEST_QWEN_KEY_PLACEHOLDER/);
+    const content = responses[Math.min(calls - 1, responses.length - 1)];
     return {
       ok: true,
       status: 200,
@@ -73,58 +161,7 @@ function fakeQwenFetch() {
           choices: [
             {
               message: {
-                content: JSON.stringify({
-                  isValidPalmImage: true,
-                  majorLines: {
-                    lifeLine: {
-                      visibility: "clear",
-                      length: "long",
-                      depth: "medium",
-                      trend: "curved",
-                      breaks: "none",
-                      branches: "few",
-                      islands: "none",
-                      confidence: 0.86,
-                    },
-                    headLine: {
-                      visibility: "clear",
-                      length: "long",
-                      depth: "medium",
-                      trend: "slightly downward",
-                      breaks: "none",
-                      branches: "few",
-                      islands: "none",
-                      confidence: 0.84,
-                    },
-                    heartLine: {
-                      visibility: "clear",
-                      length: "medium",
-                      depth: "medium",
-                      trend: "curved",
-                      breaks: "none",
-                      branches: "few",
-                      islands: "none",
-                      confidence: 0.82,
-                    },
-                  },
-                  minorLines: {
-                    fateLine: {
-                      visibility: "faint",
-                      depth: "shallow",
-                      breaks: "minor",
-                      confidence: 0.62,
-                    },
-                  },
-                  palmShape: {
-                    shapeHint: "rectangular",
-                    palmWidth: "medium",
-                    fingerProportion: "medium",
-                    confidence: 0.8,
-                  },
-                  visibleFeatures: ["life line", "head line", "heart line"],
-                  uncertainty: [],
-                  confidence: 0.86,
-                }),
+                content: JSON.stringify(content),
               },
             },
           ],
@@ -133,6 +170,50 @@ function fakeQwenFetch() {
     };
   };
   fetchImpl.callCount = () => calls;
+  return fetchImpl;
+}
+
+function fakeQwenQuotaThenBackupFetch() {
+  let calls = 0;
+  const authHeaders = [];
+  const successFetch = fakeQwenFetch();
+  const fetchImpl = async (url, init) => {
+    calls += 1;
+    authHeaders.push(init.headers.Authorization);
+    assert.doesNotMatch(init.body, /TEST_QWEN_PRIMARY_KEY_PLACEHOLDER|TEST_QWEN_BACKUP_KEY_PLACEHOLDER/);
+    if (calls === 1) {
+      assert.ok(init.headers.Authorization.endsWith("TEST_QWEN_PRIMARY_KEY_PLACEHOLDER"));
+      return {
+        ok: false,
+        status: 403,
+        headers: {
+          get(name) {
+            return name === "x-request-id" ? "stage5p-quota-primary" : null;
+          },
+        },
+        async text() {
+          return JSON.stringify({
+            error: {
+              code: "AllocationQuota.FreeTierOnly",
+              type: "AllocationQuota.FreeTierOnly",
+              message: "free tier exhausted",
+            },
+            request_id: "stage5p-quota-primary",
+          });
+        },
+      };
+    }
+    assert.ok(init.headers.Authorization.endsWith("TEST_QWEN_BACKUP_KEY_PLACEHOLDER"));
+    return successFetch(url, {
+      ...init,
+      headers: {
+        ...init.headers,
+        Authorization: "Bearer TEST_QWEN_KEY_PLACEHOLDER",
+      },
+    });
+  };
+  fetchImpl.callCount = () => calls;
+  fetchImpl.authHeaders = () => authHeaders.slice();
   return fetchImpl;
 }
 
@@ -213,7 +294,33 @@ async function main() {
     assert.equal(providerResult.model, "qwen-stage5p-test");
     assert.equal(providerResult.status, "OK");
     assert.equal(providerResult.parsed.isValidPalmImage, true);
-    assert.equal(fetchImpl.callCount(), 1);
+    assert.equal(fetchImpl.callCount(), 2);
+    assertNoSensitiveOutput(providerResult);
+  }
+
+  {
+    const fetchImpl = fakeQwenQuotaThenBackupFetch();
+    const provider = new QwenVlmProvider({
+      env: {
+        PALMMI_QWEN_API_KEY: "TEST_QWEN_PRIMARY_KEY_PLACEHOLDER",
+        DASHSCOPE_API_KEY: "TEST_QWEN_BACKUP_KEY_PLACEHOLDER",
+      },
+      model: "qwen-stage5p-test",
+      fetchImpl,
+      timeoutMs: 1000,
+    });
+    const providerResult = await provider.analyze({
+      request_id: "req_fake_qwen_backup_key",
+      image: image(),
+    });
+    assert.equal(providerResult.ok, true);
+    assert.equal(providerResult.provider, "qwen");
+    assert.equal(fetchImpl.callCount(), 3);
+    assert.deepEqual(fetchImpl.authHeaders().map((header) => header.replace(/^Bearer\s+/, "")), [
+      "TEST_QWEN_PRIMARY_KEY_PLACEHOLDER",
+      "TEST_QWEN_BACKUP_KEY_PLACEHOLDER",
+      "TEST_QWEN_BACKUP_KEY_PLACEHOLDER",
+    ]);
     assertNoSensitiveOutput(providerResult);
   }
 
@@ -310,6 +417,7 @@ async function main() {
       "PALMMI_VLM_TIMEOUT_MS=60000",
       "PALMMI_VLM_MAX_IMAGE_BYTES=8388608",
       "QWEN_API_KEY=",
+      "DASHSCOPE_API_KEY=",
       "QWEN_MODEL=",
       "VLM_TIMEOUT_MS=60000",
       "VLM_MAX_IMAGE_BYTES=8388608",

@@ -564,6 +564,12 @@ function upstreamDiagnostics(response, responseText) {
   };
 }
 
+function shouldRetryWithAlternateKey(diagnostics) {
+  return diagnostics
+    && diagnostics.upstreamStatus === 403
+    && diagnostics.upstreamErrorCode === "AllocationQuota.FreeTierOnly";
+}
+
 function callFetch(fetchImpl, endpoint, init) {
   if (fetchImpl === globalThis.fetch && typeof globalThis.fetch === "function") {
     return globalThis.fetch(endpoint, init);
@@ -576,6 +582,7 @@ class QwenVlmProvider {
     const config = resolveQwenConfig(options.env || process.env, options);
     this.name = "qwen";
     this.model = config.model;
+    this.apiKeys = Array.isArray(config.apiKeys) ? config.apiKeys.slice() : [];
     this.apiKey = config.apiKey;
     this.endpoint = config.endpoint;
     this.timeoutMs = config.timeoutMs;
@@ -593,6 +600,17 @@ class QwenVlmProvider {
     };
   }
 
+  rememberWorkingApiKey(apiKey) {
+    if (!apiKey || this.apiKey === apiKey) {
+      return;
+    }
+    this.apiKey = apiKey;
+    this.apiKeys = [
+      apiKey,
+      ...this.apiKeys.filter((candidate) => candidate !== apiKey),
+    ];
+  }
+
   async fetchAndParse({ prompt, image, imageBuffer, requestId, start, stage }) {
     const body = buildProviderRequest({
       model: this.model,
@@ -600,55 +618,72 @@ class QwenVlmProvider {
       image,
       imageBuffer,
     });
+    const apiKeys = this.apiKeys.length > 0
+      ? this.apiKeys
+      : (this.apiKey ? [this.apiKey] : []);
 
     let responseText = "";
     let timeout = null;
-    try {
-      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      timeout = controller ? setTimeout(() => controller.abort(), this.timeoutMs) : null;
-      const response = await callFetch(this.fetchImpl, this.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(body),
-        signal: controller ? controller.signal : undefined,
-      });
-      responseText = await response.text();
-      if (!response.ok) {
+    for (let keyIndex = 0; keyIndex < apiKeys.length; keyIndex += 1) {
+      const apiKey = apiKeys[keyIndex];
+      try {
+        const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+        timeout = controller ? setTimeout(() => controller.abort(), this.timeoutMs) : null;
+        const response = await callFetch(this.fetchImpl, this.endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(body),
+          signal: controller ? controller.signal : undefined,
+        });
+        responseText = await response.text();
+        if (!response.ok) {
+          const diagnostics = upstreamDiagnostics(response, responseText);
+          if (keyIndex < apiKeys.length - 1 && shouldRetryWithAlternateKey(diagnostics)) {
+            if (timeout) {
+              clearTimeout(timeout);
+              timeout = null;
+            }
+            continue;
+          }
+          return {
+            ok: false,
+            response: this.fail(
+              ERROR_CODES.VLM_API_REQUEST_FAILED,
+              requestId,
+              start,
+              diagnostics
+            ),
+          };
+        }
+        this.rememberWorkingApiKey(apiKey);
+        break;
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          return {
+            ok: false,
+            response: this.fail(ERROR_CODES.REQUEST_TIMEOUT, requestId, start, {
+              isTimeout: true,
+              errorType: "timeout",
+              providerStage: stage,
+            }),
+          };
+        }
         return {
           ok: false,
-          response: this.fail(
-            ERROR_CODES.VLM_API_REQUEST_FAILED,
-            requestId,
-            start,
-            upstreamDiagnostics(response, responseText)
-          ),
-        };
-      }
-    } catch (error) {
-      if (error && error.name === "AbortError") {
-        return {
-          ok: false,
-          response: this.fail(ERROR_CODES.REQUEST_TIMEOUT, requestId, start, {
-            isTimeout: true,
-            errorType: "timeout",
+          response: this.fail(ERROR_CODES.VLM_API_REQUEST_FAILED, requestId, start, {
+            isFetchFailed: true,
+            errorType: error && error.name ? error.name : "fetch_failed",
             providerStage: stage,
           }),
         };
-      }
-      return {
-        ok: false,
-        response: this.fail(ERROR_CODES.VLM_API_REQUEST_FAILED, requestId, start, {
-          isFetchFailed: true,
-          errorType: error && error.name ? error.name : "fetch_failed",
-          providerStage: stage,
-        }),
-      };
-    } finally {
-      if (timeout) {
-        clearTimeout(timeout);
+      } finally {
+        if (timeout) {
+          clearTimeout(timeout);
+          timeout = null;
+        }
       }
     }
 

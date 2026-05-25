@@ -4053,6 +4053,11 @@ async function main() {
         /太大|过大|8MB/
       );
       summary.normal_palm_upload = await validateNormalPalmUploadWithoutBlockingSuite(mobileContext, fixturePath);
+      assert.equal(
+        summary.normal_palm_upload.status,
+        "PASS",
+        `normal production palm upload must pass; ${summary.normal_palm_upload.reason || summary.normal_palm_upload.status}`
+      );
     } finally {
       await mobileContext.close();
     }

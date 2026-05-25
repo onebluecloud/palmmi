@@ -16,6 +16,25 @@ function readEnvValue(env, names, fallback = "") {
   return fallback;
 }
 
+function readEnvValues(env, names) {
+  const source = env || {};
+  const seen = new Set();
+  const values = [];
+  for (const name of names) {
+    const value = source[name];
+    if (typeof value !== "string" || !value.trim()) {
+      continue;
+    }
+    const trimmed = value.trim();
+    if (seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    values.push(trimmed);
+  }
+  return values;
+}
+
 function parsePositiveInt(value, fallback) {
   const number = Number.parseInt(value, 10);
   if (!Number.isFinite(number) || number <= 0) {
@@ -69,8 +88,24 @@ function resolveProviderConfig(env = process.env, options = {}) {
 }
 
 function resolveQwenConfig(env = process.env, options = {}) {
+  const optionKeys = [
+    ...(typeof options.apiKey === "string" && options.apiKey.trim() ? [options.apiKey.trim()] : []),
+    ...(Array.isArray(options.apiKeys)
+      ? options.apiKeys.filter((value) => typeof value === "string" && value.trim()).map((value) => value.trim())
+      : []),
+  ];
+  const envKeys = readEnvValues(env, ["PALMMI_QWEN_API_KEY", "QWEN_API_KEY", "DASHSCOPE_API_KEY"]);
+  const seenApiKeys = new Set();
+  const apiKeys = [...optionKeys, ...envKeys].filter((value) => {
+    if (seenApiKeys.has(value)) {
+      return false;
+    }
+    seenApiKeys.add(value);
+    return true;
+  });
   return {
-    apiKey: readEnvValue(env, ["PALMMI_QWEN_API_KEY", "QWEN_API_KEY"], ""),
+    apiKey: apiKeys[0] || readEnvValue(env, ["PALMMI_QWEN_API_KEY", "QWEN_API_KEY", "DASHSCOPE_API_KEY"], ""),
+    apiKeys,
     model: options.model || readEnvValue(env, ["PALMMI_QWEN_MODEL", "QWEN_MODEL"], DEFAULT_QWEN_MODEL),
     endpoint: options.endpoint || readEnvValue(env, ["PALMMI_QWEN_ENDPOINT", "QWEN_ENDPOINT"], DEFAULT_QWEN_ENDPOINT),
     timeoutMs: parsePositiveInt(
