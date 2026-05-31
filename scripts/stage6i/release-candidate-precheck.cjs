@@ -18,7 +18,23 @@ function redactCommandOutput(value) {
 function buildStage6iCommands(options = {}) {
   const npm = npmBin();
   const commands = [
-    { name: 'npm test', bin: npm, args: ['test'] },
+    {
+      name: 'npm test',
+      bin: npm,
+      args: ['test'],
+      retryable: true,
+      maxAttempts: 2,
+      retryDelayMs: 2000,
+      retryPatterns: [
+        /net::ERR_/i,
+        /ECONNRESET/i,
+        /ETIMEDOUT/i,
+        /ERR_CONNECTION_CLOSED/i,
+        /ERR_NETWORK_CHANGED/i,
+        /SSL connection/i,
+        /http_status"?\s*:\s*0/i
+      ]
+    },
     { name: 'npm run build', bin: npm, args: ['run', 'build'] },
     { name: 'npm run security-scan', bin: npm, args: ['run', 'security-scan'] },
     { name: 'npm run smoke:stage6f:qwen', bin: npm, args: ['run', 'smoke:stage6f:qwen'] }
@@ -28,7 +44,15 @@ function buildStage6iCommands(options = {}) {
   if (options.expectedCommitSha) {
     preflightArgs.push('--', '--expect-commit', options.expectedCommitSha);
   }
-  commands.push({ name: 'npm run preflight:stage6h', bin: npm, args: preflightArgs });
+  commands.push({
+    name: 'npm run preflight:stage6h',
+    bin: npm,
+    args: preflightArgs,
+    retryable: true,
+    retryOnAnyFailure: true,
+    maxAttempts: 3,
+    retryDelayMs: 2000
+  });
 
   if (options.manualResultFile) {
     commands.push({
@@ -180,6 +204,28 @@ function spawnCommand(command, options = {}) {
   });
 }
 
+function sleep(ms) {
+  const delay = Number(ms) || 0;
+  if (delay <= 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => setTimeout(resolve, delay));
+}
+
+function isRetryableCommandFailure(command, analyzed) {
+  if (!command.retryable || analyzed.ok) {
+    return false;
+  }
+  if (analyzed.api_calls_made > 0 || analyzed.quota_consumed || analyzed.real_qwen_called) {
+    return false;
+  }
+  if (command.retryOnAnyFailure) {
+    return true;
+  }
+  const outputSummary = analyzed.output_summary || '';
+  return (command.retryPatterns || []).some((pattern) => pattern.test(outputSummary));
+}
+
 async function runStage6iPrecheck(options = {}) {
   const env = options.env || process.env;
   const startedAt = Date.now();
@@ -250,9 +296,38 @@ async function runStage6iPrecheck(options = {}) {
   const commandResults = [];
 
   for (const command of commands) {
-    const commandStartedAt = Date.now();
-    const result = await runCommand(command);
-    const analyzed = analyzeCommandResult(command, result, Date.now() - commandStartedAt);
+    const maxAttempts = command.retryable ? Math.max(1, Number(command.maxAttempts) || 1) : 1;
+    const attemptResults = [];
+    let analyzed = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const commandStartedAt = Date.now();
+      const result = await runCommand(command);
+      analyzed = analyzeCommandResult(command, result, Date.now() - commandStartedAt);
+      attemptResults.push(analyzed);
+
+      if (attempt === maxAttempts || !isRetryableCommandFailure(command, analyzed)) {
+        break;
+      }
+
+      await sleep(options.retryDelayMs ?? command.retryDelayMs);
+    }
+
+    analyzed.attempts = attemptResults.length;
+    analyzed.duration_ms = attemptResults.reduce((total, attempt) => total + attempt.duration_ms, 0);
+    analyzed.api_calls_made = Math.max(0, ...attemptResults.map((attempt) => attempt.api_calls_made));
+    analyzed.quota_consumed = attemptResults.some((attempt) => attempt.quota_consumed);
+    analyzed.real_qwen_called = attemptResults.some((attempt) => attempt.real_qwen_called);
+    analyzed.finding_count = Math.max(
+      0,
+      ...attemptResults
+        .map((attempt) => attempt.finding_count)
+        .filter((findingCount) => typeof findingCount === 'number')
+    );
+    if (!attemptResults.some((attempt) => typeof attempt.finding_count === 'number')) {
+      analyzed.finding_count = null;
+    }
+
     commandResults.push(analyzed);
     if (!analyzed.ok) {
       break;
@@ -371,5 +446,6 @@ module.exports = {
   runStage6iPrecheck,
   redactCommandOutput,
   parseArgs,
-  spawnCommand
+  spawnCommand,
+  sleep
 };

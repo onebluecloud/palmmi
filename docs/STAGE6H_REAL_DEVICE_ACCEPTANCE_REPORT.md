@@ -57,7 +57,7 @@ It checks:
 - POST `/api/analyze` with invalid `text/plain` body only
 - GET `/build-meta.json`
 
-It does not upload a real image, does not call Qwen, and reports `api_calls_made=0`, `quota_consumed=false`.
+It uses bounded retry for transient network `status=0` reads, with a default maximum of 4 attempts per check. It does not upload a real image, does not call Qwen, and reports `api_calls_made=0`, `quota_consumed=false`.
 
 `/build-meta.json` exposes the deployed commit SHA. This command verifies deployment without a Cloudflare API token:
 

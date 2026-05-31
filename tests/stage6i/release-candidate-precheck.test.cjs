@@ -131,6 +131,125 @@ async function main() {
   assert.equal(withoutManual.can_enter_stage6i, false);
   assert.equal(withoutManual.manual_result.status, 'SKIPPED_NO_MANUAL_RESULT_FILE');
 
+  let preflightAttempts = 0;
+  const retryingPreflight = await runStage6iPrecheck({
+    expectedCommitSha: 'abcdef1234567890abcdef1234567890abcdef12',
+    env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '0' },
+    retryDelayMs: 0,
+    runCommand: async (command) => {
+      if (command.name === 'npm run security-scan') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({ finding_count: 0, no_key_or_token_leak: true }),
+          stderr: ''
+        };
+      }
+      if (command.name === 'npm run smoke:stage6f:qwen') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, status: 'REAL_QWEN_DISABLED' }),
+          stderr: ''
+        };
+      }
+      if (command.name === 'npm run preflight:stage6h') {
+        preflightAttempts += 1;
+        return preflightAttempts === 1
+          ? {
+              status: 1,
+              stdout: JSON.stringify({
+                ok: false,
+                api_calls_made: 0,
+                quota_consumed: false,
+                real_qwen_called: false,
+                build_meta: { matches_expected_commit: false }
+              }),
+              stderr: ''
+            }
+          : {
+              status: 0,
+              stdout: JSON.stringify({
+                ok: true,
+                api_calls_made: 0,
+                quota_consumed: false,
+                real_qwen_called: false,
+                build_meta: { matches_expected_commit: true }
+              }),
+              stderr: ''
+            };
+      }
+      return {
+        status: 0,
+        stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, real_qwen_called: false }),
+        stderr: ''
+      };
+    }
+  });
+
+  assert.equal(retryingPreflight.precheck_ok, true);
+  assert.equal(retryingPreflight.api_calls_made, 0);
+  assert.equal(preflightAttempts, 2);
+  assert.equal(retryingPreflight.commands.find((command) => command.name === 'npm run preflight:stage6h').attempts, 2);
+
+  let npmTestAttempts = 0;
+  const retryingNpmTestNetworkFailure = await runStage6iPrecheck({
+    expectedCommitSha: 'abcdef1234567890abcdef1234567890abcdef12',
+    env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '0' },
+    retryDelayMs: 0,
+    runCommand: async (command) => {
+      if (command.name === 'npm test') {
+        npmTestAttempts += 1;
+        return npmTestAttempts === 1
+          ? {
+              status: 1,
+              stdout: '',
+              stderr: 'page.goto: net::ERR_CONNECTION_CLOSED at https://palmmi.pages.dev/'
+            }
+          : {
+              status: 0,
+              stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, real_qwen_called: false }),
+              stderr: ''
+            };
+      }
+      if (command.name === 'npm run security-scan') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({ finding_count: 0, no_key_or_token_leak: true }),
+          stderr: ''
+        };
+      }
+      if (command.name === 'npm run smoke:stage6f:qwen') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, status: 'REAL_QWEN_DISABLED' }),
+          stderr: ''
+        };
+      }
+      if (command.name === 'npm run preflight:stage6h') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            ok: true,
+            api_calls_made: 0,
+            quota_consumed: false,
+            real_qwen_called: false,
+            build_meta: { matches_expected_commit: true }
+          }),
+          stderr: ''
+        };
+      }
+      return {
+        status: 0,
+        stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, real_qwen_called: false }),
+        stderr: ''
+      };
+    }
+  });
+
+  assert.equal(retryingNpmTestNetworkFailure.precheck_ok, true);
+  assert.equal(retryingNpmTestNetworkFailure.api_calls_made, 0);
+  assert.equal(npmTestAttempts, 2);
+  assert.equal(retryingNpmTestNetworkFailure.commands.find((command) => command.name === 'npm test').attempts, 2);
+
   const formalWithInsufficientManual = await runStage6iPrecheck({
     requireManualResult: true,
     expectedCommitSha: 'abcdef1234567890abcdef1234567890abcdef12',

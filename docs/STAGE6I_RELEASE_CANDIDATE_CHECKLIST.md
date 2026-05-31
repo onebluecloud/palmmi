@@ -41,7 +41,7 @@ Preferred aggregate command:
 npm run precheck:stage6i -- --expect-commit <latest-origin-main-commit> --manual-result-file <Codex-saved-user-result-text> --require-manual-result
 ```
 
-This command runs only the zero-cost checks listed below. It refuses to run if `PALMMI_ALLOW_REAL_QWEN_TESTS=1` is set, redacts command output summaries, and reports `api_calls_made=0`, `quota_consumed=false`, and `real_qwen_called=false` when the path is safe. Without `--manual-result-file`, it can still prove the automated precheck is safe, but `can_enter_stage6i` remains `false` because Stage 6H manual evidence is missing. Use `--require-manual-result` for the formal Stage 6I gate so missing or insufficient manual evidence exits fail-safe. If `--require-manual-result` is used without `--manual-result-file`, the command fails immediately with `STAGE6I_MANUAL_RESULT_FILE_MISSING` and does not run child commands. If it is used without `--expect-commit`, the command fails immediately with `STAGE6I_EXPECTED_COMMIT_REQUIRED` and does not run child commands.
+This command runs only the zero-cost checks listed below. It refuses to run if `PALMMI_ALLOW_REAL_QWEN_TESTS=1` is set, redacts command output summaries, and reports `api_calls_made=0`, `quota_consumed=false`, and `real_qwen_called=false` when the path is safe. Without `--manual-result-file`, it can still prove the automated precheck is safe, but `can_enter_stage6i` remains `false` because Stage 6H manual evidence is missing. Use `--require-manual-result` for the formal Stage 6I gate so missing or insufficient manual evidence exits fail-safe. If `--require-manual-result` is used without `--manual-result-file`, the command fails immediately with `STAGE6I_MANUAL_RESULT_FILE_MISSING` and does not run child commands. If it is used without `--expect-commit`, the command fails immediately with `STAGE6I_EXPECTED_COMMIT_REQUIRED` and does not run child commands. The aggregate precheck applies bounded command-level retry only to zero-cost transient network failures: `npm test` is retried once only when output contains clear network errors such as `net::ERR_*`, and `npm run preflight:stage6h` can retry transient online read failures. It does not retry `build`, `security-scan`, `smoke`, or manual-result parsing.
 
 | Command | Purpose | Real Qwen Cost |
 |---|---|---|
@@ -52,7 +52,7 @@ This command runs only the zero-cost checks listed below. It refuses to run if `
 | `npm run preflight:stage6h` | Online page/API invalid-input preflight; must report `api_calls_made=0`. | NO |
 | `npm run preflight:stage6h -- --expect-commit <commit>` | Same as above, plus deployed commit check through `/build-meta.json`. | NO |
 | `npm run check:stage6h:manual -- --file <result-text>` | Text-only check of user true-device result paste, including approximate real-analysis call count and quota acknowledgement; must report `api_calls_made=0`. | NO |
-| `npm run precheck:stage6i -- --expect-commit <commit> --manual-result-file <result-text> --require-manual-result` | Aggregates the zero-cost commands above, blocks if real-Qwen env is enabled, and fails safe if Stage 6H manual evidence is missing or insufficient. | NO |
+| `npm run precheck:stage6i -- --expect-commit <commit> --manual-result-file <result-text> --require-manual-result` | Aggregates the zero-cost commands above, blocks if real-Qwen env is enabled, retries only clear zero-cost network flakes in `npm test` and online preflight, and fails safe if Stage 6H manual evidence is missing or insufficient. | NO |
 
 Do not run `npm run test:stage6f:real`, `npm run e2e:real-qwen`, or any `--real` smoke command unless the user explicitly approves a real Qwen test and accepts quota use.
 
@@ -70,7 +70,7 @@ Codex ran a Stage 6I preparation precheck on 2026-05-31. This does not promote S
 | `npm run precheck:stage6i -- --expect-commit 107b864627532992b7eb5366165ecffc23d96371` | PASS_ZERO_COST_NO_MANUAL_RESULT | Aggregated safe checks passed with `precheck_ok=true`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`; no manual-result file means `can_enter_stage6i=false` until Stage 6H user evidence arrives. |
 | `npm run precheck:stage6i -- --expect-commit 83084e127a90b2a136e8ae10fd4bce122d16a43a --require-manual-result` | EXPECTED_FAILSAFE | Aggregated safe checks passed with zero Qwen calls, then formal gate exited non-zero with `STAGE6I_MANUAL_RESULT_REQUIRED` because no Stage 6H manual-result file was supplied. |
 | `npm run precheck:stage6i -- --manual-result-file C:\temp\stage6h-result.txt --require-manual-result` | EXPECTED_FAILFAST | Formal gate exited before child commands with `STAGE6I_EXPECTED_COMMIT_REQUIRED`; `commands=[]`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`. |
-| `node tests/stage6i/release-candidate-precheck.test.cjs` | PASS | Confirms formal gate without `--manual-result-file` fails fast with `STAGE6I_MANUAL_RESULT_FILE_MISSING`, and without `--expect-commit` fails fast with `STAGE6I_EXPECTED_COMMIT_REQUIRED`, before any child command runs. |
+| `node tests/stage6i/release-candidate-precheck.test.cjs` | PASS | Confirms formal gate without `--manual-result-file` fails fast with `STAGE6I_MANUAL_RESULT_FILE_MISSING`, without `--expect-commit` fails fast with `STAGE6I_EXPECTED_COMMIT_REQUIRED`, and aggregate precheck retries zero-cost transient network failures without retrying real-cost paths. |
 
 Real Qwen calls made by this precheck: `0`.
 
@@ -87,7 +87,7 @@ Qwen quota consumed by this precheck: `NO`.
 | Online pages accessible | PRECHECK_PASS | `npm run preflight:stage6h` verified `/`, `/upload/`, `/result/`, `/poster/` on workers.dev. |
 | API invalid input is sanitized | PRECHECK_PASS | `npm run preflight:stage6h` verified invalid `POST /api/analyze` returns controlled 400 and no sensitive leak. |
 | Deployed commit self-check | PRECHECK_PASS | `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` confirms `/build-meta.json` matches the expected commit. |
-| Stage 6I aggregate precheck | READY_ZERO_COST | `npm run precheck:stage6i` runs the safe command set, refuses `PALMMI_ALLOW_REAL_QWEN_TESTS=1`, redacts command output summaries, and supports `--require-manual-result` for formal gate fail-safe behavior. |
+| Stage 6I aggregate precheck | READY_ZERO_COST | `npm run precheck:stage6i` runs the safe command set, refuses `PALMMI_ALLOW_REAL_QWEN_TESTS=1`, redacts command output summaries, retries only zero-cost transient network failures in `npm test` and online preflight, and supports `--require-manual-result` for formal gate fail-safe behavior. |
 | Manual result text checker | READY_ZERO_COST | `npm run check:stage6h:manual` can classify pasted true-device results; it does not verify the truth of the manual claims. |
 | True-device Qwen cost record | WAITING_STAGE6H | The Stage 6H pasted result must include a positive approximate real-analysis call count and quota-consumption acknowledgement. |
 | Result page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |

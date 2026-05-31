@@ -191,6 +191,44 @@ async function main() {
   assert.equal(retryResult.pages.find((page) => page.path === '/result/').attempts, 2);
   assert.equal(retryResult.build_meta.available, false);
 
+  const defaultRetryCounts = new Map();
+  const defaultRetryResult = await runPreflight({
+    baseUrl: 'https://default-retry.test',
+    timeoutMs: 1000,
+    requestImpl: async (url, options) => {
+      const parsed = new URL(url);
+      const key = `${options.method || 'GET'} ${parsed.pathname}`;
+      const count = (defaultRetryCounts.get(key) || 0) + 1;
+      defaultRetryCounts.set(key, count);
+
+      if (parsed.pathname === '/upload/' && count < 3) {
+        return { status: 0, contentType: '', text: '', error_code: 'NETWORK_FAILED' };
+      }
+      if (parsed.pathname === '/api/analyze') {
+        return {
+          status: 400,
+          contentType: 'application/json',
+          text: JSON.stringify({ error: { code: 'INVALID_REQUEST_BODY' } })
+        };
+      }
+      if (parsed.pathname === '/build-meta.json') {
+        return {
+          status: 200,
+          contentType: 'application/json',
+          text: JSON.stringify({ commit_sha: 'abcdef1234567890abcdef1234567890abcdef12', branch: 'main' })
+        };
+      }
+      return {
+        status: 200,
+        contentType: 'text/html',
+        text: '<html>Palmmi · 掌纹人格标签</html>'
+      };
+    }
+  });
+
+  assert.equal(defaultRetryResult.ok, true);
+  assert.equal(defaultRetryResult.pages.find((page) => page.path === '/upload/').attempts, 3);
+
   console.log('Stage 6H online preflight tests passed.');
 }
 

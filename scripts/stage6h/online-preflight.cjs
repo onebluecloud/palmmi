@@ -7,7 +7,7 @@ const tls = require('node:tls');
 
 const DEFAULT_BASE_URL = 'https://palmmi.onebluecloud723.workers.dev';
 const DEFAULT_TIMEOUT_MS = 30000;
-const DEFAULT_MAX_ATTEMPTS = 2;
+const DEFAULT_MAX_ATTEMPTS = 4;
 const PAGE_PATHS = ['/', '/upload/', '/result/', '/poster/'];
 
 function parseArgs(argv) {
