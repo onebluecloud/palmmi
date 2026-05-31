@@ -6,7 +6,7 @@ Date: 2026-05-31
 
 Stage 6G status: `CONDITIONAL_PASS`.
 
-Reason: local code, build, security scan, dry-run smoke, Stage 6F production E2E, and full `npm test` passed. Stage 6G remains conditional because the new guard code still needs normal Cloudflare deployment after this commit, and iPhone WeChat, Android WeChat, iPhone Safari physical device, and Android Chrome physical device remain `MANUAL_REQUIRED`.
+Reason: Stage 6G stability and cost guards are in place, and Stage 6G-Fix has isolated real Qwen E2E from default tests. Default `npm test` no longer runs the production normal-palm upload, reports `api_calls_made=0`, and does not consume Qwen quota. Stage 6G remains conditional because iPhone WeChat, Android WeChat, iPhone Safari physical device, and Android Chrome physical device remain `MANUAL_REQUIRED`.
 
 ## Goal
 
@@ -21,10 +21,13 @@ Add the minimum pre-launch stability, cost, error-message, timeout, and logging 
 | `functions/api/analyze.js` | Add API wrapper Content-Length preflight, safer wrapper messages, and status mapping for timeout / duplicate submissions. |
 | `scripts/palmmi-upload.js` | Add explicit `isAnalyzing` submit lock and user-readable mappings for duplicate, network, payload, and provider request errors. |
 | `scripts/palmmi-analyze-api-client.js` | Map browser fetch failures to `NETWORK_FAILED` without exposing technical errors. |
-| `tests/stage6f/stage6g-guards.test.cjs` | Add fast non-Qwen Stage 6G guard tests. |
-| `tests/stage6f/mobile-e2e.test.cjs` | Include Stage 6G guard coverage in `npm run test:stage6f`, including repeated-click protection. |
-| `scripts/stage6f/security-scan.cjs` | Extend scan to flag sensitive production logging patterns. |
+| `tests/stage6f/stage6g-guards.test.cjs` | Add fast non-Qwen Stage 6G guard tests plus Stage 6G-Fix regressions proving default tests exclude real Qwen and `--real` smoke requires `PALMMI_ALLOW_REAL_QWEN_TESTS=1`. |
+| `tests/stage6f/mobile-e2e.test.cjs` | Include Stage 6G guard coverage in `npm run test:stage6f`, keep production normal-palm upload disabled by default, and expose `--real-qwen-e2e` only for manual real E2E. |
+| `scripts/stage6f/real-qwen-smoke.cjs` | Require `PALMMI_ALLOW_REAL_QWEN_TESTS=1` before any `--real` smoke can select samples or read keys; dry run reports `quota_consumed=false`. |
+| `scripts/stage6f/security-scan.cjs` | Extend scan to flag sensitive production logging patterns and `VLM_API_KEY` assignments. |
+| `package.json` | Keep `npm test` safe by default; add `test:stage6f:real`, `e2e:real-qwen`, and `security-scan` scripts. |
 | `docs/STAGE6G_STABILITY_COST_GUARD_REPORT.md` | New Stage 6G report. |
+| `docs/STAGE6G_TEST_COST_ISOLATION_REPORT.md` | Stage 6G-Fix test cost isolation report. |
 | `docs/STAGE6_STATE.md` | Stage 6G state update. |
 
 ## Cost Protection
@@ -33,7 +36,9 @@ Add the minimum pre-launch stability, cost, error-message, timeout, and logging 
 - Backend rejects duplicate in-flight requests for the same anonymous device, file name, content type, declared size, and image-content hash.
 - Backend rejects the same successfully analyzed image again for a short TTL window of 30 seconds.
 - Backend rejects empty, non-image, declared oversized, buffer oversized, and base64 oversized payloads before provider execution.
-- Qwen smoke remains dry-run by default and reports `api_calls_made=0` unless `--real` is explicitly passed.
+- Qwen smoke remains dry-run by default and reports `api_calls_made=0`, `quota_consumed=false`.
+- `--real` smoke is now also blocked unless `PALMMI_ALLOW_REAL_QWEN_TESTS=1` is set.
+- `npm test` and `npm run test:stage6f` no longer run the production normal-palm upload; that path is isolated behind `npm run test:stage6f:real` / `npm run e2e:real-qwen`.
 
 ## Rate Limit / Throttle
 
@@ -75,18 +80,21 @@ No stack trace, provider raw response, API key, base64 image content, or request
 |---|---|---|
 | `npm run test:stage5p` | PASS | Stage 5P provider boundary tests passed. |
 | `npm run build` | PASS | Cloudflare Pages static output written to `dist`. |
-| `node scripts\stage6f\security-scan.cjs` | PASS | `finding_count=0`, no key/base64/raw response/persistent storage/sensitive logging findings. |
-| `npm run smoke:stage6f:qwen` | PASS | Dry run, `REAL_QWEN_DISABLED`, `api_calls_made=0`, model `qwen3-vl-flash-2026-01-22`. |
-| `npm run test:stage6f` | PASS | Stage 6G guard tests passed; production normal palm upload returned HTTP 200, `provider=qwen`, with `analysis_result`; result/poster readable. |
-| `npm test` | PASS | Stage 5P + Stage 6F full suite passed. |
+| `npm run security-scan` | PASS | `finding_count=0`, no key/base64/raw response/persistent storage/sensitive logging findings. |
+| `node tests\stage6f\stage6g-guards.test.cjs` | PASS | Script isolation, real-smoke env guard, duplicate image, invalid input, and network message guards passed. |
+| `npm run smoke:stage6f:qwen` | PASS | Dry run, `REAL_QWEN_DISABLED`, `api_calls_made=0`, `quota_consumed=false`, model `qwen3-vl-flash-2026-01-22`. |
+| `npm test` | PASS | Stage 5P + safe Stage 6F/6G suite passed; `normal_palm_upload.status=DISABLED_BY_DEFAULT`, `api_calls_made=0`, `quota_consumed=false`. |
+| `npm test` with Qwen key env vars cleared | PASS | Key env vars blank, `has_qwen_key=false`, `api_calls_made=0`, `quota_consumed=false`. |
 
 ## Real Qwen Usage
 
-- `npm run smoke:stage6f:qwen`: no real Qwen call, `api_calls_made=0`.
-- `npm run test:stage6f`: yes, one production normal palm upload E2E call.
-- `npm test`: yes, one additional production normal palm upload E2E call because it includes `test:stage6f`.
+- `npm test`: no real Qwen call, `api_calls_made=0`, `quota_consumed=false`.
+- `npm run test:stage6f`: no real Qwen call by default; production normal-palm upload is `DISABLED_BY_DEFAULT`.
+- `npm run smoke:stage6f:qwen`: no real Qwen call, `api_calls_made=0`, `quota_consumed=false`.
+- `npm run test:stage6f:real` / `npm run e2e:real-qwen`: manual real production E2E only. It requires `PALMMI_ALLOW_REAL_QWEN_TESTS=1` and a Qwen key marker (`PALMMI_QWEN_API_KEY`, `QWEN_API_KEY`, `DASHSCOPE_API_KEY`, or `VLM_API_KEY`). It may consume Qwen quota.
+- `npm run smoke:stage6f:qwen -- --real ...`: manual real Qwen smoke only. It requires `PALMMI_ALLOW_REAL_QWEN_TESTS=1` plus a Qwen key. It may consume Qwen quota.
 
-Total real Qwen production E2E calls made by this Stage 6G verification: 2. This likely consumed quota. No `--real` smoke was run.
+Total real Qwen calls made by Stage 6G-Fix verification: 0. No quota was consumed in this fix verification.
 
 ## Remaining Risks
 
@@ -94,7 +102,7 @@ Total real Qwen production E2E calls made by this Stage 6G verification: 2. This
 - Android WeChat physical device: `MANUAL_REQUIRED`.
 - iPhone Safari physical device: `MANUAL_REQUIRED`.
 - Android Chrome physical device: `MANUAL_REQUIRED`.
-- New Stage 6G code still needs normal Cloudflare deployment after this commit before production can exercise the new duplicate guard.
+- If the latest Stage 6G runtime code has not been deployed, production still needs the normal Cloudflare deployment path before it can exercise the duplicate guard.
 - The duplicate guard is best-effort in-memory protection, not durable distributed rate limiting.
 - Missing dark / blurry / cropped-incomplete fixtures remain `BLOCKED_BY_MISSING_FIXTURE`.
 

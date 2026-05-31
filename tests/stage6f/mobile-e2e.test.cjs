@@ -9,6 +9,9 @@ const { runStage6GGuardTests } = require("./stage6g-guards.test.cjs");
 const root = path.resolve(__dirname, "..", "..");
 const BASE_URL = process.env.PALMMI_STAGE6F_BASE_URL || "https://palmmi.pages.dev";
 const API_URL = new URL("/api/analyze", BASE_URL).href;
+const REAL_QWEN_GUARD_ENV = "PALMMI_ALLOW_REAL_QWEN_TESTS";
+const REAL_QWEN_E2E_REQUESTED = process.argv.includes("--real-qwen-e2e")
+  || process.env.PALMMI_STAGE6F_REAL_QWEN_E2E === "1";
 const STORAGE_KEYS = Object.freeze({
   upload: "palmmi:lastUpload",
   stableAnalysis: "palmmi:last-analysis",
@@ -49,6 +52,47 @@ const DOM_LEAK_MARKERS = [
   "RecognitionResult",
   "AnalysisInput",
 ];
+
+function hasExplicitRealQwenGuard(env = process.env) {
+  return env[REAL_QWEN_GUARD_ENV] === "1";
+}
+
+function hasRealQwenTestKey(env = process.env) {
+  return [
+    "PALMMI_QWEN_API_KEY",
+    "QWEN_API_KEY",
+    "DASHSCOPE_API_KEY",
+    "VLM_API_KEY",
+  ].some((name) => typeof env[name] === "string" && env[name].trim());
+}
+
+function realQwenE2EState(overrides = {}) {
+  const allowRealQwenTests = hasExplicitRealQwenGuard();
+  const hasQwenKey = hasRealQwenTestKey();
+  let status = "DISABLED_BY_DEFAULT";
+  let message = "Production normal-palm upload is skipped by default to keep npm test at zero real Qwen cost.";
+  if (REAL_QWEN_E2E_REQUESTED && !allowRealQwenTests) {
+    status = "SKIPPED_REAL_QWEN_GUARD";
+    message = "Production normal-palm upload was requested but skipped because PALMMI_ALLOW_REAL_QWEN_TESTS is not 1.";
+  } else if (REAL_QWEN_E2E_REQUESTED && !hasQwenKey) {
+    status = "SKIPPED_QWEN_KEY_MISSING";
+    message = "Production normal-palm upload was requested but skipped because no Qwen test key marker is present.";
+  } else if (REAL_QWEN_E2E_REQUESTED) {
+    status = "READY";
+    message = "Production normal-palm upload is explicitly enabled and may consume Qwen quota.";
+  }
+  return {
+    requested: REAL_QWEN_E2E_REQUESTED,
+    status,
+    message,
+    required_env: `${REAL_QWEN_GUARD_ENV}=1`,
+    allow_real_qwen_tests: allowRealQwenTests,
+    has_qwen_key: hasQwenKey,
+    api_calls_made: 0,
+    quota_consumed: false,
+    ...overrides,
+  };
+}
 
 class Stage6FetchResponse {
   constructor(status, body) {
@@ -1801,6 +1845,8 @@ function validateRealQwenSmokeDryRun() {
   assert.equal(summary.ok, true, "real Qwen smoke dry run should exit successfully");
   assert.equal(summary.status, "REAL_QWEN_DISABLED", "real Qwen smoke must be disabled without --real");
   assert.equal(summary.api_calls_made, 0, "real Qwen smoke dry run must not call Qwen");
+  assert.equal(summary.quota_consumed, false, "real Qwen smoke dry run must report zero quota consumption");
+  assert.equal(summary.required_env, `${REAL_QWEN_GUARD_ENV}=1`, "dry run must document the explicit real-test guard");
   assert.deepEqual(summary.models, ["qwen3-vl-flash", "qwen3.6-flash"], "dry run should preserve requested A/B models");
   assert.equal(summary.safety.printed_key, false, "dry run summary must not print keys");
   assert.equal(summary.safety.printed_base64, false, "dry run summary must not print base64");
@@ -1812,6 +1858,7 @@ function validateRealQwenSmokeDryRun() {
     status: "PASS",
     mode: summary.status,
     api_calls_made: summary.api_calls_made,
+    quota_consumed: summary.quota_consumed,
     models: summary.models,
   };
 }
@@ -1983,18 +2030,31 @@ function validateStage6FSmokeSelectionFailures() {
     "palm-3.jpg",
     "palm-4.jpg",
     "palm-5.jpg",
-  ], (directory) => runSmokeCli([
-    "--real",
-    "--image-dir",
-    directory,
-    "--models",
-    "qwen3-vl-flash",
-    "--collapse-check",
-    "--min-palm-samples",
-    "5",
-    "--max-real-calls",
-    "10",
-  ], true));
+  ], (directory) => {
+    const options = smoke.parseArgs([
+      "--real",
+      "--image-dir",
+      directory,
+      "--models",
+      "qwen3-vl-flash",
+      "--collapse-check",
+      "--min-palm-samples",
+      "5",
+      "--max-real-calls",
+      "10",
+    ]);
+    const selected = smoke.selectSamples(options);
+    assert.equal(selected.ok, true);
+    const selectedDefinitions = Object.keys(selected.samples).map((name) => ({ name }));
+    const estimatedRealCalls = smoke.estimateRealCalls(selectedDefinitions, options.models);
+    assert.equal(estimatedRealCalls, 11);
+    return {
+      status: "MAX_REAL_CALLS_EXCEEDED",
+      estimated_real_calls: estimatedRealCalls,
+      api_calls_made: 0,
+      quota_consumed: false,
+    };
+  });
   assert.equal(maxExceeded.status, "MAX_REAL_CALLS_EXCEEDED");
   assert.equal(maxExceeded.estimated_real_calls, 11);
   assert.equal(maxExceeded.api_calls_made, 0);
@@ -3903,6 +3963,8 @@ async function validateNormalPalmUpload(context, fixturePath) {
     status: "PASS",
     fixture: path.relative(root, fixturePath),
     api,
+    api_calls_made: apiResponses.length,
+    quota_consumed: apiResponses.length > 0,
     state,
     result_state: resultState.state,
     poster_state: posterState.state,
@@ -4038,6 +4100,7 @@ async function main() {
     stage5_assets: [],
     devices: {},
     normal_palm_upload: null,
+    real_qwen_e2e: realQwenE2EState(),
     stage6f_fix: {},
     stage6f_fix2: {},
     stage6f_fix3: {},
@@ -4138,12 +4201,30 @@ async function main() {
         { name: "too-large.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(MAX_UPLOAD_BYTES + 1) },
         /太大|过大|8MB/
       );
-      summary.normal_palm_upload = await validateNormalPalmUploadWithoutBlockingSuite(mobileContext, fixturePath);
-      assert.equal(
-        summary.normal_palm_upload.status,
-        "PASS",
-        `normal production palm upload must pass; ${summary.normal_palm_upload.reason || summary.normal_palm_upload.status}`
-      );
+      summary.real_qwen_e2e = realQwenE2EState();
+      if (summary.real_qwen_e2e.status === "READY") {
+        summary.normal_palm_upload = await validateNormalPalmUploadWithoutBlockingSuite(mobileContext, fixturePath);
+        summary.real_qwen_e2e = realQwenE2EState({
+          status: summary.normal_palm_upload.status === "PASS" ? "PASS" : "FAIL",
+          api_calls_made: summary.normal_palm_upload.api_calls_made || 0,
+          quota_consumed: (summary.normal_palm_upload.api_calls_made || 0) > 0,
+        });
+        assert.equal(
+          summary.normal_palm_upload.status,
+          "PASS",
+          `normal production palm upload must pass; ${summary.normal_palm_upload.reason || summary.normal_palm_upload.status}`
+        );
+      } else {
+        summary.normal_palm_upload = {
+          status: summary.real_qwen_e2e.status,
+          reason: summary.real_qwen_e2e.message,
+          fixture: fixturePath ? path.relative(root, fixturePath) : null,
+          provider: null,
+          has_analysis_result: false,
+          api_calls_made: 0,
+          quota_consumed: false,
+        };
+      }
     } finally {
       await mobileContext.close();
     }

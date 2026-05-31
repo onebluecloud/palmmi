@@ -7,6 +7,9 @@
     "test": "npm run test:stage5p && npm run test:stage6f",
     "test:stage5p": "node tests/stage5/stage5p-provider-boundary.test.cjs",
     "test:stage6f": "node tests/stage6f/mobile-e2e.test.cjs",
+    "test:stage6f:real": "node tests/stage6f/mobile-e2e.test.cjs --real-qwen-e2e",
+    "e2e:real-qwen": "npm run test:stage6f:real",
+    "security-scan": "node scripts/stage6f/security-scan.cjs",
     "scan:stage6f": "node scripts/stage6f/security-scan.cjs",
     "smoke:stage6f:qwen": "node scripts/stage6f/real-qwen-smoke.cjs"
   }

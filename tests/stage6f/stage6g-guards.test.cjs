@@ -1,7 +1,11 @@
 const assert = require("node:assert/strict");
+const childProcess = require("node:child_process");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..", "..");
+const REAL_QWEN_GUARD_ENV = "PALMMI_ALLOW_REAL_QWEN_TESTS";
 
 function syntheticPngBuffer() {
   return Buffer.from(
@@ -81,6 +85,79 @@ function validAnalyzePayload(overrides = {}) {
       side: "unknown",
     },
   };
+}
+
+function testPackageScriptsKeepRealQwenOutOfDefaultTests() {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  const scripts = packageJson.scripts || {};
+  const unsafeDefaultPattern = /test:stage6f:real|e2e:real-qwen|--real(?:\s|$)|--real-qwen-e2e|PALMMI_ALLOW_REAL_QWEN_TESTS|PALMMI_QWEN_API_KEY|QWEN_API_KEY|DASHSCOPE_API_KEY|VLM_API_KEY/;
+  const realCommandText = `${scripts["test:stage6f:real"] || ""} ${scripts["e2e:real-qwen"] || ""}`;
+  const mobileRunner = fs.readFileSync(path.join(root, "tests", "stage6f", "mobile-e2e.test.cjs"), "utf8");
+
+  assert.equal(typeof scripts.test, "string", "package.json must define npm test");
+  assert.equal(typeof scripts["test:stage6f"], "string", "package.json must define safe Stage 6F/6G tests");
+  assert.equal(typeof scripts["test:stage6f:real"], "string", "package.json must define an explicit real Qwen E2E command");
+  assert.equal(typeof scripts["e2e:real-qwen"], "string", "package.json must define an obvious real Qwen E2E alias");
+  assert.doesNotMatch(scripts.test, unsafeDefaultPattern, "npm test must not reference real Qwen commands, flags, or keys");
+  assert.doesNotMatch(scripts["test:stage6f"], unsafeDefaultPattern, "safe Stage 6F/6G tests must not request real Qwen");
+  assert.match(realCommandText, /--real-qwen-e2e/, "real Qwen E2E command must opt into the real upload path explicitly");
+  assert.match(mobileRunner, new RegExp(REAL_QWEN_GUARD_ENV), "mobile E2E real upload path must require explicit real-Qwen guard env");
+  assert.match(mobileRunner, /--real-qwen-e2e/, "mobile E2E real upload path must be behind an explicit CLI flag");
+  assert.match(mobileRunner, /api_calls_made/, "mobile E2E summary must report real API call count");
+
+  return {
+    status: "PASS",
+    npm_test: scripts.test,
+    safe_stage6f: scripts["test:stage6f"],
+    real_stage6f: scripts["test:stage6f:real"],
+    real_alias: scripts["e2e:real-qwen"],
+  };
+}
+
+function testRealQwenSmokeRequiresExplicitGuard() {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "palmmi-real-qwen-guard-"));
+  try {
+    const output = childProcess.execFileSync(process.execPath, [
+      path.join(root, "scripts", "stage6f", "real-qwen-smoke.cjs"),
+      "--real",
+      "--image-dir",
+      directory,
+      "--collapse-check",
+      "--max-real-calls",
+      "12",
+    ], {
+      cwd: root,
+      encoding: "utf8",
+      windowsHide: true,
+      maxBuffer: 1024 * 1024,
+      env: {
+        ...process.env,
+        [REAL_QWEN_GUARD_ENV]: "",
+        PALMMI_QWEN_API_KEY: "",
+        QWEN_API_KEY: "",
+        DASHSCOPE_API_KEY: "",
+        VLM_API_KEY: "",
+      },
+    });
+    const summary = JSON.parse(output);
+    assert.equal(summary.status, "REAL_QWEN_TESTS_DISABLED_BY_GUARD");
+    assert.equal(summary.required_env, `${REAL_QWEN_GUARD_ENV}=1`);
+    assert.equal(summary.api_calls_made, 0);
+    assert.equal(summary.quota_consumed, false);
+    assert.equal(summary.safety.printed_key, false);
+    assert.equal(summary.safety.printed_base64, false);
+    assert.equal(summary.safety.printed_raw_response, false);
+
+    return {
+      status: "PASS",
+      smoke_status: summary.status,
+      api_calls_made: summary.api_calls_made,
+      quota_consumed: summary.quota_consumed,
+      required_env: summary.required_env,
+    };
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 async function testDuplicateImageDoesNotCallProviderTwice() {
@@ -211,6 +288,8 @@ function testNetworkFailedUserMessage() {
 
 async function runStage6GGuardTests() {
   return {
+    test_cost_isolation_scripts: testPackageScriptsKeepRealQwenOutOfDefaultTests(),
+    real_qwen_smoke_guard: testRealQwenSmokeRequiresExplicitGuard(),
     duplicate_image: await testDuplicateImageDoesNotCallProviderTwice(),
     invalid_inputs: await testInvalidInputsDoNotCallProvider(),
     network_failed_message: await testNetworkFailedUserMessage(),

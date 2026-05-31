@@ -28,6 +28,7 @@ const DEFAULT_TIMEOUT_MS = 60000;
 const DEFAULT_MAX_REAL_CALLS = 5;
 const DEFAULT_MIN_PALM_SAMPLES = 5;
 const DEFAULT_MIN_UNIQUE_PERSONALITIES = 2;
+const REAL_QWEN_GUARD_ENV = "PALMMI_ALLOW_REAL_QWEN_TESTS";
 const SAMPLE_DEFINITIONS = Object.freeze([
   {
     name: "not_palm",
@@ -146,7 +147,7 @@ function endpointLabel(endpoint) {
 }
 
 function keyFromEnv(env) {
-  for (const name of ["PALMMI_QWEN_API_KEY", "QWEN_API_KEY", "DASHSCOPE_API_KEY"]) {
+  for (const name of ["PALMMI_QWEN_API_KEY", "QWEN_API_KEY", "DASHSCOPE_API_KEY", "VLM_API_KEY"]) {
     const value = env[name];
     if (typeof value === "string" && value.trim()) {
       return value.trim();
@@ -917,10 +918,10 @@ function disabledSummary(options) {
     status: "REAL_QWEN_DISABLED",
     message: "No API call was made.",
     notice: [
-      "This script validates legacy 3-sample smoke or collapse-check multi-palm smoke when --real is provided.",
+      "This script validates legacy 3-sample smoke or collapse-check multi-palm smoke only when --real and PALMMI_ALLOW_REAL_QWEN_TESTS=1 are provided.",
       "Complete provider.analyze() may make about 1 call for not-palm and 2 calls per valid palm sample per model.",
       "It may consume quota.",
-      "Use --real to confirm.",
+      "Use --real plus PALMMI_ALLOW_REAL_QWEN_TESTS=1 to confirm.",
     ],
     model: options.model,
     models: options.models,
@@ -930,7 +931,34 @@ function disabledSummary(options) {
     min_unique_personalities: options.minUniquePersonalities,
     max_real_calls: options.maxRealCalls,
     endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
+    required_env: `${REAL_QWEN_GUARD_ENV}=1`,
+    allow_real_qwen_tests: false,
     api_calls_made: 0,
+    quota_consumed: false,
+    safety: {
+      printed_key: false,
+      printed_base64: false,
+      printed_raw_response: false,
+    },
+  };
+}
+
+function realQwenGuardSummary(options) {
+  return {
+    ok: true,
+    status: "REAL_QWEN_TESTS_DISABLED_BY_GUARD",
+    message: "No API call was made because explicit real Qwen tests are disabled.",
+    required_env: `${REAL_QWEN_GUARD_ENV}=1`,
+    allow_real_qwen_tests: false,
+    has_qwen_key: Boolean(keyFromEnv(process.env)),
+    model: options.model,
+    models: options.models,
+    collapse_check: options.collapseCheck,
+    debug_classifier: options.debugClassifier,
+    max_real_calls: options.maxRealCalls,
+    endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
+    api_calls_made: 0,
+    quota_consumed: false,
     safety: {
       printed_key: false,
       printed_base64: false,
@@ -953,6 +981,7 @@ async function main() {
       status: "ARGUMENT_ERROR",
       message: error.message,
       api_calls_made: 0,
+      quota_consumed: false,
       safety: {
         printed_key: false,
         printed_base64: false,
@@ -968,13 +997,16 @@ async function main() {
       ok: true,
       status: "HELP",
       usage: [
+        "Set PALMMI_ALLOW_REAL_QWEN_TESTS=1 before any --real command.",
         "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\"",
         "npm run smoke:stage6f:qwen -- --real --not-palm <path> --palm-faint <path> --palm-clear <path>",
         "npm run smoke:stage6f:qwen -- --real --not-palm <path> --palm-sample <path> --palm-sample <path> --collapse-check --min-palm-samples 5",
         "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\" --models qwen3-vl-flash,qwen3.6-flash --collapse-check --max-real-calls 10",
         "npm run smoke:stage6f:qwen -- --real --image-dir \"E:\\其他\\Palmmi\\Palmmi-test-images\" --collapse-check --debug-classifier --min-palm-samples 5 --min-unique-personalities 2 --max-real-calls 10",
       ],
+      required_env: `${REAL_QWEN_GUARD_ENV}=1`,
       api_calls_made: 0,
+      quota_consumed: false,
       safety: {
         printed_key: false,
         printed_base64: false,
@@ -986,6 +1018,11 @@ async function main() {
 
   if (!options.real) {
     printJson(disabledSummary(options));
+    return;
+  }
+
+  if (process.env[REAL_QWEN_GUARD_ENV] !== "1") {
+    printJson(realQwenGuardSummary(options));
     return;
   }
 
@@ -1008,6 +1045,7 @@ async function main() {
       available_images: selected.available,
       sample_selection: selected.sampleSelection || null,
       api_calls_made: 0,
+      quota_consumed: false,
       safety: {
         printed_key: false,
         printed_base64: false,
@@ -1027,6 +1065,7 @@ async function main() {
       status: "IMAGE_FILE_MISSING",
       missing_files: missing.map((filePath) => path.basename(filePath)),
       api_calls_made: 0,
+      quota_consumed: false,
       safety: {
         printed_key: false,
         printed_base64: false,
@@ -1049,6 +1088,7 @@ async function main() {
       estimated_real_calls: estimatedRealCalls,
       max_real_calls: options.maxRealCalls,
       api_calls_made: 0,
+      quota_consumed: false,
       safety: {
         printed_key: false,
         printed_base64: false,
@@ -1068,7 +1108,10 @@ async function main() {
       model: options.model,
       models: options.models,
       endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
+      required_env: `${REAL_QWEN_GUARD_ENV}=1`,
+      allow_real_qwen_tests: true,
       api_calls_made: 0,
+      quota_consumed: false,
       safety: {
         printed_key: false,
         printed_base64: false,
@@ -1087,6 +1130,7 @@ async function main() {
       models: options.models,
       endpoint: endpointLabel(DEFAULT_QWEN_ENDPOINT),
       api_calls_made: 0,
+      quota_consumed: false,
       safety: {
         printed_key: false,
         printed_base64: false,
@@ -1157,7 +1201,9 @@ async function main() {
       preferred_model: "inconclusive",
       reason: "Run with --collapse-check and at least three palm samples to compare model collapse risk.",
     },
+    allow_real_qwen_tests: true,
     api_calls_made: apiCallsMade,
+    quota_consumed: apiCallsMade > 0,
     safety: {
       printed_key: false,
       printed_base64: false,
@@ -1175,6 +1221,7 @@ if (require.main === module) {
       status: "SMOKE_SCRIPT_FAILED",
       message: error && error.message ? error.message.slice(0, 160) : "unknown",
       api_calls_made: 0,
+      quota_consumed: false,
       safety: {
         printed_key: false,
         printed_base64: false,
@@ -1194,6 +1241,7 @@ module.exports = {
   estimateRealCalls,
   parseArgs,
   publicResultFromSampleResult,
+  realQwenGuardSummary,
   selectSamples,
   smokeSummaryOk,
 };

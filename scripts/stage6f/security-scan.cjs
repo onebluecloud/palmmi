@@ -85,7 +85,7 @@ function collectFindings(file, text) {
   const lines = text.split(/\r?\n/);
 
   const bearerPattern = /Bearer[^\S\r\n]+([A-Za-z0-9._~+/=-]{20,})/g;
-  const keyAssignmentPattern = /\b(PALMMI_QWEN_API_KEY|QWEN_API_KEY|DASHSCOPE_API_KEY)\b[^\S\r\n]*[:=][^\S\r\n]*["']?([A-Za-z0-9._~+/=-]{20,})/g;
+  const keyAssignmentPattern = /\b(PALMMI_QWEN_API_KEY|QWEN_API_KEY|DASHSCOPE_API_KEY|VLM_API_KEY)\b[^\S\r\n]*[:=][^\S\r\n]*["']?([A-Za-z0-9._~+/=-]{20,})/g;
   for (const line of lines) {
     for (const match of line.matchAll(bearerPattern)) {
       if (!isAllowedPlaceholder(match[1]) && !match[0].includes("${")) {
