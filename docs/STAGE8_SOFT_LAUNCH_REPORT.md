@@ -24,6 +24,7 @@ Current status:
 | Stage 6H | `MANUAL_REQUIRED` |
 | Stage 6I | `BLOCKED_BY_STAGE6H_MANUAL_REQUIRED` |
 | Stage 7 | `PREPARED_NOT_ACTIVE` |
+| Poster save/copy | `SIMULATED_PASS_MANUAL_REQUIRED` |
 | Feedback log | Template created in `docs/STAGE8_FEEDBACK_LOG.md` |
 | Public release | Not allowed |
 
@@ -49,6 +50,7 @@ Do not launch to multiple platforms at once.
 | Errors | Are `NOT_PALM`, `IMAGE_NOT_CLEAR`, timeout, and network messages understandable? |
 | Result | Does the result page show a real analysis result? |
 | Poster | Can the poster page open and be saved? |
+| Share copy | Can users copy a safe share caption without technical details? |
 | WeChat | Does WeChat WebView work acceptably? |
 | Cost | Does usage stay within a manually acceptable Qwen cost range? |
 | Privacy | Do users understand that Palmmi is entertainment-oriented and not long-term original-image storage? |
@@ -64,6 +66,7 @@ Stage 8 does not require analytics code by default. Manual tracking is acceptabl
 | Successful uploads | User feedback |
 | Successful results | User feedback |
 | Successful poster saves | User feedback |
+| Successful share-copy actions | User feedback |
 | Error codes observed | User screenshots or messages |
 | Device/browser mix | User feedback |
 | Repeat usage interest | User feedback |

@@ -81,6 +81,7 @@ Avoid wording:
 | Bio options | Entertainment and personality-card framing. | Prepared in `docs/STAGE7_ACCOUNT_PROFILE_GUIDE.md`. |
 | Content drafts | Internal drafts only, not publish-ready. | Prepared in `docs/STAGE7_CONTENT_DRAFTS.md`. |
 | FAQ | Must explain privacy, cost, limitations, and entertainment framing. | Prepared in `docs/STAGE7_CONTENT_DRAFTS.md`. |
+| Poster share kit | Local save/copy tools for later internal testing. | Ready for internal testing; see `docs/STAGE7_POSTER_SHARE_KIT_REPORT.md`. |
 | Feedback form | Manual or external form, no app database. | Planned below. |
 
 ## 7. Feedback Collection Plan
@@ -108,6 +109,7 @@ Stage 7 can be marked `PASS` only when all are true:
 - Draft content is reviewed and approved by the user.
 - FAQ is ready.
 - Feedback collection method is selected.
+- Poster save/copy has passed simulated zero-cost checks and real-device limitations are recorded.
 - No public release has happened yet.
 - No payment, donation, login, database, or production domain has been added.
 
@@ -119,6 +121,7 @@ This documentation work does not call Qwen.
 
 Verification run on 2026-05-31:
 
+- `npm run test:stage6f`: PASS, poster share kit helpers/actions PASS, `api_calls_made=0`, `quota_consumed=false`.
 - `npm run security-scan`: PASS, `finding_count=0`.
 - `npm run smoke:stage6f:qwen`: PASS, dry run, `api_calls_made=0`, `quota_consumed=false`.
 - `npm run build`: PASS.

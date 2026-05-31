@@ -544,7 +544,7 @@
       homeText: "返回首页",
       homeHref: "../index.html",
       posterActionText: "生成分享海报",
-      posterActionNote: "进入基础海报预览页，保存图片和分享文案仍为占位。",
+      posterActionNote: "进入基础海报预览页，可保存图片并复制分享文案。",
       posterHref: "../poster/index.html",
       posterEnabled: true,
     };

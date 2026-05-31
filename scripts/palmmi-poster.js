@@ -625,10 +625,300 @@
     };
   }
 
+  function cleanShareCopy(value, fallback = "") {
+    return firstText(safeUserCopy(value), fallback).replace(/\s+/g, " ").trim();
+  }
+
+  function buildPosterShareText(viewModel) {
+    if (!viewModel || viewModel.problem) {
+      return "";
+    }
+    const personaName = cleanShareCopy(viewModel.personaName, FALLBACKS.personaName);
+    const personaCode = cleanShareCopy(viewModel.personaCode);
+    const hook = cleanShareCopy(viewModel.hook);
+    const summary = cleanShareCopy(viewModel.summary);
+    const tags = unique([
+      ...(Array.isArray(viewModel.tags) ? viewModel.tags : []),
+      "#Palmmi",
+      "#掌纹人格标签",
+    ]).map((tag) => cleanShareCopy(tag)).filter(Boolean).slice(0, 5);
+    const title = personaCode ? `${personaName} (${personaCode})` : personaName;
+    return [
+      "我的 Palmmi 掌纹人格卡",
+      title,
+      hook,
+      summary,
+      tags.join(" "),
+    ].filter(Boolean).join("\n");
+  }
+
+  function drawRoundRect(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+    const chars = Array.from(firstText(text));
+    const lines = [];
+    let line = "";
+    chars.forEach((char) => {
+      const nextLine = `${line}${char}`;
+      if (line && ctx.measureText(nextLine).width > maxWidth) {
+        lines.push(line);
+        line = char;
+        return;
+      }
+      line = nextLine;
+    });
+    if (line) {
+      lines.push(line);
+    }
+    const limited = lines.slice(0, maxLines);
+    if (lines.length > maxLines && limited.length) {
+      const lastIndex = limited.length - 1;
+      let lastLine = limited[lastIndex];
+      while (lastLine && ctx.measureText(`${lastLine}…`).width > maxWidth) {
+        lastLine = lastLine.slice(0, -1);
+      }
+      limited[lastIndex] = `${lastLine}…`;
+    }
+    limited.forEach((lineText, index) => {
+      ctx.fillText(lineText, x, y + index * lineHeight);
+    });
+    return y + limited.length * lineHeight;
+  }
+
+  function renderPosterToCanvas(viewModel, options = {}) {
+    const doc = options.document || global.document;
+    if (!doc || typeof doc.createElement !== "function" || !viewModel || viewModel.problem) {
+      return null;
+    }
+    const posterCanvas = doc.createElement("canvas");
+    posterCanvas.width = options.width || 1080;
+    posterCanvas.height = options.height || 1440;
+    const ctx = posterCanvas.getContext && posterCanvas.getContext("2d");
+    if (!ctx) {
+      return null;
+    }
+
+    const width = posterCanvas.width;
+    const height = posterCanvas.height;
+    ctx.fillStyle = "#f4f1ea";
+    ctx.fillRect(0, 0, width, height);
+
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, "#151a1f");
+    gradient.addColorStop(1, "#2e363b");
+    drawRoundRect(ctx, 72, 72, width - 144, height - 144, 40);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(244, 241, 234, 0.32)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(244, 241, 234, 0.66)";
+    ctx.font = "30px sans-serif";
+    ctx.fillText("Palmmi", 120, 160);
+
+    ctx.fillStyle = "#f4f1ea";
+    ctx.font = "42px sans-serif";
+    ctx.fillText(cleanShareCopy(viewModel.personaCode, "P--"), 120, 245);
+
+    ctx.font = "88px sans-serif";
+    const titleBottom = drawWrappedText(ctx, cleanShareCopy(viewModel.personaName, FALLBACKS.personaName), 120, 350, width - 240, 104, 3);
+
+    ctx.fillStyle = "#e8c56d";
+    ctx.font = "46px sans-serif";
+    const hookBottom = drawWrappedText(ctx, cleanShareCopy(viewModel.hook, FALLBACKS.hook), 120, titleBottom + 70, width - 240, 60, 3);
+
+    ctx.fillStyle = "rgba(244, 241, 234, 0.84)";
+    ctx.font = "34px sans-serif";
+    drawWrappedText(ctx, cleanShareCopy(viewModel.summary, FALLBACKS.summary), 120, hookBottom + 70, width - 240, 48, 4);
+
+    const tags = Array.isArray(viewModel.tags) ? viewModel.tags.slice(0, 4) : [];
+    ctx.font = "28px sans-serif";
+    let tagX = 120;
+    let tagY = height - 300;
+    tags.forEach((tag) => {
+      const label = cleanShareCopy(tag);
+      if (!label) {
+        return;
+      }
+      const tagWidth = Math.min(ctx.measureText(label).width + 46, width - 240);
+      if (tagX + tagWidth > width - 120) {
+        tagX = 120;
+        tagY += 58;
+      }
+      drawRoundRect(ctx, tagX, tagY - 34, tagWidth, 46, 23);
+      ctx.fillStyle = "rgba(232, 197, 109, 0.18)";
+      ctx.fill();
+      ctx.fillStyle = "#f4f1ea";
+      ctx.fillText(label, tagX + 22, tagY);
+      tagX += tagWidth + 14;
+    });
+
+    ctx.fillStyle = "rgba(244, 241, 234, 0.62)";
+    ctx.font = "26px sans-serif";
+    ctx.fillText("娱乐向人格标签，不用于预测或判断现实结果", 120, height - 170);
+    return posterCanvas;
+  }
+
+  function downloadPosterImage(viewModel, options = {}) {
+    const doc = options.document || global.document;
+    const win = options.window || global;
+    const posterCanvas = renderPosterToCanvas(viewModel, { document: doc });
+    if (!doc || !doc.body || !posterCanvas || typeof posterCanvas.toBlob !== "function") {
+      return Promise.resolve({ ok: false, code: "POSTER_SAVE_UNSUPPORTED" });
+    }
+
+    return new Promise((resolve) => {
+      posterCanvas.toBlob((blob) => {
+        const urlApi = win.URL || win.webkitURL;
+        if (!blob || !urlApi || typeof urlApi.createObjectURL !== "function") {
+          resolve({ ok: false, code: "POSTER_SAVE_UNSUPPORTED" });
+          return;
+        }
+        const objectUrl = urlApi.createObjectURL(blob);
+        const link = doc.createElement("a");
+        link.href = objectUrl;
+        link.rel = "noopener";
+        link.setAttribute("download", options.filename || "palmmi-poster.png");
+        link.style.display = "none";
+        doc.body.appendChild(link);
+        link.click();
+        link.remove();
+        if (typeof urlApi.revokeObjectURL === "function") {
+          win.setTimeout(() => urlApi.revokeObjectURL(objectUrl), 0);
+        }
+        resolve({ ok: true, code: "POSTER_IMAGE_READY", mime_type: blob.type || "image/png" });
+      }, "image/png");
+    });
+  }
+
+  function fallbackCopyText(doc, text) {
+    if (!doc || typeof doc.createElement !== "function" || typeof doc.execCommand !== "function") {
+      return false;
+    }
+    const input = doc.createElement("textarea");
+    input.value = text;
+    input.setAttribute("readonly", "readonly");
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    input.style.top = "0";
+    doc.body.appendChild(input);
+    input.select();
+    const copied = doc.execCommand("copy");
+    input.remove();
+    return copied;
+  }
+
+  function copyPosterShareText(viewModel, options = {}) {
+    const text = buildPosterShareText(viewModel);
+    if (!text) {
+      return Promise.resolve({ ok: false, code: "POSTER_COPY_EMPTY" });
+    }
+    const doc = options.document || global.document;
+    const nav = options.navigator || global.navigator || {};
+    const clipboard = nav["clipboard"];
+    if (clipboard && typeof clipboard.writeText === "function") {
+      return clipboard.writeText(text)
+        .then(() => ({ ok: true, code: "POSTER_COPY_READY", text }))
+        .catch(() => {
+          if (fallbackCopyText(doc, text)) {
+            return { ok: true, code: "POSTER_COPY_READY", text };
+          }
+          return { ok: false, code: "POSTER_COPY_UNSUPPORTED", text };
+        });
+    }
+    return Promise.resolve(
+      fallbackCopyText(doc, text)
+        ? { ok: true, code: "POSTER_COPY_READY", text }
+        : { ok: false, code: "POSTER_COPY_UNSUPPORTED", text }
+    );
+  }
+
   function setText(doc, id, value) {
     const element = doc.getElementById(id);
     if (element) {
       element.textContent = value;
+    }
+  }
+
+  function setButtonEnabled(element, enabled) {
+    if (!element) {
+      return;
+    }
+    element.disabled = !enabled;
+    element.setAttribute("aria-disabled", enabled ? "false" : "true");
+  }
+
+  function bindPosterShareActions(doc, viewModel) {
+    const saveButton = doc.getElementById("posterSavePlaceholder");
+    const copyButton = doc.getElementById("posterCopyPlaceholder");
+    const win = doc.defaultView || global;
+    const canUseActions = Boolean(viewModel && !viewModel.problem && viewModel.state === POSTER_STATES.READY);
+
+    setText(doc, "posterSideCopy", canUseActions
+      ? "这是一张适合手机保存和轻量分享的人格身份卡。"
+      : "这是一张适合手机截图的人格身份卡。保存图片和分享文案入口仍为占位。");
+    setText(doc, "posterSaveNote", canUseActions ? "生成 PNG 图片保存到本机。" : "保存图片将在后续阶段开放");
+    setText(doc, "posterCopyNote", canUseActions ? "复制一段不含技术细节的分享文案。" : "分享文案将在后续阶段开放");
+    setButtonEnabled(saveButton, canUseActions);
+    setButtonEnabled(copyButton, canUseActions);
+
+    if (!canUseActions) {
+      if (saveButton) {
+        saveButton.onclick = null;
+      }
+      if (copyButton) {
+        copyButton.onclick = null;
+      }
+      return;
+    }
+
+    if (saveButton) {
+      saveButton.onclick = () => {
+        setButtonEnabled(saveButton, false);
+        setText(doc, "posterSaveNote", "正在生成图片...");
+        downloadPosterImage(viewModel, { document: doc, window: win })
+          .then((result) => {
+            setText(
+              doc,
+              "posterSaveNote",
+              result.ok ? "已生成 PNG 图片，若浏览器拦截下载，请截图保存。" : "当前浏览器暂不支持直接保存，请截图保存海报。"
+            );
+          })
+          .catch(() => {
+            setText(doc, "posterSaveNote", "当前浏览器暂不支持直接保存，请截图保存海报。");
+          })
+          .finally(() => setButtonEnabled(saveButton, true));
+      };
+    }
+
+    if (copyButton) {
+      copyButton.onclick = () => {
+        setButtonEnabled(copyButton, false);
+        setText(doc, "posterCopyNote", "正在复制...");
+        copyPosterShareText(viewModel, { document: doc, navigator: win.navigator })
+          .then((result) => {
+            setText(doc, "posterCopyNote", result.ok ? "已复制分享文案。" : "当前浏览器暂不支持自动复制，请手动选择页面文字。");
+          })
+          .catch(() => {
+            setText(doc, "posterCopyNote", "当前浏览器暂不支持自动复制，请手动选择页面文字。");
+          })
+          .finally(() => setButtonEnabled(copyButton, true));
+      };
     }
   }
 
@@ -708,6 +998,7 @@
         element.href = href;
       }
     });
+    bindPosterShareActions(doc, null);
   }
 
   function renderPoster(doc, viewModel) {
@@ -740,6 +1031,7 @@
     replaceList(doc, "posterTags", viewModel.tags, "chip");
     replaceList(doc, "posterMatchedFeatures", viewModel.matchedFeatures, "");
     replaceTopCandidates(doc, "posterTopCandidates", viewModel.topCandidates);
+    bindPosterShareActions(doc, viewModel);
   }
 
   function readRequestedTestState(locationLike) {
@@ -809,11 +1101,15 @@
   const api = {
     ANALYSIS_RESULT_STORAGE_KEY,
     POSTER_STATES,
+    buildPosterShareText,
+    copyPosterShareText,
     createPosterViewModel,
     createProblemViewModel,
+    downloadPosterImage,
     initPosterPage,
     readAnalysisResult,
     readRequestedTestState,
+    renderPosterToCanvas,
   };
 
   if (typeof module !== "undefined" && module.exports) {

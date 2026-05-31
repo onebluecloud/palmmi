@@ -28,6 +28,14 @@ Stage 7 prep status: PREPARED_NOT_ACTIVE
 
 Reason: 2026-05-31 Codex 已补齐 Stage 7 宣发准备文档：`docs/STAGE7_MARKETING_PREP_PLAN.md`、`docs/STAGE7_ACCOUNT_PROFILE_GUIDE.md`、`docs/STAGE7_CONTENT_DRAFTS.md`。这些内容仅为内部准备稿，不是公开发布，不应直接发布。根据用户最新指示，真机测试推迟到最终开发验收前；Stage 7 可以继续做内部准备和文案审核，但不能公开发布，最终上线仍受 Stage 6H 真机结果约束。
 
+Stage 7 poster share kit status: READY_FOR_INTERNAL_TESTING_NOT_PUBLIC
+
+Reason: 2026-05-31 Codex 已把海报页 `保存图片` / `复制分享文案` 从 ready 状态占位入口升级为本地分享工具：有有效分析结果时启用按钮，保存动作在浏览器本地生成 PNG，复制动作只复制脱敏的用户可读人格卡文案；无有效结果时继续禁用并保留重试流程。该功能不新增网络请求，不读取或导出原图，不调用 Qwen，不消耗额度，不接支付 / 打赏 / 登录 / 数据库 / 分析统计，不修改 Stage 3 人格规则或 Stage 5 Qwen/VLM 主链路。新增报告：`docs/STAGE7_POSTER_SHARE_KIT_REPORT.md`。真机下载 / 微信 WebView 保存体验仍为 `MANUAL_REQUIRED`，按用户要求推迟到最终开发验收前。
+
+Stage 7 poster share kit verification: PASS_ZERO_COST
+
+Reason: 2026-05-31 Codex 已运行 `node tests\stage6f\stage6g-guards.test.cjs`、`npm run test:stage6f`、`npm run smoke:stage6f:qwen`、`npm run security-scan`、`npm run build`、`npm test`。结果均 PASS；`stage7.poster_share_kit_helpers.status=PASS`、`stage7.poster_share_kit_actions.status=PASS`；security scan `finding_count=0`；smoke dry run `api_calls_made=0`、`quota_consumed=false`；`npm test` 中真实 Qwen E2E 继续 `DISABLED_BY_DEFAULT`，`api_calls_made=0`、`quota_consumed=false`。本轮未设置 `PALMMI_ALLOW_REAL_QWEN_TESTS=1`，未调用真实 Qwen，未消耗额度。
+
 Donation strategy status: DRAFT_ONLY_NO_CODE
 
 Reason: 2026-05-31 Codex 已新增 `docs/DONATION_STRATEGY_DRAFT.md`，只记录未来是否考虑打赏 / 支付的判断条件和风险；本轮未新增支付、打赏、二维码、登录、会员、数据库或计费逻辑。

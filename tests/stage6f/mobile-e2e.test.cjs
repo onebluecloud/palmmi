@@ -1540,6 +1540,146 @@ async function validateStage6FFix3PosterContract(context) {
   };
 }
 
+function validateStage7PosterShareKitHelpers() {
+  const posterPage = require(path.join(root, "scripts", "palmmi-poster.js"));
+  const storage = createMemoryStorage();
+  const result = completeAnalysisResult({
+    extra: {
+      valid_palm: true,
+      personality_id: "P25",
+      personality_name: "老干部",
+      poster_quote: "别人还在情绪开会，你已经端着保温杯散会了。",
+      description: "这份结果已补齐用户可读描述，用于稳定展示。",
+      traits: ["稳定", "降噪", "M1"],
+    },
+  });
+  storage.setItem(STORAGE_KEYS.stableAnalysis, JSON.stringify({
+    version: 1,
+    analysis_id: "analysis_stage7_poster_share_kit_helper",
+    created_at: "2026-05-31T00:00:00.000Z",
+    provider: "qwen",
+    analysis_result: result,
+  }));
+  const read = posterPage.readAnalysisResult({ storage });
+  assert.equal(read.ok, true, "share kit helper fixture must be readable through the page adapter");
+  const viewModel = posterPage.createPosterViewModel(read.result);
+
+  assert.equal(typeof posterPage.buildPosterShareText, "function", "poster share text helper must be exported");
+  const shareText = posterPage.buildPosterShareText(viewModel);
+  assert.match(shareText, /Palmmi/);
+  assert.match(shareText, /老干部/);
+  assert.match(shareText, /别人还在情绪开会/);
+  assert.match(shareText, /#Palmmi/);
+  assert.doesNotMatch(
+    shareText,
+    /debug|schema|pipeline|provider_output|raw_provider|raw_response|Authorization|base64|score|VLM/i,
+    "poster share copy must not expose technical internals"
+  );
+
+  return {
+    status: "PASS",
+    share_text_length: shareText.length,
+  };
+}
+
+async function validateStage7PosterShareKitActions(context) {
+  const page = await context.newPage();
+  const signals = createSignals(page);
+  const result = completeAnalysisResult({
+    extra: {
+      analysis_id: "analysis_stage7_poster_share_kit",
+      valid_palm: true,
+      personality_id: "P25",
+      personality_name: "老干部",
+      poster_quote: "别人还在情绪开会，你已经端着保温杯散会了。",
+      description: "这份结果已补齐用户可读描述，用于稳定展示。",
+      traits: ["稳定", "降噪", "M1"],
+    },
+  });
+
+  await page.addInitScript((analysisResult) => {
+    sessionStorage.setItem("palmmi:last-analysis", JSON.stringify({
+      version: 1,
+      analysis_id: "analysis_stage7_poster_share_kit",
+      created_at: "2026-05-31T00:00:00.000Z",
+      provider: "qwen",
+      analysis_result: analysisResult,
+    }));
+    sessionStorage.setItem("palmmi:lastAnalysisResult", JSON.stringify(analysisResult));
+    window.__palmmiDownloads = [];
+    window.__palmmiClipboard = "";
+    window.URL.createObjectURL = (blob) => {
+      window.__palmmiDownloads.push({
+        type: blob && blob.type ? blob.type : "",
+        size: blob && typeof blob.size === "number" ? blob.size : 0,
+      });
+      return "blob:palmmi-stage7-poster";
+    };
+    window.URL.revokeObjectURL = () => {};
+    HTMLCanvasElement.prototype.toBlob = function toBlob(callback) {
+      callback(new Blob(["palmmi poster png"], { type: "image/png" }));
+    };
+    HTMLAnchorElement.prototype.click = function click() {
+      window.__palmmiDownloadClick = {
+        href: this.href,
+        filename: this.getAttribute("download") || "",
+      };
+    };
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText(text) {
+          window.__palmmiClipboard = text;
+          return Promise.resolve();
+        },
+      },
+    });
+  }, result);
+
+  await page.goto(localPageUrl("poster"), { waitUntil: "domcontentloaded" });
+  await waitForPageState(page, "#posterApp");
+  const readyState = await page.evaluate(() => ({
+    state: document.querySelector("#posterApp").dataset.state,
+    readyVisible: !document.querySelector("#posterReady").hidden,
+    saveDisabled: document.querySelector("#posterSavePlaceholder").disabled,
+    copyDisabled: document.querySelector("#posterCopyPlaceholder").disabled,
+    sideCopy: document.querySelector(".poster-side-copy").textContent,
+  }));
+  assert.equal(readyState.readyVisible, true, "valid analysis_result must render poster before share actions");
+  assert.equal(readyState.saveDisabled, false, "poster save action must be enabled when a ready poster is rendered");
+  assert.equal(readyState.copyDisabled, false, "poster copy action must be enabled when a ready poster is rendered");
+  assert.doesNotMatch(readyState.sideCopy, /占位/, "ready poster share kit must not describe save/copy as placeholders");
+
+  await page.click("#posterCopyPlaceholder");
+  await page.click("#posterSavePlaceholder");
+  const actionState = await page.evaluate(() => ({
+    clipboard: window.__palmmiClipboard,
+    downloads: window.__palmmiDownloads,
+    downloadClick: window.__palmmiDownloadClick,
+    noteText: Array.from(document.querySelectorAll(".poster-note")).map((item) => item.textContent).join(" / "),
+    bodyText: document.body.innerText || "",
+  }));
+  assert.match(actionState.clipboard, /Palmmi/);
+  assert.match(actionState.clipboard, /老干部/);
+  assert.deepEqual(
+    actionState.downloads.map((item) => item.type),
+    ["image/png"],
+    "poster save action must generate a PNG download"
+  );
+  assert.equal(actionState.downloadClick.filename, "palmmi-poster.png");
+  assert.match(actionState.noteText, /已复制|已生成/);
+  assertNoDomLeaks(actionState.bodyText, "stage7 poster share kit DOM");
+
+  await assertBrowserClean(signals, "stage7 poster share kit actions");
+  await page.close();
+  return {
+    status: "PASS",
+    state: readyState.state,
+    download_count: actionState.downloads.length,
+    copied_text_length: actionState.clipboard.length,
+  };
+}
+
 async function validateStage6FFix3InvalidPosterBlocked(context) {
   const page = await context.newPage();
   const signals = createSignals(page);
@@ -4110,6 +4250,7 @@ async function main() {
     stage6f_final_fix: {},
     stage6f_final_classifier_hard_fix: {},
     stage6g: {},
+    stage7: {},
     real_qwen_smoke: null,
     abnormal_inputs: {},
     simulated_qwen_errors: null,
@@ -4132,6 +4273,7 @@ async function main() {
     summary.stage6f_final.p25_requires_reason = await validateStage6FFinalP25RequiresReason();
     summary.stage6f_final.smoke_collapse_diagnostics = validateStage6FFinalSmokeCollapseDiagnostics();
     summary.stage6f_final.low_confidence_poster_contract = validateStage6FFinalLowConfidencePosterContract();
+    summary.stage7.poster_share_kit_helpers = validateStage7PosterShareKitHelpers();
     summary.stage6f_final_fix.feature_driven_local_classification = await validateStage6FFinalFixFeatureDrivenLocalClassification();
     summary.stage6f_final_fix.smoke_uses_local_candidates = await validateStage6FFinalFixSmokeUsesLocalCandidates();
     summary.stage6f_final_fix.poster_main_candidate_mismatch_blocked = validateStage6FFinalFixPosterMainCandidateMismatchBlocked();
@@ -4188,6 +4330,7 @@ async function main() {
       summary.stage6f_fix3.no_default_persona_fallback = await validateStage6FFix3NoDefaultPersonaFallback(mobileContext);
       summary.stage6f_fix3.repeated_analysis_isolation = await validateStage6FFix3RepeatedAnalysisIsolation(mobileContext);
       summary.stage6f_fix3.poster_contract = await validateStage6FFix3PosterContract(mobileContext);
+      summary.stage7.poster_share_kit_actions = await validateStage7PosterShareKitActions(mobileContext);
       summary.stage6f_fix3.invalid_poster_blocked = await validateStage6FFix3InvalidPosterBlocked(mobileContext);
       summary.abnormal_inputs.non_image = await validateBlockedUpload(
         mobileContext,
