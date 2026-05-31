@@ -183,6 +183,36 @@ async function main() {
   assert.equal(deferredManual.quota_consumed, false);
   assert.equal(deferredManual.real_qwen_called, false);
 
+  const automatedFailure = await runStage6iPrecheck({
+    deferManualResult: true,
+    expectedCommitSha: 'abcdef1234567890abcdef1234567890abcdef12',
+    env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '0' },
+    runCommand: async (command) => {
+      if (command.name === 'npm run build') {
+        return {
+          status: 1,
+          stdout: '',
+          stderr: 'Build failed before deployment output.'
+        };
+      }
+      return {
+        status: 0,
+        stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, real_qwen_called: false }),
+        stderr: ''
+      };
+    }
+  });
+
+  assert.equal(automatedFailure.precheck_ok, false);
+  assert.equal(automatedFailure.ok, false);
+  assert.equal(automatedFailure.stage6i_status, 'AUTOMATED_PRECHECK_FAILED');
+  assert.equal(automatedFailure.error_code, 'STAGE6I_AUTOMATED_PRECHECK_FAILED');
+  assert.equal(automatedFailure.command_failure_count, 1);
+  assert.equal(automatedFailure.can_continue_development, false);
+  assert.equal(automatedFailure.api_calls_made, 0);
+  assert.equal(automatedFailure.quota_consumed, false);
+  assert.equal(automatedFailure.real_qwen_called, false);
+
   let preflightAttempts = 0;
   const retryingPreflight = await runStage6iPrecheck({
     expectedCommitSha: 'abcdef1234567890abcdef1234567890abcdef12',

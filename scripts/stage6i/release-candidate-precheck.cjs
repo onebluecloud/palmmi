@@ -361,6 +361,16 @@ async function runStage6iPrecheck(options = {}) {
   const canContinueDevelopment = precheckOk && deferManualResult && !manualResultRequired && manualSummary.status === 'SKIPPED_NO_MANUAL_RESULT_FILE';
   const formalGateOk = canEnterStage6i;
   let errorCode = null;
+  let stage6iStatus = 'BLOCKED_BY_STAGE6H_MANUAL_REQUIRED';
+
+  if (canEnterStage6i) {
+    stage6iStatus = 'READY_FOR_CONDITIONAL_CLOSEOUT';
+  } else if (canContinueDevelopment) {
+    stage6iStatus = 'READY_FOR_DEVELOPMENT_MANUAL_DEFERRED';
+  } else if (!precheckOk) {
+    stage6iStatus = 'AUTOMATED_PRECHECK_FAILED';
+    errorCode = 'STAGE6I_AUTOMATED_PRECHECK_FAILED';
+  }
 
   if (manualResultRequired && !formalGateOk) {
     errorCode = manualSummary.status === 'SKIPPED_NO_MANUAL_RESULT_FILE'
@@ -373,9 +383,7 @@ async function runStage6iPrecheck(options = {}) {
     precheck_ok: precheckOk,
     formal_gate_ok: formalGateOk,
     stage: '6I',
-    stage6i_status: canEnterStage6i
-      ? 'READY_FOR_CONDITIONAL_CLOSEOUT'
-      : (canContinueDevelopment ? 'READY_FOR_DEVELOPMENT_MANUAL_DEFERRED' : 'BLOCKED_BY_STAGE6H_MANUAL_REQUIRED'),
+    stage6i_status: stage6iStatus,
     error_code: errorCode,
     can_enter_stage6i: canEnterStage6i,
     can_continue_development: canContinueDevelopment,
