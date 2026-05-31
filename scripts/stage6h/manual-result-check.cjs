@@ -68,6 +68,25 @@ function getField(fields, expectedField) {
   return '';
 }
 
+function redactSensitiveValue(value) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  return String(value)
+    .replace(/data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=_-]+/gi, '[REDACTED_BASE64_IMAGE]')
+    .replace(/\bsk-[a-z0-9_-]{8,}\b/gi, '[REDACTED_SECRET]')
+    .replace(/\b(api[_-]?key|token|secret|authorization)\s*[:=]\s*['"]?[^\s'",;{}]+/gi, '$1=[REDACTED_SECRET]')
+    .replace(/raw\s*response\s*[:=]\s*.+$/gi, 'raw response=[REDACTED_RAW_RESPONSE]')
+    .replace(/\b[a-z0-9+/]{160,}={0,2}\b/gi, '[REDACTED_LONG_PAYLOAD]');
+}
+
+function redactFields(fields) {
+  return Object.fromEntries(
+    Object.entries(fields).map(([key, value]) => [key, redactSensitiveValue(value)])
+  );
+}
+
 function extractDeploymentConfirmed(text) {
   const deploymentBlock = text.split(/\n(?=iPhone Safari[：:]|iPhone 微信[：:]|Android Chrome[：:]|Android 微信[：:])/i)[0] || '';
   if (/build-meta|\/build-meta\.json/i.test(deploymentBlock) && /(是|已确认|匹配|pass|success|true)/i.test(deploymentBlock)) {
@@ -106,7 +125,7 @@ function evaluateDevice(deviceName, fields, present) {
   for (const field of REQUIRED_FIELDS) {
     const value = getField(fields, field);
     if (isMissing(value)) {
-      missing.push({ device: deviceName, field, value: value || null });
+      missing.push({ device: deviceName, field, value: value ? redactSensitiveValue(value) : null });
     }
   }
 
@@ -119,18 +138,18 @@ function evaluateDevice(deviceName, fields, present) {
   ]) {
     const value = getField(fields, field);
     if (!isMissing(value) && !isPositive(value)) {
-      blockers.push({ device: deviceName, field, value, code: 'CORE_FLOW_FAILED' });
+      blockers.push({ device: deviceName, field, value: redactSensitiveValue(value), code: 'CORE_FLOW_FAILED' });
     }
   }
 
   const whiteScreen = getField(fields, '是否白屏 / 卡死 / 无限加载');
   if (!isMissing(whiteScreen) && !isSafeNegative(whiteScreen)) {
-    blockers.push({ device: deviceName, field: '是否白屏 / 卡死 / 无限加载', value: whiteScreen, code: 'WHITE_SCREEN_OR_HANG' });
+    blockers.push({ device: deviceName, field: '是否白屏 / 卡死 / 无限加载', value: redactSensitiveValue(whiteScreen), code: 'WHITE_SCREEN_OR_HANG' });
   }
 
   const leak = getField(fields, '是否看到 key、base64、英文堆栈或 raw response');
   if (!isMissing(leak) && !isSafeNegative(leak)) {
-    blockers.push({ device: deviceName, field: '是否看到 key、base64、英文堆栈或 raw response', value: leak, code: 'SENSITIVE_LEAK' });
+    blockers.push({ device: deviceName, field: '是否看到 key、base64、英文堆栈或 raw response', value: redactSensitiveValue(leak), code: 'SENSITIVE_LEAK' });
   }
 
   return {
@@ -167,7 +186,7 @@ function evaluateManualResult(text) {
     const present = Object.prototype.hasOwnProperty.call(parsedDevices, deviceName);
     const fields = parsedDevices[deviceName] || {};
     const result = evaluateDevice(deviceName, fields, present);
-    result.fields = fields;
+    result.fields = redactFields(fields);
     devices[deviceName] = result;
     missingRequired.push(...result.missing);
     severeBlockers.push(...result.blockers);
@@ -252,5 +271,6 @@ if (require.main === module) {
 module.exports = {
   evaluateManualResult,
   parseDevices,
-  parseArgs
+  parseArgs,
+  redactSensitiveValue
 };

@@ -61,15 +61,23 @@ function main() {
   assert.ok(wechatOnly.missing_required.some((item) => item.device === 'iPhone Safari'));
   assert.ok(wechatOnly.missing_required.some((item) => item.device === 'Android Chrome'));
 
+  const rawSensitiveObservation = '看到 api_key=sk-test-1234567890abcdef data:image/png;base64,AAAAABBBBBCCCCCDDDDDEEEEEFFFFFGGGGGHHHHHIIIIIJJJJJ raw response={"provider":"qwen","secret":"do-not-print"}';
   const leak = evaluateManualResult(fullReport({
     'Android 微信': {
-      '是否看到 key、base64、英文堆栈或 raw response': '看到 base64'
+      '是否看到 key、base64、英文堆栈或 raw response': rawSensitiveObservation
     }
   }));
   assert.equal(leak.ok, false);
   assert.equal(leak.can_enter_stage6i, false);
   assert.equal(leak.stage6h_minimum_conditional_pass, false);
   assert.ok(leak.severe_blockers.some((item) => item.device === 'Android 微信' && item.code === 'SENSITIVE_LEAK'));
+  const serializedLeak = JSON.stringify(leak);
+  assert.equal(serializedLeak.includes('sk-test-1234567890abcdef'), false);
+  assert.equal(serializedLeak.includes('data:image/png;base64'), false);
+  assert.equal(serializedLeak.includes('do-not-print'), false);
+  assert.ok(serializedLeak.includes('[REDACTED_SECRET]'));
+  assert.ok(serializedLeak.includes('[REDACTED_BASE64_IMAGE]'));
+  assert.ok(serializedLeak.includes('[REDACTED_RAW_RESPONSE]'));
 
   const blank = evaluateManualResult(`iPhone 微信：\n- 首页 / 上传页是否打开：待填`);
   assert.equal(blank.ok, false);
