@@ -48,6 +48,10 @@ Stage 6H user quick test packet: READY
 
 Reason: 2026-05-31 Codex 已新增 `docs/STAGE6H_REAL_DEVICE_QUICK_TEST_PACKET.md`，把 iPhone Safari、iPhone 微信、Android Chrome、Android 微信真机验收压缩成非技术用户可直接复制回填的步骤和模板。该文件不会替代真实测试结论；Stage 6H 仍为 `MANUAL_REQUIRED`，Cloudflare 最新部署 commit 需以 `origin/main` 最新提交和 Codex 最终报告为准，并仍需 Dashboard 人工确认。
 
+Stage 6H online preflight: PASS_ZERO_COST
+
+Reason: 2026-05-31 Codex 已新增 `npm run preflight:stage6h`，用于重复执行 workers.dev 线上零成本预检。该命令只 GET `/`、`/upload/`、`/result/`、`/poster/`，并用无效 `text/plain` body POST `/api/analyze`；不上传真实图片，不调用真实 Qwen。最新运行结果 PASS：四个页面 HTTP 200 且为 Palmmi 页面，API invalid POST HTTP 400 `INVALID_REQUEST_BODY`，未发现 API key、base64、stack 或 raw provider response，`api_calls_made=0`、`quota_consumed=false`。
+
 Note: 下方早期 Stage 6F 子阶段记录保留当时状态，可能包含旧模型、旧 BLOCKED 结论或旧 `npm test` 状态；当前收口判断以上方 Stage 6G `CONDITIONAL_PASS` 和 2026-05-31 Stage 6G 报告为准。
 
 ## 已完成

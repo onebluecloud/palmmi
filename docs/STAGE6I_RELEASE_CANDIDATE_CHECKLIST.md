@@ -40,6 +40,7 @@ These commands must be re-run when Stage 6I actually starts:
 | `npm run build` | Cloudflare Pages build output. | NO |
 | `npm run security-scan` | Key/base64/raw response/logging scan. | NO |
 | `npm run smoke:stage6f:qwen` | Dry-run Qwen smoke; must report `api_calls_made=0`. | NO |
+| `npm run preflight:stage6h` | Online page/API invalid-input preflight; must report `api_calls_made=0`. | NO |
 
 Do not run `npm run test:stage6f:real`, `npm run e2e:real-qwen`, or any `--real` smoke command unless the user explicitly approves a real Qwen test and accepts quota use.
 
@@ -53,6 +54,7 @@ Codex ran a Stage 6I preparation precheck on 2026-05-31. This does not promote S
 | `npm run build` | PASS | Cloudflare Pages static output written to `dist`. |
 | `npm run security-scan` | PASS | `finding_count=0`; no key/base64/raw response/persistent image storage/sensitive logging findings. |
 | `npm run smoke:stage6f:qwen` | PASS | Dry run returned `REAL_QWEN_DISABLED`, `api_calls_made=0`, `quota_consumed=false`. |
+| `npm run preflight:stage6h` | PASS | Online pages passed; invalid API POST returned controlled 400; `api_calls_made=0`, `quota_consumed=false`. |
 
 Real Qwen calls made by this precheck: `0`.
 
@@ -66,8 +68,8 @@ Qwen quota consumed by this precheck: `NO`.
 | Build succeeds | PRECHECK_PASS | `npm run build` passed; re-run when Stage 6I formally starts. |
 | Security scan passes | PRECHECK_PASS | `npm run security-scan` passed with `finding_count=0`; re-run when Stage 6I formally starts. |
 | Qwen smoke dry run is zero-cost | PRECHECK_PASS | `npm run smoke:stage6f:qwen` passed with `api_calls_made=0`; re-run when Stage 6I formally starts. |
-| Online pages accessible | READY_TO_VERIFY | Verify `/`, `/upload/`, `/result/`, `/poster/`. |
-| API invalid input is sanitized | READY_TO_VERIFY | Verify empty and non-image `POST /api/analyze` return controlled errors. |
+| Online pages accessible | PRECHECK_PASS | `npm run preflight:stage6h` verified `/`, `/upload/`, `/result/`, `/poster/` on workers.dev. |
+| API invalid input is sanitized | PRECHECK_PASS | `npm run preflight:stage6h` verified invalid `POST /api/analyze` returns controlled 400 and no sensitive leak. |
 | Result page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |
 | Poster page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |
 | WeChat WebView upload works | WAITING_STAGE6H | iPhone and Android WeChat manual results required. |
@@ -118,6 +120,7 @@ Stage 6I can be marked `PASS` or `CONDITIONAL_PASS` only after:
 - `npm run build` passes.
 - `npm run security-scan` passes with `finding_count=0`.
 - `npm run smoke:stage6f:qwen` dry run reports `api_calls_made=0`.
+- `npm run preflight:stage6h` reports `api_calls_made=0`, `quota_consumed=false`, and no sensitive leak.
 - Online pages and invalid API responses pass.
 - Remaining risks are documented and acceptable for limited release-candidate use.
 

@@ -16,6 +16,14 @@ Cloudflare Dashboard 仍需确认最新部署 commit 是否为本轮最终报告
 
 如果 Dashboard 最新部署不是最终报告里的最新 commit，先不要做真机结论，只等部署成功后再测。
 
+Codex 可在真机测试前先跑零成本线上预检：
+
+```text
+npm run preflight:stage6h
+```
+
+该命令只检查页面和无效 API 请求，不上传真实图片，不调用 Qwen。通过后仍然不能替代真机测试。
+
 ## 2. 测试前准备
 
 准备这些设备和图片：
