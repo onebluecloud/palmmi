@@ -74,9 +74,9 @@ npm run preflight:stage6h -- --expect-commit <Codex 最终报告里的最新 com
 把下面这段复制给 Codex，并把 `待填` 改成实际情况。
 
 ```text
-Cloudflare Dashboard 最新部署：
-- commit 是否为 Codex 最终报告中的最新 commit：待填
-- 部署状态是否 Success：待填
+线上部署确认：
+- Codex 是否已确认 `/build-meta.json` 匹配最终报告中的最新 commit：待填
+- 如果 Codex 无法确认，Cloudflare Dashboard 部署状态是否 Success：待填
 
 iPhone Safari：
 - 首页 / 上传页是否打开：待填

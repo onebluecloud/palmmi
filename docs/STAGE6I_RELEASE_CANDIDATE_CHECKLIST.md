@@ -21,7 +21,7 @@ Stage 6I can start only after:
 
 | Gate | Required Result | Current Result | Evidence |
 |---|---|---|---|
-| Stage 6G-Finalize deployed | PASS | PASS | User confirmed Cloudflare Dashboard deployed commit `0761620fa1363a3a754b3bbd4c0269d5f25087cd`. |
+| Stage 6G-Finalize deployed | PASS | PASS | Latest deployment is now confirmed through `/build-meta.json`; Cloudflare Dashboard is only a fallback if build metadata is unavailable. |
 | Latest pushed documentation state deployed | PASS / MANUAL_REQUIRED | PASS_BY_BUILD_META | `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` confirms the live workers.dev commit through `/build-meta.json` without Cloudflare auth. Dashboard is only a fallback if this command fails. |
 | Stage 6H automated online review | PASS | PASS | `/`, `/upload/`, `/result/`, `/poster/`, empty API POST, and non-image API POST passed. |
 | iPhone Safari real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
@@ -79,7 +79,7 @@ Qwen quota consumed by this precheck: `NO`.
 | Error prompts understandable | WAITING_STAGE6H | True-device abnormal input results required. |
 | No key/base64/raw response leak on UI | WAITING_STAGE6H | True-device page observation required. |
 | No P0 / P1 blocker | WAITING_STAGE6H | Cannot be concluded before Stage 6H. |
-| Rollback reference identified | READY | Last known pushed commits: `642887835db8bdfe8227e159f0aca0e39389df45`, `0761620fa1363a3a754b3bbd4c0269d5f25087cd`. |
+| Rollback reference identified | READY | Last known pushed commits include the current build-metadata deployment-gate commit, Stage 7 / Donation / Stage 8 planning drafts, and Stage 6G-Fix isolation commits listed below. |
 | Formal domain binding decision | NOT_REQUIRED_FOR_6I | Current plan keeps workers.dev link for testing; no DNS change in Stage 6I. |
 | Payment / donation disabled | PASS | No payment, tipping, login, or donation code is present in Stage 6I scope. |
 
@@ -106,7 +106,8 @@ If a Stage 6I verification or Stage 6H true-device result exposes a severe issue
 
 Known recent commits:
 
-- `0be17d2c7793f2b8f1a8a06bdc61c9f0e3f64001` - current Stage 6 state deployment-confirmation status update.
+- `b002515319293798dea1cc069389a6d052fbd3a9` - build metadata preflight documented as the deployment gate.
+- `0be17d2c7793f2b8f1a8a06bdc61c9f0e3f64001` - Stage 6 state deployment-confirmation status update.
 - `d5afc2ee653c50874fd6f7ac8bd3c3c6a61f63e0` - Stage 7 / Donation / Stage 8 planning drafts.
 - `4b6d1c7a8e57152dce5df89befbcc72d8cbc757f` - Stage 6I release-candidate checklist.
 - `642887835db8bdfe8227e159f0aca0e39389df45` - Stage 6H real-device acceptance checklist.

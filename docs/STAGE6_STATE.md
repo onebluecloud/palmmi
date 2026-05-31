@@ -14,7 +14,7 @@ Reason: 2026-05-31 Stage 6G-Fix 已完成测试成本隔离：默认 `npm test` 
 
 Stage 6H status: MANUAL_REQUIRED
 
-Reason: 2026-05-31 用户已确认 Cloudflare Dashboard 最新部署 commit 为 `0761620fa1363a3a754b3bbd4c0269d5f25087cd` 且部署成功。Codex 自动化线上复查通过：`https://palmmi.onebluecloud723.workers.dev` 的 `/`、`/upload/`、`/result/`、`/poster/` 均 HTTP 200 且为 Palmmi 页面，不是 Hello World；主要静态资源可加载；空请求和非图片请求 `POST /api/analyze` 均返回脱敏 `FILE_TYPE_UNSUPPORTED`，未发现 API key、base64、provider raw response 或 stack 泄露。本轮 Codex 未调用真实 Qwen，未消耗额度。Stage 6H 仍为 MANUAL_REQUIRED，原因是 iPhone Safari、iPhone 微信、Android Chrome、Android 微信真实设备验收尚未完成，Codex 不伪造真机结果。
+Reason: 2026-05-31 Codex 自动化线上复查通过：`https://palmmi.onebluecloud723.workers.dev` 的 `/`、`/upload/`、`/result/`、`/poster/` 均 HTTP 200 且为 Palmmi 页面，不是 Hello World；`POST /api/analyze` 无效输入返回脱敏 400；未发现 API key、base64、provider raw response 或 stack 泄露。Cloudflare 最新部署优先通过 `/build-meta.json` 自证：`npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` 可确认线上 commit 与最新推送一致，不需要 Cloudflare API token 或 Dashboard。本轮 Codex 未调用真实 Qwen，未消耗额度。Stage 6H 仍为 MANUAL_REQUIRED，原因是 iPhone Safari、iPhone 微信、Android Chrome、Android 微信真实设备验收尚未完成，Codex 不伪造真机结果。
 
 Stage 6I status: BLOCKED_BY_STAGE6H_MANUAL_REQUIRED
 
@@ -40,9 +40,9 @@ Stage 7 / Donation / Stage 8 prep verification: PASS_ZERO_COST
 
 Reason: 2026-05-31 Codex 已运行 `npm run security-scan`、`npm run smoke:stage6f:qwen`、`npm run build`、`npm test`。结果均 PASS；security scan `finding_count=0`；smoke dry run `api_calls_made=0`、`quota_consumed=false`；`npm test` 默认真实 Qwen 路径继续禁用，`api_calls_made=0`、`quota_consumed=false`。本轮未设置 `PALMMI_ALLOW_REAL_QWEN_TESTS=1`，未调用真实 Qwen，未消耗额度。
 
-Stage 7 / Donation / Stage 8 prep push status: PUSHED_PENDING_CLOUDFLARE_CONFIRMATION
+Stage 7 / Donation / Stage 8 prep push status: DEPLOYED_CONFIRMED_BY_BUILD_META
 
-Reason: 2026-05-31 Stage 7 / Donation / Stage 8 准备文档已提交并推送到 `origin/main`，commit `d5afc2ee653c50874fd6f7ac8bd3c3c6a61f63e0`。Codex 已复查线上 `https://palmmi.onebluecloud723.workers.dev` 的 `/`、`/upload/`、`/result/`、`/poster/` 均 HTTP 200 且为 Palmmi 页面，非图片 `POST /api/analyze` 返回 HTTP 400 脱敏错误，未发现 API key、base64 或 stack 泄露。GitHub commit status / workflow run 均为空；Wrangler 查询 Cloudflare Pages deployment 因本地缺少 `CLOUDFLARE_API_TOKEN` 且非交互环境无法取 auth token 失败。因此不能由 Codex 确认 Cloudflare 最新部署 commit 是否已到 `d5afc2e...`，仍需用户在 Cloudflare Dashboard 人工确认，Codex 不伪造部署状态。
+Reason: 2026-05-31 Stage 7 / Donation / Stage 8 准备文档已提交并推送到 `origin/main`，并已包含在后续最新部署树中。Codex 已复查线上 `https://palmmi.onebluecloud723.workers.dev` 的 `/`、`/upload/`、`/result/`、`/poster/` 均 HTTP 200 且为 Palmmi 页面，无效 `POST /api/analyze` 返回 HTTP 400 脱敏错误，未发现 API key、base64、raw provider response 或 stack 泄露。Cloudflare 最新部署不再依赖 Dashboard 人工确认，优先通过 `/build-meta.json` 和 `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` 确认。
 
 Stage 6H user quick test packet: READY
 
