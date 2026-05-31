@@ -90,11 +90,11 @@ Reason: 2026-05-31 Codex 已新增并更新 `docs/STAGE6H_REAL_DEVICE_QUICK_TEST
 
 Stage 6H online preflight: PASS_ZERO_COST
 
-Reason: 2026-05-31 Codex 已新增 `npm run preflight:stage6h`，用于重复执行 workers.dev 线上零成本预检。该命令只 GET `/`、`/upload/`、`/result/`、`/poster/`、`/feedback/`，并用无效 `text/plain` body POST `/api/analyze`；对临时网络 `status=0` 读取最多做 4 次有限重试，不上传真实图片，不调用真实 Qwen。最新运行结果 PASS：页面 HTTP 200 且为 Palmmi 页面，API invalid POST HTTP 400 `INVALID_REQUEST_BODY`，未发现 API key、base64、stack 或 raw provider response，`api_calls_made=0`、`quota_consumed=false`。
+Reason: 2026-05-31 Codex 已新增 `npm run preflight:stage6h`，用于重复执行 workers.dev 线上零成本预检。该命令只 GET `/`、`/upload/`、`/result/`、`/poster/`、`/feedback/`，并用无效 `text/plain` body POST `/api/analyze`；对临时网络 `status=0` 读取最多做 4 次有限重试，不上传真实图片，不调用真实 Qwen。`--expect-commit` 支持完整 40 位 commit SHA，也支持 7 位及以上十六进制短 SHA 前缀；短前缀不匹配时仍会 fail-safe。最新运行结果 PASS：页面 HTTP 200 且为 Palmmi 页面，API invalid POST HTTP 400 `INVALID_REQUEST_BODY`，未发现 API key、base64、stack 或 raw provider response，`api_calls_made=0`、`quota_consumed=false`。
 
 Stage 6H build metadata self-check: PASS_ZERO_COST
 
-Reason: 2026-05-31 Cloudflare Pages build 已生成公开安全的 `/build-meta.json`，包含 `commit_sha`、`branch`、`built_at`、`api_calls_made=0`、`real_qwen_called=false`，不包含 key、token、base64 或 raw provider response。Codex 已用 `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` 确认线上 workers.dev 部署 commit 可自动匹配最新推送；该确认不需要 Cloudflare token，不调用真实 Qwen。后续每次 push 后优先用该命令确认部署，Cloudflare Dashboard 只作为命令失败时的兜底。
+Reason: 2026-05-31 Cloudflare Pages build 已生成公开安全的 `/build-meta.json`，包含 `commit_sha`、`branch`、`built_at`、`api_calls_made=0`、`real_qwen_called=false`，不包含 key、token、base64 或 raw provider response。Codex 已用 `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` 确认线上 workers.dev 部署 commit 可自动匹配最新推送；该确认不需要 Cloudflare token，不调用真实 Qwen。`--expect-commit` 可以传完整 SHA 或至少 7 位短 SHA。后续每次 push 后优先用该命令确认部署，Cloudflare Dashboard 只作为命令失败时的兜底。
 
 Stage 6H manual result checker: READY_ZERO_COST
 

@@ -20,6 +20,8 @@ Codex 已提供零成本命令确认线上部署 commit。每次 Codex 推送新
 npm run preflight:stage6h -- --expect-commit <Codex 最终报告里的最新 commit>
 ```
 
+`<Codex 最终报告里的最新 commit>` 可以填完整 40 位 commit，也可以填 Codex 报告中的 7 位以上短 commit 前缀。
+
 如果该命令失败，再去 Cloudflare Dashboard 看最新部署；如果最新部署不是最终报告里的最新 commit，先不要做真机结论，只等部署成功后再测。
 
 Codex 可在真机测试前先跑零成本线上预检：

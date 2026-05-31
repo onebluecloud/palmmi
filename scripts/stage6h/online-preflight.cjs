@@ -389,6 +389,21 @@ function parseBuildMeta(text) {
   }
 }
 
+function commitMatchesExpected(commitSha, expectedCommitSha) {
+  const actual = String(commitSha || '').trim().toLowerCase();
+  const expected = String(expectedCommitSha || '').trim().toLowerCase();
+  if (!actual || !expected) {
+    return false;
+  }
+  if (!/^[a-f0-9]+$/i.test(actual) || !/^[a-f0-9]+$/i.test(expected)) {
+    return false;
+  }
+  if (expected.length === actual.length) {
+    return actual === expected;
+  }
+  return expected.length >= 7 && actual.startsWith(expected);
+}
+
 async function runPreflight({
   baseUrl = DEFAULT_BASE_URL,
   fetchImpl = null,
@@ -472,7 +487,7 @@ async function runPreflight({
     commit_sha: commitSha,
     branch: parsedMeta && typeof parsedMeta.branch === 'string' ? parsedMeta.branch : null,
     expected_commit_sha: expectedCommitSha || null,
-    matches_expected_commit: expectedCommitSha ? commitSha === expectedCommitSha : null,
+    matches_expected_commit: expectedCommitSha ? commitMatchesExpected(commitSha, expectedCommitSha) : null,
     attempts: metaResponse.attempts,
     has_api_key: hasApiKeyMarker(metaText),
     has_base64: hasBase64Marker(metaText),
@@ -551,5 +566,6 @@ module.exports = {
   hasBase64Marker,
   hasStackMarker,
   hasRawResponseMarker,
+  commitMatchesExpected,
   requestTextViaNode
 };

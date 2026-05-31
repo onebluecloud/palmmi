@@ -92,7 +92,43 @@ async function main() {
   assert.equal(result.build_meta.has_api_key, false);
   assert.equal(result.build_meta.has_base64, false);
 
+  const shortCommitResult = await runPreflight({
+    baseUrl: 'https://example.test',
+    fetchImpl,
+    timeoutMs: 1000,
+    expectedCommitSha: 'abcdef1'
+  });
+
+  assert.equal(shortCommitResult.ok, true);
+  assert.equal(shortCommitResult.build_meta.commit_sha, 'abcdef1234567890abcdef1234567890abcdef12');
+  assert.equal(shortCommitResult.build_meta.expected_commit_sha, 'abcdef1');
+  assert.equal(shortCommitResult.build_meta.matches_expected_commit, true);
+
+  const shortMismatchResult = await runPreflight({
+    baseUrl: 'https://example.test',
+    fetchImpl,
+    timeoutMs: 1000,
+    expectedCommitSha: 'abc0000'
+  });
+
+  assert.equal(shortMismatchResult.ok, false);
+  assert.equal(shortMismatchResult.build_meta.matches_expected_commit, false);
+
   assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`), [
+    'GET /',
+    'GET /upload/',
+    'GET /result/',
+    'GET /poster/',
+    'GET /feedback/',
+    'POST /api/analyze',
+    'GET /build-meta.json',
+    'GET /',
+    'GET /upload/',
+    'GET /result/',
+    'GET /poster/',
+    'GET /feedback/',
+    'POST /api/analyze',
+    'GET /build-meta.json',
     'GET /',
     'GET /upload/',
     'GET /result/',
