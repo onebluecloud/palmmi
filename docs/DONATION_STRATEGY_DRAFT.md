@@ -12,8 +12,8 @@ Do not add donation or payment now.
 
 Reasons:
 
-- Stage 6H real-device acceptance is still `MANUAL_REQUIRED`.
-- Stage 6I release-candidate closeout is blocked by Stage 6H.
+- Stage 6H real-device acceptance is still `MANUAL_REQUIRED`, but the user has deferred it to final development acceptance.
+- Stage 6I can continue as non-public development with `--defer-manual-result`; formal release-candidate closeout remains blocked until Stage 6H true-device evidence is provided.
 - Stage 7 is preparation only and not a public release.
 - Stage 8 soft launch has not started.
 - There is no evidence yet that users want to support the product.

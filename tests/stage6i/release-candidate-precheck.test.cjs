@@ -129,7 +129,59 @@ async function main() {
   assert.equal(withoutManual.precheck_ok, true);
   assert.equal(withoutManual.ok, false);
   assert.equal(withoutManual.can_enter_stage6i, false);
+  assert.equal(withoutManual.can_continue_development, false);
   assert.equal(withoutManual.manual_result.status, 'SKIPPED_NO_MANUAL_RESULT_FILE');
+
+  const deferredManual = await runStage6iPrecheck({
+    deferManualResult: true,
+    expectedCommitSha: 'abcdef1234567890abcdef1234567890abcdef12',
+    env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '0' },
+    runCommand: async (command) => {
+      if (command.name === 'npm run security-scan') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({ finding_count: 0, no_key_or_token_leak: true }),
+          stderr: ''
+        };
+      }
+      if (command.name === 'npm run smoke:stage6f:qwen') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, status: 'REAL_QWEN_DISABLED' }),
+          stderr: ''
+        };
+      }
+      if (command.name === 'npm run preflight:stage6h') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            ok: true,
+            api_calls_made: 0,
+            quota_consumed: false,
+            real_qwen_called: false,
+            build_meta: { matches_expected_commit: true }
+          }),
+          stderr: ''
+        };
+      }
+      return {
+        status: 0,
+        stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, real_qwen_called: false }),
+        stderr: ''
+      };
+    }
+  });
+
+  assert.equal(deferredManual.precheck_ok, true);
+  assert.equal(deferredManual.ok, true);
+  assert.equal(deferredManual.formal_gate_ok, false);
+  assert.equal(deferredManual.can_enter_stage6i, false);
+  assert.equal(deferredManual.can_continue_development, true);
+  assert.equal(deferredManual.manual_result_deferred, true);
+  assert.equal(deferredManual.stage6i_status, 'READY_FOR_DEVELOPMENT_MANUAL_DEFERRED');
+  assert.equal(deferredManual.api_calls_made, 0);
+  assert.equal(deferredManual.quota_consumed, false);
+  assert.equal(deferredManual.real_qwen_called, false);
 
   let preflightAttempts = 0;
   const retryingPreflight = await runStage6iPrecheck({
@@ -341,6 +393,7 @@ async function main() {
 
   assert.equal(redactCommandOutput('api_key=sk-test-1234567890abcdef data:image/png;base64,AAAA raw response={"secret":"x"}').includes('sk-test'), false);
   assert.equal(parseArgs(['--expect-commit', 'abc', '--manual-result-file', 'result.txt', '--require-manual-result']).requireManualResult, true);
+  assert.equal(parseArgs(['--defer-manual-result']).deferManualResult, true);
 
   const npmVersion = await spawnCommand({
     name: 'npm --version',

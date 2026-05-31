@@ -5,10 +5,11 @@ Date: 2026-05-31
 ## 1. 阶段结论
 
 - Stage 6H 当前状态：`MANUAL_REQUIRED`
-- 是否允许进入下一阶段：`BLOCKED`
-- 主要阻塞项：真实 iPhone Safari、iPhone 微信、Android Chrome、Android 微信验收尚未由用户完成。
+- 是否允许继续非公开开发：`YES_WITH_MANUAL_DEFERRED`
+- 是否允许公开发布 / 最终验收：`BLOCKED_UNTIL_TRUE_DEVICE_TEST`
+- 主要最终门禁：真实 iPhone Safari、iPhone 微信、Android Chrome、Android 微信验收尚未由用户完成。
 
-Stage 6H 不做新功能开发。本阶段只记录自动化线上复查结果，并给出真机人工验收清单。Codex 未伪造任何真机结果。
+Stage 6H 不做新功能开发。本阶段只记录自动化线上复查结果，并给出真机人工验收清单。根据用户最新指示，真机测试推迟到最后开发完成后再执行。Codex 未伪造任何真机结果；所有真机项仍为 `MANUAL_REQUIRED`，只是从“当前开发阻塞”调整为“最终上线阻塞”。
 
 ## 2. 线上环境
 
@@ -66,6 +67,30 @@ npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>
 ```
 
 Latest run on 2026-05-31: `PASS`, all four pages HTTP 200 and Palmmi pages, invalid API POST HTTP 400 `INVALID_REQUEST_BODY`, build metadata matched the expected commit, and no API key, base64, stack, or raw provider response was found.
+
+### Stage 6H simulated mobile / WeChat check
+
+Codex also ran a browser simulation on 2026-05-31 for:
+
+- iPhone Safari simulated
+- iPhone WeChat simulated with `MicroMessenger` UA
+- Android Chrome simulated
+- Android WeChat simulated with `MicroMessenger` / `WeChat` UA
+
+Result: `PASS_SIMULATED`.
+
+Coverage:
+
+- GET `/`, `/upload/`, `/result/`, `/poster/`: HTTP 200 Palmmi pages.
+- Upload page file input and buttons present on mobile viewport.
+- Synthetic image selected and local photo check passed.
+- Analyze flow used a local mock result and navigated to `/result/`.
+- Poster flow opened `/poster/` and rendered the mock result.
+- Real production `/api/analyze` network calls: `0`.
+- Qwen calls: `0`; quota consumed: `false`.
+- App storage leak flags: none for key, base64, raw response, or stack.
+
+This simulation is useful development evidence, but it is not a true-device PASS. The iPhone / Android WeChat and mobile-browser real-device items remain `MANUAL_REQUIRED` until final development acceptance.
 
 ### Stage 6H manual result checker
 
