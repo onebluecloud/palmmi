@@ -237,13 +237,25 @@ async function runStage6iPrecheck(options = {}) {
     && !realQwenCalled
     && (!securityCommand || securityCommand.finding_count === null || securityCommand.finding_count === 0);
   const canEnterStage6i = precheckOk && manualSummary.status === 'CHECKED' && manualSummary.can_enter_stage6i;
+  const manualResultRequired = options.requireManualResult === true;
+  const formalGateOk = canEnterStage6i;
+  let errorCode = null;
+
+  if (manualResultRequired && !formalGateOk) {
+    errorCode = manualSummary.status === 'SKIPPED_NO_MANUAL_RESULT_FILE'
+      ? 'STAGE6I_MANUAL_RESULT_REQUIRED'
+      : 'STAGE6I_MANUAL_RESULT_NOT_READY';
+  }
 
   return {
     ok: canEnterStage6i,
     precheck_ok: precheckOk,
+    formal_gate_ok: formalGateOk,
     stage: '6I',
     stage6i_status: canEnterStage6i ? 'READY_FOR_CONDITIONAL_CLOSEOUT' : 'BLOCKED_BY_STAGE6H_MANUAL_REQUIRED',
+    error_code: errorCode,
     can_enter_stage6i: canEnterStage6i,
+    manual_result_required: manualResultRequired,
     manual_result: manualSummary,
     commands: commandResults,
     command_failure_count: commandFailures.length,
@@ -265,6 +277,8 @@ function parseArgs(argv) {
     } else if (arg === '--manual-result-file') {
       options.manualResultFile = argv[index + 1];
       index += 1;
+    } else if (arg === '--require-manual-result') {
+      options.requireManualResult = true;
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
     } else {
@@ -275,7 +289,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`Usage: node scripts/stage6i/release-candidate-precheck.cjs [--expect-commit SHA] [--manual-result-file PATH]
+  console.log(`Usage: node scripts/stage6i/release-candidate-precheck.cjs [--expect-commit SHA] [--manual-result-file PATH] [--require-manual-result]
 
 Runs the zero-cost Stage 6I precheck:
 - npm test
@@ -285,7 +299,8 @@ Runs the zero-cost Stage 6I precheck:
 - npm run preflight:stage6h
 - optional npm run check:stage6h:manual -- --file PATH
 
-It refuses to run when PALMMI_ALLOW_REAL_QWEN_TESTS=1 is set.`);
+It refuses to run when PALMMI_ALLOW_REAL_QWEN_TESTS=1 is set.
+Use --require-manual-result for the formal Stage 6I gate after true-device results are available.`);
 }
 
 async function main() {
@@ -297,7 +312,7 @@ async function main() {
 
   const result = await runStage6iPrecheck(options);
   console.log(JSON.stringify(result, null, 2));
-  if (!result.precheck_ok) {
+  if (!result.precheck_ok || (options.requireManualResult && !result.formal_gate_ok)) {
     process.exitCode = 1;
   }
 }

@@ -15,12 +15,14 @@ const {
   buildStage6iCommands,
   runStage6iPrecheck,
   redactCommandOutput,
+  parseArgs,
   spawnCommand
 } = precheck;
 
 assert.equal(typeof buildStage6iCommands, 'function');
 assert.equal(typeof runStage6iPrecheck, 'function');
 assert.equal(typeof redactCommandOutput, 'function');
+assert.equal(typeof parseArgs, 'function');
 assert.equal(typeof spawnCommand, 'function');
 
 function commandText(command) {
@@ -129,6 +131,26 @@ async function main() {
   assert.equal(withoutManual.can_enter_stage6i, false);
   assert.equal(withoutManual.manual_result.status, 'SKIPPED_NO_MANUAL_RESULT_FILE');
 
+  const formalWithoutManual = await runStage6iPrecheck({
+    requireManualResult: true,
+    env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '0' },
+    runCommand: async (command) => ({
+      status: 0,
+      stdout: command.name === 'npm run smoke:stage6f:qwen'
+        ? JSON.stringify({ api_calls_made: 0, quota_consumed: false })
+        : JSON.stringify({ api_calls_made: 0, quota_consumed: false, real_qwen_called: false }),
+      stderr: ''
+    })
+  });
+
+  assert.equal(formalWithoutManual.precheck_ok, true);
+  assert.equal(formalWithoutManual.ok, false);
+  assert.equal(formalWithoutManual.formal_gate_ok, false);
+  assert.equal(formalWithoutManual.error_code, 'STAGE6I_MANUAL_RESULT_REQUIRED');
+  assert.equal(formalWithoutManual.manual_result_required, true);
+  assert.equal(formalWithoutManual.api_calls_made, 0);
+  assert.equal(formalWithoutManual.quota_consumed, false);
+
   const guarded = await runStage6iPrecheck({
     env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '1' },
     runCommand: async () => {
@@ -143,6 +165,7 @@ async function main() {
   assert.equal(guarded.quota_consumed, false);
 
   assert.equal(redactCommandOutput('api_key=sk-test-1234567890abcdef data:image/png;base64,AAAA raw response={"secret":"x"}').includes('sk-test'), false);
+  assert.equal(parseArgs(['--expect-commit', 'abc', '--manual-result-file', 'result.txt', '--require-manual-result']).requireManualResult, true);
 
   const npmVersion = await spawnCommand({
     name: 'npm --version',
