@@ -67,6 +67,16 @@ npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>
 
 Latest run on 2026-05-31: `PASS`, all four pages HTTP 200 and Palmmi pages, invalid API POST HTTP 400 `INVALID_REQUEST_BODY`, build metadata matched the expected commit, and no API key, base64, stack, or raw provider response was found.
 
+### Stage 6H manual result checker
+
+Codex added a local text-only helper for the moment when the user sends true-device results back:
+
+```text
+npm run check:stage6h:manual -- --file <Codex-saved-user-result-text>
+```
+
+It checks whether the pasted Stage 6H template has missing required fields, obvious P0 / P1 blockers, sensitive leak observations, and the minimum iPhone WeChat + Android WeChat condition for `CONDITIONAL_PASS`. It reports `api_calls_made=0`, `quota_consumed=false`, and `real_qwen_called=false`. It does not upload images, call Qwen, or prove that the user's true-device statements are correct.
+
 ## 4. 真机人工验收清单
 
 ### iPhone Safari
