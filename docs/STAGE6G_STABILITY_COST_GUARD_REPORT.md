@@ -8,7 +8,7 @@ Stage 6G status: `CONDITIONAL_PASS`.
 
 Reason: Stage 6G stability and cost guards are in place, and Stage 6G-Fix has isolated real Qwen E2E from default tests. Default `npm test` no longer runs the production normal-palm upload, reports `api_calls_made=0`, and does not consume Qwen quota. Stage 6G remains conditional because iPhone WeChat, Android WeChat, iPhone Safari physical device, and Android Chrome physical device remain `MANUAL_REQUIRED`.
 
-Finalize update: Stage 6G-Fix was committed as `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` and pushed to `origin/main`. Online basic verification for `https://palmmi.onebluecloud723.workers.dev` passed. Direct Cloudflare deployment-status confirmation is `BLOCKED` in this local environment because Wrangler requires `CLOUDFLARE_API_TOKEN`; the Cloudflare Dashboard deployment entry still needs manual confirmation.
+Finalize update: Stage 6G-Fix was committed as `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` and pushed to `origin/main`. Online basic verification for `https://palmmi.onebluecloud723.workers.dev` passed. Direct Cloudflare deployment-status confirmation was `BLOCKED` in the local Codex environment because Wrangler required `CLOUDFLARE_API_TOKEN`; the user later confirmed in Cloudflare Dashboard that commit `0761620fa1363a3a754b3bbd4c0269d5f25087cd` deployed successfully.
 
 ## Goal
 
@@ -89,6 +89,7 @@ No stack trace, provider raw response, API key, base64 image content, or request
 | `npm test` with Qwen key env vars cleared | PASS | Key env vars blank, `has_qwen_key=false`, `api_calls_made=0`, `quota_consumed=false`. |
 | `git push origin main` | PASS | Pushed `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` to `origin/main`. |
 | Cloudflare deployment query | BLOCKED | Cloudflare MCP deployment tool was unavailable; `wrangler pages deployment list` required `CLOUDFLARE_API_TOKEN`. |
+| Cloudflare Dashboard confirmation | PASS | User confirmed latest deployed commit `0761620fa1363a3a754b3bbd4c0269d5f25087cd` succeeded. |
 | Online basic verification | PASS | `/`, `/upload/`, `/result/`, `/poster/` returned Palmmi pages; empty `POST /api/analyze` returned `FILE_TYPE_UNSUPPORTED`; no key/base64/raw response/stack leaks. |
 
 ## Real Qwen Usage
@@ -107,8 +108,6 @@ Total real Qwen calls made by Stage 6G-Fix verification: 0. No quota was consume
 - Android WeChat physical device: `MANUAL_REQUIRED`.
 - iPhone Safari physical device: `MANUAL_REQUIRED`.
 - Android Chrome physical device: `MANUAL_REQUIRED`.
-- If the latest Stage 6G runtime code has not been deployed, production still needs the normal Cloudflare deployment path before it can exercise the duplicate guard.
-- Cloudflare Dashboard deployment history must confirm the latest pushed commit before Stage 6H is unblocked.
 - The duplicate guard is best-effort in-memory protection, not durable distributed rate limiting.
 - Missing dark / blurry / cropped-incomplete fixtures remain `BLOCKED_BY_MISSING_FIXTURE`.
 
