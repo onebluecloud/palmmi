@@ -22,7 +22,7 @@ Stage 6I can start only after:
 | Gate | Required Result | Current Result | Evidence |
 |---|---|---|---|
 | Stage 6G-Finalize deployed | PASS | PASS | User confirmed Cloudflare Dashboard deployed commit `0761620fa1363a3a754b3bbd4c0269d5f25087cd`. |
-| Latest pushed documentation state deployed | PASS / MANUAL_REQUIRED | MANUAL_REQUIRED | After the build metadata commit is deployed, `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` can confirm this without Cloudflare auth. Until then, Dashboard confirmation is required. |
+| Latest pushed documentation state deployed | PASS / MANUAL_REQUIRED | PASS_BY_BUILD_META | `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` confirms the live workers.dev commit through `/build-meta.json` without Cloudflare auth. Dashboard is only a fallback if this command fails. |
 | Stage 6H automated online review | PASS | PASS | `/`, `/upload/`, `/result/`, `/poster/`, empty API POST, and non-image API POST passed. |
 | iPhone Safari real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
 | iPhone WeChat real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
@@ -55,7 +55,7 @@ Codex ran a Stage 6I preparation precheck on 2026-05-31. This does not promote S
 | `npm run build` | PASS | Cloudflare Pages static output written to `dist`. |
 | `npm run security-scan` | PASS | `finding_count=0`; no key/base64/raw response/persistent image storage/sensitive logging findings. |
 | `npm run smoke:stage6f:qwen` | PASS | Dry run returned `REAL_QWEN_DISABLED`, `api_calls_made=0`, `quota_consumed=false`. |
-| `npm run preflight:stage6h` | PASS | Online pages passed; invalid API POST returned controlled 400; `api_calls_made=0`, `quota_consumed=false`; build metadata was not available yet on the already-deployed version. |
+| `npm run preflight:stage6h` | PASS | Online pages passed; invalid API POST returned controlled 400; `api_calls_made=0`, `quota_consumed=false`. |
 
 Real Qwen calls made by this precheck: `0`.
 
@@ -71,7 +71,7 @@ Qwen quota consumed by this precheck: `NO`.
 | Qwen smoke dry run is zero-cost | PRECHECK_PASS | `npm run smoke:stage6f:qwen` passed with `api_calls_made=0`; re-run when Stage 6I formally starts. |
 | Online pages accessible | PRECHECK_PASS | `npm run preflight:stage6h` verified `/`, `/upload/`, `/result/`, `/poster/` on workers.dev. |
 | API invalid input is sanitized | PRECHECK_PASS | `npm run preflight:stage6h` verified invalid `POST /api/analyze` returns controlled 400 and no sensitive leak. |
-| Deployed commit self-check | READY_TO_VERIFY | Re-run `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` after Cloudflare deploys the build metadata commit. |
+| Deployed commit self-check | PRECHECK_PASS | `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` confirms `/build-meta.json` matches the expected commit. |
 | Result page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |
 | Poster page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |
 | WeChat WebView upload works | WAITING_STAGE6H | iPhone and Android WeChat manual results required. |
