@@ -871,9 +871,9 @@
 
     setText(doc, "posterSideCopy", canUseActions
       ? "这是一张适合手机保存和轻量分享的人格身份卡。"
-      : "这是一张适合手机截图的人格身份卡。保存图片和分享文案入口仍为占位。");
-    setText(doc, "posterSaveNote", canUseActions ? "生成 PNG 图片保存到本机。" : "保存图片将在后续阶段开放");
-    setText(doc, "posterCopyNote", canUseActions ? "复制一段不含技术细节的分享文案。" : "分享文案将在后续阶段开放");
+      : "暂无可保存的有效海报，请重新测试后再试。");
+    setText(doc, "posterSaveNote", canUseActions ? "生成 PNG 图片保存到本机。" : "需要有效分析结果后才能保存图片。");
+    setText(doc, "posterCopyNote", canUseActions ? "复制一段不含技术细节的分享文案。" : "需要有效分析结果后才能复制分享文案。");
     setButtonEnabled(saveButton, canUseActions);
     setButtonEnabled(copyButton, canUseActions);
 

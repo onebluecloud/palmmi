@@ -24,7 +24,7 @@ Current status:
 | Stage 6H real-device acceptance | `MANUAL_REQUIRED` |
 | Stage 6I release candidate | `BLOCKED_BY_STAGE6H_MANUAL_REQUIRED` |
 | Stage 7 marketing prep | `PREPARED_NOT_ACTIVE` |
-| Stage 8 soft launch | `NOT_STARTED_BLOCKED_BY_STAGE6H_6I_7` |
+| Stage 8 soft launch | `NOT_STARTED_FEEDBACK_ENTRY_READY_MANUAL_GATE` |
 | Public launch | `NOT_ALLOWED` |
 
 ## 2. Hard No-Go Conditions
@@ -89,4 +89,4 @@ Do not run real Qwen E2E unless the user explicitly approves quota use for a man
 Stage 9 = NOT_STARTED_BLOCKED_BY_STAGE6H_6I_8
 ```
 
-The next required action is still Stage 6H true-device feedback. Stage 9 must not be marked `PASS` or `CONDITIONAL_PASS` until Stage 8 produces acceptable real-user feedback.
+The next required final gate is still Stage 6H true-device feedback. Stage 9 must not be marked `PASS` or `CONDITIONAL_PASS` until Stage 8 produces acceptable real-user feedback.

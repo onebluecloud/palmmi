@@ -1582,6 +1582,27 @@ function validateStage7PosterShareKitHelpers() {
   };
 }
 
+function validateStage7PosterShareKitNoStalePlaceholders() {
+  const sourcePaths = [
+    path.join(root, "result", "index.html"),
+    path.join(root, "poster", "index.html"),
+    path.join(root, "scripts", "palmmi-result.js"),
+    path.join(root, "scripts", "palmmi-poster.js"),
+  ];
+  const sources = sourcePaths.map((sourcePath) => fs.readFileSync(sourcePath, "utf8")).join("\n");
+
+  assert.doesNotMatch(
+    sources,
+    /仍为占位|将在后续阶段开放/,
+    "poster share kit copy must not describe enabled save/copy actions as placeholders"
+  );
+
+  return {
+    status: "PASS",
+    stale_placeholder_copy: false,
+  };
+}
+
 async function validateStage7PosterShareKitActions(context) {
   const page = await context.newPage();
   const signals = createSignals(page);
@@ -4380,6 +4401,7 @@ async function main() {
     summary.stage6f_final.smoke_collapse_diagnostics = validateStage6FFinalSmokeCollapseDiagnostics();
     summary.stage6f_final.low_confidence_poster_contract = validateStage6FFinalLowConfidencePosterContract();
     summary.stage7.poster_share_kit_helpers = validateStage7PosterShareKitHelpers();
+    summary.stage7.poster_share_kit_copy = validateStage7PosterShareKitNoStalePlaceholders();
     summary.stage8.feedback_static_contract = validateStage8FeedbackStaticContract();
     summary.stage6f_final_fix.feature_driven_local_classification = await validateStage6FFinalFixFeatureDrivenLocalClassification();
     summary.stage6f_final_fix.smoke_uses_local_candidates = await validateStage6FFinalFixSmokeUsesLocalCandidates();

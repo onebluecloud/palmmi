@@ -18,7 +18,7 @@ This work does not publish Palmmi, does not add analytics, does not add login, a
 
 | File | Purpose |
 |---|---|
-| `poster/index.html` | Add stable IDs for poster side copy and action notes while keeping no-JS placeholder fallback text. |
+| `poster/index.html` | Add stable IDs for poster side copy and action notes while keeping no-JS/non-ready fallback text accurate. |
 | `scripts/palmmi-poster.js` | Enable ready-state poster save/copy actions, generate local PNG canvas output, and build sanitized share text. |
 | `scripts/palmmi-result.js` | Update result-page poster note to stop describing save/copy as placeholders. |
 | `tests/stage6f/mobile-e2e.test.cjs` | Add zero-cost browser and helper regression coverage for poster save/copy. |
@@ -34,6 +34,12 @@ When the poster page has a valid ready analysis result:
 - The copied text contains only user-facing persona name, persona code, hook, summary, and safe tags.
 
 When the poster page has no valid result, the controls remain disabled and the existing problem/retry flow is preserved.
+
+Copy cleanup update:
+
+- Result and poster copy no longer says enabled save/copy actions are placeholders.
+- Non-ready fallback copy says a valid analysis result is required before saving or copying.
+- Stage 6F now includes `stage7.poster_share_kit_copy.status=PASS` to block regressions to stale placeholder copy.
 
 ## 4. Cost And Privacy
 
@@ -61,6 +67,7 @@ Result:
 ```text
 PASS
 stage7.poster_share_kit_helpers.status=PASS
+stage7.poster_share_kit_copy.status=PASS
 stage7.poster_share_kit_actions.status=PASS
 real_qwen_e2e.status=DISABLED_BY_DEFAULT
 api_calls_made=0
