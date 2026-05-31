@@ -61,6 +61,20 @@ function main() {
   assert.ok(wechatOnly.missing_required.some((item) => item.device === 'iPhone Safari'));
   assert.ok(wechatOnly.missing_required.some((item) => item.device === 'Android Chrome'));
 
+  const colloquialSafeNegatives = evaluateManualResult(fullReport({
+    'iPhone 微信': {
+      '是否白屏 / 卡死 / 无限加载': '不白屏不卡死，也没有无限加载',
+      '是否看到 key、base64、英文堆栈或 raw response': '没看到 key / base64 / 英文堆栈 / raw response'
+    },
+    'Android 微信': {
+      '是否白屏 / 卡死 / 无限加载': '没白屏，没卡死，没有无限加载',
+      '是否看到 key、base64、英文堆栈或 raw response': '没看到'
+    }
+  }));
+  assert.equal(colloquialSafeNegatives.ok, true);
+  assert.equal(colloquialSafeNegatives.can_enter_stage6i, true);
+  assert.deepEqual(colloquialSafeNegatives.severe_blockers, []);
+
   const rawSensitiveObservation = '看到 api_key=sk-test-1234567890abcdef data:image/png;base64,AAAAABBBBBCCCCCDDDDDEEEEEFFFFFGGGGGHHHHHIIIIIJJJJJ raw response={"provider":"qwen","secret":"do-not-print"}';
   const leak = evaluateManualResult(fullReport({
     'Android 微信': {

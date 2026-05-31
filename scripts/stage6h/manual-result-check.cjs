@@ -48,9 +48,15 @@ function isNegative(value) {
 
 function isSafeNegative(value) {
   const normalized = normalizeText(value);
+  if (/(但|但是|不过|然而).*(看到|有|出现|存在|泄露|白屏|卡死|无限|卡住|失败)/.test(normalized)) {
+    return false;
+  }
+
   return /^(否|无|没有|未看到|没看到|no|none|pass|ok|正常)$/.test(normalized)
     || /没有.*(白屏|卡死|无限|key|base64|堆栈|raw|response|泄露)/.test(normalized)
-    || /未看到.*(key|base64|堆栈|raw|response|泄露)/.test(normalized);
+    || /没.*(白屏|卡死|无限)/.test(normalized)
+    || /(未看到|没看到|没有看到).*(key|base64|堆栈|raw|response|泄露)/.test(normalized)
+    || /(不白屏|不卡死|无白屏|无卡死|没有无限加载|没无限加载|无无限加载)/.test(normalized);
 }
 
 function isPositive(value) {

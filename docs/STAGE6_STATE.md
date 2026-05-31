@@ -58,7 +58,7 @@ Reason: 2026-05-31 Cloudflare Pages build 已生成公开安全的 `/build-meta.
 
 Stage 6H manual result checker: READY_ZERO_COST
 
-Reason: 2026-05-31 Codex 已新增 `npm run check:stage6h:manual`，用于在用户回填 iPhone Safari、iPhone 微信、Android Chrome、Android 微信真机结果后做文字级门禁初筛。该命令只读取回填文本，检查漏填项、明显 P0 / P1 阻塞、敏感泄露观察、iPhone 微信 + Android 微信最低条件，并输出 `api_calls_made=0`、`quota_consumed=false`、`real_qwen_called=false`。检查器输出前会脱敏明显 API key / token / secret / `sk-...`、`data:image/...;base64,...`、raw response payload 和超长 base64-like payload，避免误贴内容被 JSON 结果原样回显；但用户仍不应粘贴 key、图片、base64、raw provider response 或隐私信息。当最低微信双端门槛满足且无严重阻塞时，检查器会输出 `can_enter_stage6i=true`，同时仍通过 `missing_required` 标出未测 Safari / Chrome 风险。它不能替代真实手机测试，Stage 6H 仍为 `MANUAL_REQUIRED`。
+Reason: 2026-05-31 Codex 已新增 `npm run check:stage6h:manual`，用于在用户回填 iPhone Safari、iPhone 微信、Android Chrome、Android 微信真机结果后做文字级门禁初筛。该命令只读取回填文本，检查漏填项、明显 P0 / P1 阻塞、敏感泄露观察、iPhone 微信 + Android 微信最低条件，并输出 `api_calls_made=0`、`quota_consumed=false`、`real_qwen_called=false`。检查器输出前会脱敏明显 API key / token / secret / `sk-...`、`data:image/...;base64,...`、raw response payload 和超长 base64-like payload，避免误贴内容被 JSON 结果原样回显；但用户仍不应粘贴 key、图片、base64、raw provider response 或隐私信息。检查器已覆盖常见口语化安全否定，如“没白屏”“不白屏不卡死”“没看到 key / base64 / raw response”，以降低非技术回填误判。当最低微信双端门槛满足且无严重阻塞时，检查器会输出 `can_enter_stage6i=true`，同时仍通过 `missing_required` 标出未测 Safari / Chrome 风险。它不能替代真实手机测试，Stage 6H 仍为 `MANUAL_REQUIRED`。
 
 Note: 下方早期 Stage 6F 子阶段记录保留当时状态，可能包含旧模型、旧 BLOCKED 结论或旧 `npm test` 状态；当前收口判断以上方 Stage 6G `CONDITIONAL_PASS` 和 2026-05-31 Stage 6G 报告为准。
 

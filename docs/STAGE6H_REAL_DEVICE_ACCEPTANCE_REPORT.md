@@ -77,6 +77,8 @@ npm run check:stage6h:manual -- --file <Codex-saved-user-result-text>
 
 It checks whether the pasted Stage 6H template has missing required fields, obvious P0 / P1 blockers, sensitive leak observations, and the minimum iPhone WeChat + Android WeChat condition for `CONDITIONAL_PASS`. It reports `can_enter_stage6i=true` when that minimum gate is met, while still keeping untested iPhone Safari / Android Chrome fields in `missing_required`. It reports `api_calls_made=0`, `quota_consumed=false`, and `real_qwen_called=false`. Before printing JSON, it redacts obvious API key / token / secret / `sk-...`, `data:image/...;base64,...`, raw response payload, and very long base64-like payload values. This redaction is only a fallback; users still must not paste keys, images, base64, raw provider responses, or private data. It does not upload images, call Qwen, or prove that the user's true-device statements are correct.
 
+The checker accepts common safe negative wording such as `没有白屏`, `没白屏`, `不白屏不卡死`, and `没看到 key / base64 / raw response` so nontechnical feedback is less likely to be incorrectly treated as a blocker. If the user reports an actual visible leak, white screen, hang, or failure, it remains a blocker.
+
 ## 4. 真机人工验收清单
 
 ### iPhone Safari

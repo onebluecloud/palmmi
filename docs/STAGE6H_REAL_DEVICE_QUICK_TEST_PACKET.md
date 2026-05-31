@@ -72,6 +72,7 @@ npm run preflight:stage6h -- --expect-commit <Codex 最终报告里的最新 com
 ## 4. 结果回填模板
 
 把下面这段复制给 Codex，并把 `待填` 改成实际情况。
+填写建议：成功项写 `是 / 成功 / 正常`；没有异常时写 `否 / 没有白屏 / 不白屏不卡死 / 没看到 key`。不要粘贴图片、API Key、base64、raw response 或隐私信息。
 
 ```text
 线上部署确认：
