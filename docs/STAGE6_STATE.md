@@ -44,6 +44,10 @@ Stage 7 / Donation / Stage 8 prep push status: PUSHED_PENDING_CLOUDFLARE_CONFIRM
 
 Reason: 2026-05-31 Stage 7 / Donation / Stage 8 准备文档已提交并推送到 `origin/main`，commit `d5afc2ee653c50874fd6f7ac8bd3c3c6a61f63e0`。Codex 已复查线上 `https://palmmi.onebluecloud723.workers.dev` 的 `/`、`/upload/`、`/result/`、`/poster/` 均 HTTP 200 且为 Palmmi 页面，非图片 `POST /api/analyze` 返回 HTTP 400 脱敏错误，未发现 API key、base64 或 stack 泄露。GitHub commit status / workflow run 均为空；Wrangler 查询 Cloudflare Pages deployment 因本地缺少 `CLOUDFLARE_API_TOKEN` 且非交互环境无法取 auth token 失败。因此不能由 Codex 确认 Cloudflare 最新部署 commit 是否已到 `d5afc2e...`，仍需用户在 Cloudflare Dashboard 人工确认，Codex 不伪造部署状态。
 
+Stage 6H user quick test packet: READY
+
+Reason: 2026-05-31 Codex 已新增 `docs/STAGE6H_REAL_DEVICE_QUICK_TEST_PACKET.md`，把 iPhone Safari、iPhone 微信、Android Chrome、Android 微信真机验收压缩成非技术用户可直接复制回填的步骤和模板。该文件不会替代真实测试结论；Stage 6H 仍为 `MANUAL_REQUIRED`，Cloudflare 最新部署 commit 需以 `origin/main` 最新提交和 Codex 最终报告为准，并仍需 Dashboard 人工确认。
+
 Note: 下方早期 Stage 6F 子阶段记录保留当时状态，可能包含旧模型、旧 BLOCKED 结论或旧 `npm test` 状态；当前收口判断以上方 Stage 6G `CONDITIONAL_PASS` 和 2026-05-31 Stage 6G 报告为准。
 
 ## 已完成

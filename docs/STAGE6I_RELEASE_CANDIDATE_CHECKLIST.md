@@ -22,6 +22,7 @@ Stage 6I can start only after:
 | Gate | Required Result | Current Result | Evidence |
 |---|---|---|---|
 | Stage 6G-Finalize deployed | PASS | PASS | User confirmed Cloudflare Dashboard deployed commit `0761620fa1363a3a754b3bbd4c0269d5f25087cd`. |
+| Latest pushed documentation state deployed | PASS / MANUAL_REQUIRED | MANUAL_REQUIRED | Use the latest `origin/main` commit from the Codex final report; Codex cannot confirm Cloudflare deployment without Cloudflare auth, so Dashboard confirmation is required. |
 | Stage 6H automated online review | PASS | PASS | `/`, `/upload/`, `/result/`, `/poster/`, empty API POST, and non-image API POST passed. |
 | iPhone Safari real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
 | iPhone WeChat real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
@@ -101,6 +102,9 @@ If a Stage 6I verification or Stage 6H true-device result exposes a severe issue
 
 Known recent commits:
 
+- `0be17d2c7793f2b8f1a8a06bdc61c9f0e3f64001` - current Stage 6 state deployment-confirmation status update.
+- `d5afc2ee653c50874fd6f7ac8bd3c3c6a61f63e0` - Stage 7 / Donation / Stage 8 planning drafts.
+- `4b6d1c7a8e57152dce5df89befbcc72d8cbc757f` - Stage 6I release-candidate checklist.
 - `642887835db8bdfe8227e159f0aca0e39389df45` - Stage 6H real-device acceptance checklist.
 - `0761620fa1363a3a754b3bbd4c0269d5f25087cd` - Stage 6G finalize deployment check.
 - `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` - isolate real Qwen E2E from default test suite.
