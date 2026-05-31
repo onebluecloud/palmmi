@@ -108,9 +108,9 @@
         request_id: payload.request_id,
         status: "RETRY_REQUIRED",
         error: {
-          code: "API_REQUEST_FAILED",
-          message: "分析服务暂时不可用，请稍后重试。",
-          message_key: "api_request_failed",
+          code: "NETWORK_FAILED",
+          message: "网络连接暂时中断，请检查网络后重新上传。",
+          message_key: "network_failed",
           retryable: true,
         },
       };

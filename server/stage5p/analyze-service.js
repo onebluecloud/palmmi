@@ -21,6 +21,10 @@ const {
 } = require("./provider-selection.js");
 
 const ACCEPTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const COST_GUARD_TTL_MS = 30 * 1000;
+const COST_GUARD_MAX_ENTRIES = 200;
+const recentCostGuardKeys = new Map();
+const inFlightCostGuardKeys = new Map();
 
 function createMemoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -64,6 +68,19 @@ function normalizeImage(inputImage = {}) {
   };
 }
 
+function estimateBase64DecodedBytes(value) {
+  if (typeof value !== "string" || !value.trim()) {
+    return 0;
+  }
+  const raw = value.includes(",") ? value.split(",").pop() : value;
+  const compact = raw.replace(/\s+/g, "");
+  if (!compact) {
+    return 0;
+  }
+  const padding = compact.endsWith("==") ? 2 : compact.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((compact.length * 3) / 4) - padding);
+}
+
 function validateImage(image, config, requestId) {
   if (!ACCEPTED_IMAGE_TYPES.has(image.content_type)) {
     return createErrorResponse(ERROR_CODES.FILE_TYPE_UNSUPPORTED, requestId);
@@ -71,7 +88,135 @@ function validateImage(image, config, requestId) {
   if (!Number.isFinite(image.size_bytes) || image.size_bytes <= 0 || image.size_bytes > config.maxImageBytes) {
     return createErrorResponse(ERROR_CODES.FILE_TOO_LARGE, requestId);
   }
+  if (Buffer.isBuffer(image.buffer) && image.buffer.length > config.maxImageBytes) {
+    return createErrorResponse(ERROR_CODES.FILE_TOO_LARGE, requestId);
+  }
+  if (Buffer.isBuffer(image.imageBuffer) && image.imageBuffer.length > config.maxImageBytes) {
+    return createErrorResponse(ERROR_CODES.FILE_TOO_LARGE, requestId);
+  }
+  if (estimateBase64DecodedBytes(image.base64) > config.maxImageBytes) {
+    return createErrorResponse(ERROR_CODES.FILE_TOO_LARGE, requestId);
+  }
   return null;
+}
+
+function nowMs(options = {}) {
+  return typeof options.nowMs === "function" ? options.nowMs() : Date.now();
+}
+
+function hashBuffer(buffer) {
+  let hash = 2166136261;
+  for (const byte of buffer) {
+    hash ^= byte;
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function imageContentHash(image) {
+  if (Buffer.isBuffer(image.buffer)) {
+    return hashBuffer(image.buffer);
+  }
+  if (Buffer.isBuffer(image.imageBuffer)) {
+    return hashBuffer(image.imageBuffer);
+  }
+  if (typeof image.base64 === "string" && image.base64.trim()) {
+    return hashString(image.base64);
+  }
+  return hashString(`${image.file_name}|${image.content_type}|${image.size_bytes}`);
+}
+
+function pruneCostGuardMap(map, currentMs) {
+  for (const [key, expiresAt] of map.entries()) {
+    if (expiresAt <= currentMs) {
+      map.delete(key);
+    }
+  }
+  while (map.size > COST_GUARD_MAX_ENTRIES) {
+    const oldestKey = map.keys().next().value;
+    if (!oldestKey) {
+      break;
+    }
+    map.delete(oldestKey);
+  }
+}
+
+function costGuardKey({ anonymousDeviceId, image }) {
+  return [
+    anonymousDeviceId || "anonymous",
+    image.file_name || "palm.jpg",
+    image.content_type || "unknown",
+    image.size_bytes || 0,
+    imageContentHash(image),
+  ].join("|");
+}
+
+function beginCostGuard({ anonymousDeviceId, image, config, options }) {
+  if (options && options.enableCostGuard === false) {
+    return { ok: true, key: null };
+  }
+  if (!config || config.provider === "mock") {
+    return { ok: true, key: null };
+  }
+
+  const currentMs = nowMs(options);
+  const duplicateWindowMs = Number.isFinite(options.costGuardTtlMs) && options.costGuardTtlMs > 0
+    ? options.costGuardTtlMs
+    : COST_GUARD_TTL_MS;
+  const key = costGuardKey({ anonymousDeviceId, image });
+  pruneCostGuardMap(recentCostGuardKeys, currentMs);
+  pruneCostGuardMap(inFlightCostGuardKeys, currentMs);
+
+  if ((recentCostGuardKeys.get(key) || 0) > currentMs || (inFlightCostGuardKeys.get(key) || 0) > currentMs) {
+    return {
+      ok: false,
+      response: createErrorResponse(ERROR_CODES.DUPLICATE_SUBMISSION, null, {
+        status: "RETRY_REQUIRED",
+        diagnostics: {
+          errorType: "duplicate_submission",
+          duplicateWindowMs,
+        },
+      }),
+    };
+  }
+
+  const inFlightTtl = Math.max(duplicateWindowMs, (config.timeoutMs || 0) + 5000);
+  inFlightCostGuardKeys.set(key, currentMs + inFlightTtl);
+  return {
+    ok: true,
+    key,
+    duplicateWindowMs,
+  };
+}
+
+function shouldRememberProviderResult(providerResult) {
+  return Boolean(providerResult && providerResult.ok !== false);
+}
+
+function completeCostGuard(guard, options = {}) {
+  if (!guard || !guard.key) {
+    return;
+  }
+  const currentMs = nowMs(options);
+  inFlightCostGuardKeys.delete(guard.key);
+  if (options.remember === true) {
+    recentCostGuardKeys.set(guard.key, currentMs + (guard.duplicateWindowMs || COST_GUARD_TTL_MS));
+    pruneCostGuardMap(recentCostGuardKeys, currentMs);
+  }
+}
+
+function resetStage6GCostGuardForTests() {
+  recentCostGuardKeys.clear();
+  inFlightCostGuardKeys.clear();
 }
 
 function uploadFromRequest(image) {
@@ -231,6 +376,18 @@ async function runAnalyzeApi(payload = {}, options = {}) {
   const anonymousDeviceId = typeof input.anonymous_device_id === "string" && input.anonymous_device_id.trim()
     ? input.anonymous_device_id.trim()
     : "pm_stage5p_anonymous";
+  const costGuard = beginCostGuard({
+    anonymousDeviceId,
+    image,
+    config,
+    options,
+  });
+  if (!costGuard.ok) {
+    return {
+      ...costGuard.response,
+      request_id: requestId,
+    };
+  }
   const providerInput = {
     request_id: requestId,
     anonymous_device_id: anonymousDeviceId,
@@ -252,10 +409,15 @@ async function runAnalyzeApi(payload = {}, options = {}) {
       timeoutMs: config.timeoutMs,
     });
   } catch (error) {
+    completeCostGuard(costGuard, { ...options, remember: false });
     return createErrorResponse(ERROR_CODES.VLM_API_REQUEST_FAILED, requestId);
   }
 
   if (!providerResult || providerResult.ok === false) {
+    completeCostGuard(costGuard, {
+      ...options,
+      remember: shouldRememberProviderResult(providerResult),
+    });
     const code = mapProviderErrorCode(providerResult && providerResult.error
       ? providerResult.error.code
       : providerResult && providerResult.errorCode);
@@ -265,7 +427,7 @@ async function runAnalyzeApi(payload = {}, options = {}) {
   }
 
   try {
-    return await buildSafeAnalysisResponse({
+    const response = await buildSafeAnalysisResponse({
       requestId,
       anonymousDeviceId,
       image,
@@ -275,7 +437,10 @@ async function runAnalyzeApi(payload = {}, options = {}) {
         timeoutMs: config.timeoutMs,
       },
     });
+    completeCostGuard(costGuard, { ...options, remember: response && response.ok === true });
+    return response;
   } catch (error) {
+    completeCostGuard(costGuard, { ...options, remember: false });
     return createErrorResponse(ERROR_CODES.VLM_RESPONSE_NORMALIZE_FAILED, requestId);
   }
 }
@@ -284,6 +449,7 @@ module.exports = {
   ACCEPTED_IMAGE_TYPES,
   createMemoryStorage,
   runAnalyzeApi,
+  resetStage6GCostGuardForTests,
   sanitizeAnalysisResult,
   sanitizeRecognitionResult,
 };

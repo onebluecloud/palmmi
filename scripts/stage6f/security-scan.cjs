@@ -136,6 +136,26 @@ function scanProductionImageStorageRisk() {
   return findings;
 }
 
+function scanProductionLoggingRisk() {
+  const productionFiles = [
+    ...walk(path.join(root, "server")),
+    ...walk(path.join(root, "functions")),
+    ...walk(path.join(root, "api")),
+    ...walk(path.join(root, "worker")),
+  ].filter((file) => textExtensions.has(path.extname(file).toLowerCase()));
+
+  const findings = [];
+  const sensitiveLogPattern = /console\.(log|info|warn|error|debug)\s*\([^;\n]*(apiKey|api_key|Authorization|Bearer|base64|data:image|raw_response|rawText|responseText|provider_output|payload|body|image)/i;
+  for (const file of productionFiles) {
+    const text = fs.readFileSync(file, "utf8");
+    const relative = normalizePath(path.relative(root, file));
+    if (sensitiveLogPattern.test(text)) {
+      findings.push({ file: relative, type: "SENSITIVE_PRODUCTION_LOGGING" });
+    }
+  }
+  return findings;
+}
+
 function main() {
   const files = scanFiles();
   const findings = [];
@@ -145,9 +165,11 @@ function main() {
   }
   const storageFindings = scanProductionImageStorageRisk();
   findings.push(...storageFindings);
+  const loggingFindings = scanProductionLoggingRisk();
+  findings.push(...loggingFindings);
 
   const summary = {
-    stage: "6F",
+    stage: "6F/6G",
     scanned_file_count: files.length,
     scanned_ranges: [...trackedPrefixes, ...buildOutputDirs.map((dir) => `${dir}/`)],
     finding_count: findings.length,
@@ -156,6 +178,7 @@ function main() {
     no_base64_leak: findings.every((finding) => !["LONG_IMAGE_DATA_URL", "LONG_BASE64_PAYLOAD"].includes(finding.type)),
     no_raw_response_leak: findings.every((finding) => finding.type !== "RAW_QWEN_RESPONSE_PAYLOAD"),
     no_persistent_image_storage: findings.every((finding) => !["PRODUCTION_FILE_WRITE", "PERSISTENT_IMAGE_STORAGE_REFERENCE"].includes(finding.type)),
+    no_sensitive_production_logging: findings.every((finding) => finding.type !== "SENSITIVE_PRODUCTION_LOGGING"),
   };
 
   console.log(JSON.stringify(summary, null, 2));

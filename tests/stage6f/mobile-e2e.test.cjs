@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const { runStage6GGuardTests } = require("./stage6g-guards.test.cjs");
 
 const root = path.resolve(__dirname, "..", "..");
 const BASE_URL = process.env.PALMMI_STAGE6F_BASE_URL || "https://palmmi.pages.dev";
@@ -1055,6 +1056,86 @@ async function validateStage6FFix2InlineAnalyzeFlow(context) {
     source_size: fileInfo.size,
     request_size: successState.capturedUploads[0].fileSize,
     compressed: successState.capturedUploads[0].compressed,
+  };
+}
+
+async function validateStage6GRepeatedClickGuard(context) {
+  const page = await context.newPage();
+  const signals = createSignals(page);
+  const result = completeAnalysisResult({
+    extra: {
+      trace: {
+        stage: "6G",
+        from: "stage6g.repeated-click",
+      },
+    },
+  });
+
+  await page.addInitScript((analysisResult) => {
+    window.__stage6gRepeatedClick = {
+      callCount: 0,
+      resolveAnalyze: null,
+    };
+    window.__PALMMI_UPLOAD_OPTIONS__ = {
+      location: { protocol: "https:" },
+      useAnalyzeApi: true,
+      analyzeEndpoint: "/api/analyze",
+      requestId: () => `req_stage6g_repeated_click_${window.__stage6gRepeatedClick.callCount + 1}`,
+      apiClient: {
+        canUseApi: () => true,
+        callAnalyzeApi: async () => {
+          window.__stage6gRepeatedClick.callCount += 1;
+          return new Promise((resolve) => {
+            window.__stage6gRepeatedClick.resolveAnalyze = () => resolve({
+              ok: true,
+              request_id: "req_stage6g_repeated_click",
+              status: "SUCCESS",
+              provider: "qwen",
+              analysis_result: analysisResult,
+            });
+          });
+        },
+      },
+    };
+  }, result);
+
+  await page.goto(localPageUrl("upload"), { waitUntil: "domcontentloaded" });
+  await attachGeneratedImageFile(page, {
+    name: "same-palm.jpg",
+    type: "image/jpeg",
+    width: 1200,
+    height: 900,
+  });
+  await page.click("#checkFile");
+  await page.waitForFunction(() => /基础检查/.test(document.querySelector("#uploadStatus").textContent || ""), null, { timeout: 15000 });
+
+  await page.click("#startAnalyze");
+  await page.waitForFunction(() => window.__stage6gRepeatedClick.callCount === 1, null, { timeout: 15000 });
+  await page.evaluate(() => {
+    document.querySelector("#startAnalyze").dispatchEvent(new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+    }));
+  });
+  await page.waitForTimeout(100);
+
+  const pending = await page.evaluate(() => ({
+    callCount: window.__stage6gRepeatedClick.callCount,
+    startDisabled: document.querySelector("#startAnalyze").disabled,
+    statusText: document.querySelector("#uploadStatus").textContent,
+  }));
+  assert.equal(pending.callCount, 1, "repeated click must not start a second API request");
+  assert.equal(pending.startDisabled, true, "start button should stay disabled while analysis is pending");
+
+  await page.evaluate(() => window.__stage6gRepeatedClick.resolveAnalyze());
+  await page.waitForURL(/\/result\/index\.html|\/result\/?$/, { timeout: 30000 });
+
+  await assertBrowserClean(signals, "stage6g repeated click guard");
+  await page.close();
+  return {
+    status: "PASS",
+    api_call_count: pending.callCount,
+    start_disabled_while_pending: pending.startDisabled,
   };
 }
 
@@ -2571,6 +2652,7 @@ async function runFeatureDrivenMockAnalysis(requestId = "req_stage6f_final_fix_f
     },
   }, {
     env,
+    enableCostGuard: false,
     fetchImpl: async () => {
       fetchCount += 1;
       return qwenChatResponse(fetchCount === 1
@@ -2785,6 +2867,7 @@ async function runStage6FCalibrationMockAnalysis(palmFeatures, requestId = "req_
     },
   }, {
     env,
+    enableCostGuard: false,
     fetchImpl: async () => {
       fetchCount += 1;
       return qwenChatResponse(fetchCount === 1
@@ -3963,6 +4046,7 @@ async function main() {
     stage6f_final: {},
     stage6f_final_fix: {},
     stage6f_final_classifier_hard_fix: {},
+    stage6g: {},
     real_qwen_smoke: null,
     abnormal_inputs: {},
     simulated_qwen_errors: null,
@@ -3971,6 +4055,7 @@ async function main() {
 
   try {
     summary.production_access.api_endpoint = await validateApiEndpoint();
+    summary.stage6g = await runStage6GGuardTests();
     summary.stage5_assets = await validateStage5Assets();
     summary.stage6f_fix.storage_contract = await validateStage6FFixStorageContract();
     summary.stage6f_fix3.server_validity_contract = await validateStage6FFix3ServerValidityContract();
@@ -4034,6 +4119,7 @@ async function main() {
     try {
       summary.stage6f_fix.photo_check_button = await validateLocalPhotoCheckButton(mobileContext, fixturePath);
       summary.stage6f_fix2.inline_analyze_flow = await validateStage6FFix2InlineAnalyzeFlow(mobileContext);
+      summary.stage6g.repeated_click_guard = await validateStage6GRepeatedClickGuard(mobileContext);
       summary.stage6f_fix2.timeout_handling = await validateStage6FFix2TimeoutHandling(mobileContext);
       summary.stage6f_fix3.invalid_image_gate = await validateStage6FFix3InvalidImageGate(mobileContext);
       summary.stage6f_fix3.no_default_persona_fallback = await validateStage6FFix3NoDefaultPersonaFallback(mobileContext);
