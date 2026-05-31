@@ -5,6 +5,10 @@
 Stage 4K: Stage 4 冻结总结 + Stage 5 交接已完成。
 本轮只整理 Stage 4 成果、验收结果、边界、遗留问题和 Stage 5 交接文档；未新增页面、未改 UI、未改交互、未修改 Stage 3 score / rules / matcher / mock pipeline 核心逻辑，未接真实 VLM，未实现真实保存图片、复制分享文案、二维码、真实分享、支付、登录、后端或部署。Stage 4K 重新运行全部 Stage 4 测试并通过，核对截图目录实际存在 73 张 PNG，禁止项扫描未发现实现文件中存在真实 API / VLM / 导出 / 复制 / 分享 / 支付 / 登录 / 后端 / Stage 3 core 直接引用。Stage 4 已冻结，可以进入 Stage 5。
 
+Post-Stage-7 amendment:
+
+- 本文件中 Stage 4F / 4G / 4H / 4K 关于海报入口、保存图片、复制分享文案“占位 / disabled”的记录是 Stage 4 冻结时的历史状态。Stage 7 Poster Share Kit 已在不改变 Stage 4 主风格的前提下启用本地保存图片 / 复制分享文案；当前状态以 `docs/STAGE7_POSTER_SHARE_KIT_REPORT.md` 和 `docs/STAGE6_STATE.md` 为准。
+
 Stage 4J: 移动端全流程验收已完成。
 本轮只围绕 home -> upload -> analyze -> result -> poster -> retest 主流程做验收和最小修复。已用真实浏览器在 390px、430px、1440px 视口验证主链路、关键 CTA、无横向滚动、无白屏和无明显控制台错误；补齐 `index.html`、`upload/index.html`、`analyze/index.html` 的 `data:,` favicon，避免浏览器默认请求 `/favicon.ico` 造成 404 控制台噪音；新增轻量 `tests/stage4/full-flow.test.cjs` 固定主流程链接和禁止项守护。未实现真实保存图片、复制分享文案、二维码、真实分享、html2canvas/canvas 导出、真实 VLM、真实 API、支付、登录、后端或 Stage 3 核心逻辑修改。
 

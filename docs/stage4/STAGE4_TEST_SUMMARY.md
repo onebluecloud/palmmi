@@ -24,6 +24,10 @@ tests/stage4/full-flow.test.cjs
 | `poster-render.test.cjs` | 海报 key 读取、ready/partial/error view model、长名称、query test state、保存/复制占位、海报页禁止项。 |
 | `full-flow.test.cjs` | 首页到上传、分析、结果、海报、重新测试的静态链路；data favicon；页面级禁止项。 |
 
+Post-Stage-7 note:
+
+- `poster-render.test.cjs` 中“保存/复制占位”是 Stage 4 冻结时的历史覆盖口径。当前保存图片 / 复制分享文案已由 Stage 7 Poster Share Kit 启用，本阶段最新回归以 `tests/stage6f/mobile-e2e.test.cjs` 中的 `stage7.poster_share_kit_*` 检查和 `docs/STAGE7_POSTER_SHARE_KIT_REPORT.md` 为准。
+
 ## 3. 本阶段重新运行的测试命令
 
 ```text
