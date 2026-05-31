@@ -4,7 +4,9 @@ Date: 2026-05-31
 
 Status: `READY_FOR_INTERNAL_TESTING_NOT_PUBLIC`
 
-Commit: `a8e8a106489475a60af37c5e84d293fd794dcd54`
+Feature commit: `a8e8a106489475a60af37c5e84d293fd794dcd54`
+
+Latest confirmed deployment commit: `67fa461e3aeb304ed0bde9d9c1e2ec7350aed176`
 
 Deployment: `DEPLOYED_CONFIRMED_BY_BUILD_META`
 
@@ -96,6 +98,22 @@ Copy-cleanup deployment check:
 
 ```text
 npm run preflight:stage6h -- --expect-commit ba14ea2b58b340922522f5478abc4252b64caf7c --max-attempts 4
+```
+
+Result:
+
+```text
+PASS
+build_meta.matches_expected_commit=true
+api_calls_made=0
+quota_consumed=false
+real_qwen_called=false
+```
+
+Latest aggregate deployment check:
+
+```text
+npm run preflight:stage6h -- --expect-commit 67fa461e3aeb304ed0bde9d9c1e2ec7350aed176 --max-attempts 4
 ```
 
 Result:

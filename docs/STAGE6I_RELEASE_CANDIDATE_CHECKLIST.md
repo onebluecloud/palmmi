@@ -72,6 +72,7 @@ Codex ran a Stage 6I preparation precheck on 2026-05-31. This does not promote S
 | `npm run smoke:stage6f:qwen` | PASS | Dry run returned `REAL_QWEN_DISABLED`, `api_calls_made=0`, `quota_consumed=false`. |
 | `npm run preflight:stage6h` | PASS | Online pages passed; invalid API POST returned controlled 400; `api_calls_made=0`, `quota_consumed=false`. |
 | `npm run precheck:stage6i -- --expect-commit <latest-origin-main-commit> --defer-manual-result` | PASS_DEVELOPMENT_MANUAL_DEFERRED | Aggregated safe checks passed with `precheck_ok=true`, `ok=true`, `can_continue_development=true`, `manual_result_deferred=true`, `formal_gate_ok=false`, `can_enter_stage6i=false`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`. This is not a final release PASS. |
+| `npm run precheck:stage6i -- --expect-commit 67fa461e3aeb304ed0bde9d9c1e2ec7350aed176 --defer-manual-result` | PASS_DEVELOPMENT_MANUAL_DEFERRED | Latest aggregate precheck passed with `precheck_ok=true`, `can_continue_development=true`, `manual_result_deferred=true`, `formal_gate_ok=false`, `can_enter_stage6i=false`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`; true-device evidence remains deferred. |
 | `npm run precheck:stage6i -- --expect-commit 107b864627532992b7eb5366165ecffc23d96371` | PASS_ZERO_COST_NO_MANUAL_RESULT | Aggregated safe checks passed with `precheck_ok=true`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`; no manual-result file means `can_enter_stage6i=false` until Stage 6H user evidence arrives. |
 | `npm run precheck:stage6i -- --expect-commit 83084e127a90b2a136e8ae10fd4bce122d16a43a --require-manual-result` | EXPECTED_FAILSAFE | Aggregated safe checks passed with zero Qwen calls, then formal gate exited non-zero with `STAGE6I_MANUAL_RESULT_REQUIRED` because no Stage 6H manual-result file was supplied. |
 | `npm run precheck:stage6i -- --manual-result-file C:\temp\stage6h-result.txt --require-manual-result` | EXPECTED_FAILFAST | Formal gate exited before child commands with `STAGE6I_EXPECTED_COMMIT_REQUIRED`; `commands=[]`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`. |
@@ -129,6 +130,10 @@ If a Stage 6I verification or Stage 6H true-device result exposes a severe issue
 
 Known recent commits:
 
+- `67fa461e3aeb304ed0bde9d9c1e2ec7350aed176` - latest pushed documentation/deployment confirmation; workers.dev matched this commit through `/build-meta.json`.
+- `ba14ea2b58b340922522f5478abc4252b64caf7c` - poster share kit copy cleanup.
+- `67e7d46494633394114669949e49cb5a2185f53c` - feedback preflight false-positive fix.
+- `fd34b6ebc9ed5a90c34f2a537a9d8f7540bb9004` - Stage 8 feedback template page.
 - `b002515319293798dea1cc069389a6d052fbd3a9` - build metadata preflight documented as the deployment gate.
 - `0be17d2c7793f2b8f1a8a06bdc61c9f0e3f64001` - Stage 6 state deployment-confirmation status update.
 - `a8e8a106489475a60af37c5e84d293fd794dcd54` - Stage 7 poster share kit, deployed and confirmed by `/build-meta.json`.

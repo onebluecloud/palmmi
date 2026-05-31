@@ -24,7 +24,7 @@ Current status:
 | Gate | Current Status |
 |---|---|
 | Stage 6H | `MANUAL_REQUIRED` |
-| Stage 6I | `BLOCKED_BY_STAGE6H_MANUAL_REQUIRED` |
+| Stage 6I | `READY_FOR_DEVELOPMENT_MANUAL_DEFERRED`; formal gate still blocked by Stage 6H manual evidence |
 | Stage 7 | `PREPARED_NOT_ACTIVE` |
 | Poster save/copy | `SIMULATED_PASS_MANUAL_REQUIRED` |
 | Feedback log | Template created in `docs/STAGE8_FEEDBACK_LOG.md` |

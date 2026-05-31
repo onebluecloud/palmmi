@@ -258,6 +258,10 @@ Stage 4K passes because:
 10. 禁止项验收通过：实际实现文件未发现 OpenAI、Qwen、千问、百炼、Vision API、真实 API fetch、html2canvas、canvas 导出、download、clipboard、QRCode、real share、payment、login、backend API 或 Stage 3 core 直接引用。
 11. Stage 4 最终结论：Stage 4 可冻结，可以进入 Stage 5。
 
+Post-Stage-7 amendment:
+
+- 第 6 条中的“保存图片、复制分享文案仍为占位”是 Stage 4K 冻结时的历史状态。Stage 7 Poster Share Kit 已在不改变 Stage 4 主风格的前提下启用本地保存图片 / 复制分享文案；当前状态以 `docs/STAGE7_POSTER_SHARE_KIT_REPORT.md` 和 `docs/STAGE6_STATE.md` 为准。
+
 Stage 4K verification commands:
 
 ```text
