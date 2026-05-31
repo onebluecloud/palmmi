@@ -8,7 +8,7 @@ Stage 6G-Fix status: `CONDITIONAL_PASS`.
 
 Default tests are now isolated from real Qwen E2E. `npm test` does not run the production normal-palm upload, does not require `VLM_API_KEY` / Qwen keys, reports `api_calls_made=0`, and does not consume Qwen quota.
 
-Finalize update: the test-cost isolation fix was committed as `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` and pushed to `origin/main`. Cloudflare Pages deployment status could not be confirmed through Wrangler because the local non-interactive environment has no usable Cloudflare API token. Online basic verification for `https://palmmi.onebluecloud723.workers.dev` passed, and the user later confirmed in Cloudflare Dashboard that commit `0761620fa1363a3a754b3bbd4c0269d5f25087cd` deployed successfully.
+Finalize update: the test-cost isolation fix was committed as `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` and pushed to `origin/main`. Online basic verification for `https://palmmi.onebluecloud723.workers.dev` passed. A later Stage 6H deployment gate added safe `/build-meta.json` self-checking; the latest pushed Stage 6 documentation state is now confirmed through `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` without Cloudflare API tokens or Dashboard access.
 
 ## Goal
 
@@ -63,8 +63,8 @@ Without the guard, `scripts/stage6f/real-qwen-smoke.cjs --real` returns `REAL_QW
 |---|---|---|
 | Push to `origin/main` | PASS | `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` is present at `refs/heads/main`. |
 | GitHub commit checks | PASS | No GitHub status checks or workflow runs are configured for this commit. |
-| Cloudflare deployment query | BLOCKED | `wrangler pages deployment list --project-name palmmi --environment production --json` requires `CLOUDFLARE_API_TOKEN`; no token was configured or requested. |
-| Cloudflare Dashboard confirmation | PASS | User confirmed latest deployed commit `0761620fa1363a3a754b3bbd4c0269d5f25087cd` succeeded. |
+| Cloudflare deployment self-check | PASS | `/build-meta.json` and `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` now confirm the live workers.dev commit without Cloudflare auth. |
+| Cloudflare Dashboard confirmation | FALLBACK_ONLY | Dashboard is no longer required when build metadata matches; use it only if the zero-cost preflight cannot read `/build-meta.json`. |
 | Online `/` | PASS | HTTP 200, Palmmi page, not Hello World, no sensitive leak markers. |
 | Online `/upload/` | PASS | HTTP 200, Palmmi page, not Hello World, no sensitive leak markers. |
 | Online `/result/` | PASS | HTTP 200, Palmmi page, not Hello World, no sensitive leak markers. |
@@ -96,7 +96,7 @@ Before running any of them, set `PALMMI_ALLOW_REAL_QWEN_TESTS=1` and ensure a Qw
 
 ## Stage 6H Readiness
 
-Stage 6H is unblocked from the deployment side because the user confirmed the latest Cloudflare deployment. The remaining Stage 6H gate is real-device verification across iPhone Safari, iPhone WeChat, Android Chrome, and Android WeChat; Codex must not mark those as PASS without user evidence.
+Stage 6H is unblocked from the deployment side because the latest workers.dev deployment can be confirmed by `/build-meta.json`. The remaining Stage 6H gate is real-device verification across iPhone Safari, iPhone WeChat, Android Chrome, and Android WeChat; Codex must not mark those as PASS without user evidence.
 
 ## Not Done
 

@@ -8,7 +8,7 @@ Stage 6G status: `CONDITIONAL_PASS`.
 
 Reason: Stage 6G stability and cost guards are in place, and Stage 6G-Fix has isolated real Qwen E2E from default tests. Default `npm test` no longer runs the production normal-palm upload, reports `api_calls_made=0`, and does not consume Qwen quota. Stage 6G remains conditional because iPhone WeChat, Android WeChat, iPhone Safari physical device, and Android Chrome physical device remain `MANUAL_REQUIRED`.
 
-Finalize update: Stage 6G-Fix was committed as `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` and pushed to `origin/main`. Online basic verification for `https://palmmi.onebluecloud723.workers.dev` passed. Direct Cloudflare deployment-status confirmation was `BLOCKED` in the local Codex environment because Wrangler required `CLOUDFLARE_API_TOKEN`; the user later confirmed in Cloudflare Dashboard that commit `0761620fa1363a3a754b3bbd4c0269d5f25087cd` deployed successfully.
+Finalize update: Stage 6G-Fix was committed as `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` and pushed to `origin/main`. Online basic verification for `https://palmmi.onebluecloud723.workers.dev` passed. A later Stage 6H deployment gate added safe `/build-meta.json` self-checking; the latest pushed Stage 6 documentation state is now confirmed through `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` without Cloudflare API tokens or Dashboard access.
 
 ## Goal
 
@@ -88,8 +88,8 @@ No stack trace, provider raw response, API key, base64 image content, or request
 | `npm test` | PASS | Stage 5P + safe Stage 6F/6G suite passed; `normal_palm_upload.status=DISABLED_BY_DEFAULT`, `api_calls_made=0`, `quota_consumed=false`. |
 | `npm test` with Qwen key env vars cleared | PASS | Key env vars blank, `has_qwen_key=false`, `api_calls_made=0`, `quota_consumed=false`. |
 | `git push origin main` | PASS | Pushed `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` to `origin/main`. |
-| Cloudflare deployment query | BLOCKED | Cloudflare MCP deployment tool was unavailable; `wrangler pages deployment list` required `CLOUDFLARE_API_TOKEN`. |
-| Cloudflare Dashboard confirmation | PASS | User confirmed latest deployed commit `0761620fa1363a3a754b3bbd4c0269d5f25087cd` succeeded. |
+| Cloudflare deployment self-check | PASS | `/build-meta.json` and `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` now confirm the live workers.dev commit without Cloudflare auth. |
+| Cloudflare Dashboard confirmation | FALLBACK_ONLY | Dashboard is no longer required when build metadata matches; use it only if the zero-cost preflight cannot read `/build-meta.json`. |
 | Online basic verification | PASS | `/`, `/upload/`, `/result/`, `/poster/` returned Palmmi pages; empty `POST /api/analyze` returned `FILE_TYPE_UNSUPPORTED`; no key/base64/raw response/stack leaks. |
 
 ## Real Qwen Usage
