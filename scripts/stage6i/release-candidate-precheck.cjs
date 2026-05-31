@@ -32,6 +32,7 @@ function buildStage6iCommands(options = {}) {
         /ERR_CONNECTION_CLOSED/i,
         /ERR_NETWORK_CHANGED/i,
         /SSL connection/i,
+        /TypeError:\s*terminated/i,
         /unexpected EOF/i,
         /0 bytes from the transport stream/i,
         /http_status"?\s*:\s*0/i

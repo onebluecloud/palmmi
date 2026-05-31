@@ -392,6 +392,66 @@ async function main() {
   assert.equal(npmTestTransportEofAttempts, 2);
   assert.equal(retryingNpmTestTransportEof.commands.find((command) => command.name === 'npm test').attempts, 2);
 
+  let npmTestUndiciTerminatedAttempts = 0;
+  const retryingNpmTestUndiciTerminated = await runStage6iPrecheck({
+    expectedCommitSha: 'abcdef1234567890abcdef1234567890abcdef12',
+    env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '0' },
+    retryDelayMs: 0,
+    runCommand: async (command) => {
+      if (command.name === 'npm test') {
+        npmTestUndiciTerminatedAttempts += 1;
+        return npmTestUndiciTerminatedAttempts === 1
+          ? {
+              status: 1,
+              stdout: '',
+              stderr: 'TypeError: terminated at Fetch.onAborted (node:internal/deps/undici/undici:12826:53)'
+            }
+          : {
+              status: 0,
+              stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, real_qwen_called: false }),
+              stderr: ''
+            };
+      }
+      if (command.name === 'npm run security-scan') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({ finding_count: 0, no_key_or_token_leak: true }),
+          stderr: ''
+        };
+      }
+      if (command.name === 'npm run smoke:stage6f:qwen') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, status: 'REAL_QWEN_DISABLED' }),
+          stderr: ''
+        };
+      }
+      if (command.name === 'npm run preflight:stage6h') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            ok: true,
+            api_calls_made: 0,
+            quota_consumed: false,
+            real_qwen_called: false,
+            build_meta: { matches_expected_commit: true }
+          }),
+          stderr: ''
+        };
+      }
+      return {
+        status: 0,
+        stdout: JSON.stringify({ api_calls_made: 0, quota_consumed: false, real_qwen_called: false }),
+        stderr: ''
+      };
+    }
+  });
+
+  assert.equal(retryingNpmTestUndiciTerminated.precheck_ok, true);
+  assert.equal(retryingNpmTestUndiciTerminated.api_calls_made, 0);
+  assert.equal(npmTestUndiciTerminatedAttempts, 2);
+  assert.equal(retryingNpmTestUndiciTerminated.commands.find((command) => command.name === 'npm test').attempts, 2);
+
   const formalWithInsufficientManual = await runStage6iPrecheck({
     requireManualResult: true,
     expectedCommitSha: 'abcdef1234567890abcdef1234567890abcdef12',
