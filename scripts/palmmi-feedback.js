@@ -116,7 +116,7 @@
       `- 最近人格结果：${personaName} / ${personaId}`,
       `- 最近质量状态：${qualityStatus}`,
       "- 简短反馈：请用一句话描述问题或感受",
-      "- 安全确认：没有看到 API key / token / base64 图片 / raw provider response / 堆栈",
+      "- 安全确认：没有看到接口密钥 / 令牌 / 图片编码 / 服务商原始返回 / 错误堆栈",
     ].join("\n");
   }
 

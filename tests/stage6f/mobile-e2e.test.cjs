@@ -1694,7 +1694,7 @@ function validateStage8FeedbackStaticContract() {
 
   assert.match(sources, /反馈模板|内测反馈/, "feedback page must expose a manual feedback template");
   assert.match(sources, /copyFeedbackTemplate/, "feedback page must expose a copy action");
-  assert.match(sources, /不要粘贴照片|不要粘贴.*key|不要粘贴.*base64/i, "feedback page must warn against sensitive data");
+  assert.match(sources, /不要粘贴照片|不要粘贴.*接口密钥|不要粘贴.*图片编码|不要粘贴.*服务商原始返回/i, "feedback page must warn against sensitive data");
   assert.doesNotMatch(sources, /\bfetch\s*\(|XMLHttpRequest|sendBeacon|FormData/i, "feedback page must not submit feedback over network");
 
   return {
