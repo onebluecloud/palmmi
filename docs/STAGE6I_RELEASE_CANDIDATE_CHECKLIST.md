@@ -71,6 +71,8 @@ Codex ran a Stage 6I preparation precheck on 2026-05-31. This does not promote S
 | `npm run security-scan` | PASS | `finding_count=0`; no key/base64/raw response/persistent image storage/sensitive logging findings. |
 | `npm run smoke:stage6f:qwen` | PASS | Dry run returned `REAL_QWEN_DISABLED`, `api_calls_made=0`, `quota_consumed=false`. |
 | `npm run preflight:stage6h` | PASS | Online pages passed; invalid API POST returned controlled 400; `api_calls_made=0`, `quota_consumed=false`. |
+| `node tests\stage6i\release-candidate-precheck.test.cjs` | PASS | Confirms the aggregate precheck command list stays zero-cost, redacts command summaries, splits automated failures from missing manual evidence, and retries only clear zero-cost transient network failures. |
+| `npm run precheck:stage6i -- --expect-commit 1080489d960c81ad2a9a529984c898576237f4bf --defer-manual-result` | PASS_DEVELOPMENT_MANUAL_DEFERRED | Latest continuation audit passed with `precheck_ok=true`, `ok=true`, `can_continue_development=true`, `manual_result_deferred=true`, `formal_gate_ok=false`, `can_enter_stage6i=false`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`; `/build-meta.json` matched `1080489d960c81ad2a9a529984c898576237f4bf`. This is not a final release PASS because true-device evidence is still deferred. |
 | `npm run precheck:stage6i -- --expect-commit <latest-origin-main-commit> --defer-manual-result` | PASS_DEVELOPMENT_MANUAL_DEFERRED | Aggregated safe checks passed with `precheck_ok=true`, `ok=true`, `can_continue_development=true`, `manual_result_deferred=true`, `formal_gate_ok=false`, `can_enter_stage6i=false`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`. This is not a final release PASS. |
 | `npm run precheck:stage6i -- --expect-commit 67fa461e3aeb304ed0bde9d9c1e2ec7350aed176 --defer-manual-result` | PASS_DEVELOPMENT_MANUAL_DEFERRED | Aggregate precheck before this docs-only status refresh passed with `precheck_ok=true`, `can_continue_development=true`, `manual_result_deferred=true`, `formal_gate_ok=false`, `can_enter_stage6i=false`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`; true-device evidence remains deferred. |
 | `npm run precheck:stage6i -- --expect-commit 107b864627532992b7eb5366165ecffc23d96371` | PASS_ZERO_COST_NO_MANUAL_RESULT | Aggregated safe checks passed with `precheck_ok=true`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`; no manual-result file means `can_enter_stage6i=false` until Stage 6H user evidence arrives. |
@@ -130,6 +132,10 @@ If a Stage 6I verification or Stage 6H true-device result exposes a severe issue
 
 Known recent commits:
 
+- `1080489d960c81ad2a9a529984c898576237f4bf` - Stage 6I zero-cost precheck retry guard for undici `TypeError: terminated`; workers.dev matched this commit through `/build-meta.json`.
+- `726cfc26a361d4ce1ca1e0235ef3e090ddd01db1` - report automated Stage 6I precheck failures separately from missing manual evidence.
+- `9823c053f92e8cc7528f0fdcd1c73cae69ebbfb0` - clarify historical Stage 4 poster save/copy wording after the Stage 7 Poster Share Kit.
+- `ba9c4168125d03ee1f66ee56e98f6ac334a73086` - retry clear zero-cost PowerShell transport EOF flakes in Stage 6I aggregate precheck.
 - `67fa461e3aeb304ed0bde9d9c1e2ec7350aed176` - deployment confirmation before this docs-only status refresh; workers.dev matched this commit through `/build-meta.json`.
 - `ba14ea2b58b340922522f5478abc4252b64caf7c` - poster share kit copy cleanup.
 - `67e7d46494633394114669949e49cb5a2185f53c` - feedback preflight false-positive fix.
