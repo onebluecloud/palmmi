@@ -24,6 +24,12 @@ npm run preflight:stage6h
 
 该命令只检查页面和无效 API 请求，不上传真实图片，不调用 Qwen。通过后仍然不能替代真机测试。
 
+等包含 `/build-meta.json` 的新部署完成后，可用下面命令确认线上部署 commit：
+
+```text
+npm run preflight:stage6h -- --expect-commit <Codex 最终报告里的最新 commit>
+```
+
 ## 2. 测试前准备
 
 准备这些设备和图片：

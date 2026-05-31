@@ -35,6 +35,20 @@ async function main() {
       });
     }
 
+    if (parsed.pathname === '/build-meta.json') {
+      return new Response(JSON.stringify({
+        app: 'palmmi',
+        platform: 'cloudflare-pages',
+        commit_sha: 'abcdef1234567890abcdef1234567890abcdef12',
+        branch: 'main',
+        api_calls_made: 0,
+        real_qwen_called: false
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+
     return new Response(`<html><title>Palmmi</title><body>Palmmi · 掌纹人格标签 ${parsed.pathname}</body></html>`, {
       status: 200,
       headers: { 'content-type': 'text/html' }
@@ -44,7 +58,8 @@ async function main() {
   const result = await runPreflight({
     baseUrl: 'https://example.test',
     fetchImpl,
-    timeoutMs: 1000
+    timeoutMs: 1000,
+    expectedCommitSha: 'abcdef1234567890abcdef1234567890abcdef12'
   });
 
   assert.equal(result.ok, true);
@@ -68,14 +83,32 @@ async function main() {
   assert.equal(result.api_invalid_post.has_api_key, false);
   assert.equal(result.api_invalid_post.has_base64, false);
   assert.equal(result.api_invalid_post.has_stack, false);
+  assert.equal(result.build_meta.http_status, 200);
+  assert.equal(result.build_meta.available, true);
+  assert.equal(result.build_meta.commit_sha, 'abcdef1234567890abcdef1234567890abcdef12');
+  assert.equal(result.build_meta.expected_commit_sha, 'abcdef1234567890abcdef1234567890abcdef12');
+  assert.equal(result.build_meta.matches_expected_commit, true);
+  assert.equal(result.build_meta.has_api_key, false);
+  assert.equal(result.build_meta.has_base64, false);
 
   assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`), [
     'GET /',
     'GET /upload/',
     'GET /result/',
     'GET /poster/',
-    'POST /api/analyze'
+    'POST /api/analyze',
+    'GET /build-meta.json'
   ]);
+
+  const mismatchResult = await runPreflight({
+    baseUrl: 'https://example.test',
+    fetchImpl,
+    timeoutMs: 1000,
+    expectedCommitSha: 'ffffffffffffffffffffffffffffffffffffffff'
+  });
+
+  assert.equal(mismatchResult.ok, false);
+  assert.equal(mismatchResult.build_meta.matches_expected_commit, false);
 
   const helloResult = await runPreflight({
     baseUrl: 'https://example.test',
@@ -100,6 +133,13 @@ async function main() {
           text: JSON.stringify({ error: { code: 'INVALID_REQUEST_BODY' } })
         };
       }
+      if (parsed.pathname === '/build-meta.json') {
+        return {
+          status: 404,
+          contentType: 'application/json',
+          text: JSON.stringify({ ok: false })
+        };
+      }
       return {
         status: 200,
         contentType: 'text/html',
@@ -114,7 +154,8 @@ async function main() {
     'GET /upload/',
     'GET /result/',
     'GET /poster/',
-    'POST /api/analyze'
+    'POST /api/analyze',
+    'GET /build-meta.json'
   ]);
 
   const attemptCounts = new Map();
@@ -148,6 +189,7 @@ async function main() {
 
   assert.equal(retryResult.ok, true);
   assert.equal(retryResult.pages.find((page) => page.path === '/result/').attempts, 2);
+  assert.equal(retryResult.build_meta.available, false);
 
   console.log('Stage 6H online preflight tests passed.');
 }

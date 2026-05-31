@@ -52,6 +52,10 @@ Stage 6H online preflight: PASS_ZERO_COST
 
 Reason: 2026-05-31 Codex 已新增 `npm run preflight:stage6h`，用于重复执行 workers.dev 线上零成本预检。该命令只 GET `/`、`/upload/`、`/result/`、`/poster/`，并用无效 `text/plain` body POST `/api/analyze`；不上传真实图片，不调用真实 Qwen。最新运行结果 PASS：四个页面 HTTP 200 且为 Palmmi 页面，API invalid POST HTTP 400 `INVALID_REQUEST_BODY`，未发现 API key、base64、stack 或 raw provider response，`api_calls_made=0`、`quota_consumed=false`。
 
+Stage 6H build metadata self-check: READY_PENDING_DEPLOYMENT
+
+Reason: 2026-05-31 Codex 已更新 Cloudflare Pages build，生成公开安全的 `/build-meta.json`，包含 `commit_sha`、`branch`、`built_at`、`api_calls_made=0`、`real_qwen_called=false`，不包含 key、token、base64 或 raw provider response。`npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` 可在该提交部署后无 Cloudflare token 校验线上 commit。当前线上版本尚未部署本次 build metadata 提交，因此 build metadata 自检仍需等待部署后复跑。
+
 Note: 下方早期 Stage 6F 子阶段记录保留当时状态，可能包含旧模型、旧 BLOCKED 结论或旧 `npm test` 状态；当前收口判断以上方 Stage 6G `CONDITIONAL_PASS` 和 2026-05-31 Stage 6G 报告为准。
 
 ## 已完成

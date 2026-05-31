@@ -55,10 +55,17 @@ It checks:
 - GET `/result/`
 - GET `/poster/`
 - POST `/api/analyze` with invalid `text/plain` body only
+- GET `/build-meta.json`
 
 It does not upload a real image, does not call Qwen, and reports `api_calls_made=0`, `quota_consumed=false`.
 
-Latest run on 2026-05-31: `PASS`, all four pages HTTP 200 and Palmmi pages, invalid API POST HTTP 400 `INVALID_REQUEST_BODY`, no API key, base64, stack, or raw provider response found.
+After the next Cloudflare deployment, `/build-meta.json` should expose the deployed commit SHA. Then this command can verify deployment without a Cloudflare API token:
+
+```text
+npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>
+```
+
+Latest run on 2026-05-31: `PASS`, all four pages HTTP 200 and Palmmi pages, invalid API POST HTTP 400 `INVALID_REQUEST_BODY`, no API key, base64, stack, or raw provider response found. The currently deployed site did not yet expose valid build metadata because this feature had not been deployed at the time of that run.
 
 ## 4. 真机人工验收清单
 

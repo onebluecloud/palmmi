@@ -14,7 +14,8 @@ function parseArgs(argv) {
   const options = {
     baseUrl: DEFAULT_BASE_URL,
     timeoutMs: DEFAULT_TIMEOUT_MS,
-    maxAttempts: DEFAULT_MAX_ATTEMPTS
+    maxAttempts: DEFAULT_MAX_ATTEMPTS,
+    expectedCommitSha: null
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -27,6 +28,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === '--max-attempts') {
       options.maxAttempts = Number(argv[index + 1]);
+      index += 1;
+    } else if (arg === '--expect-commit') {
+      options.expectedCommitSha = argv[index + 1];
       index += 1;
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
@@ -52,7 +56,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`Usage: node scripts/stage6h/online-preflight.cjs [--base-url URL] [--timeout-ms MS] [--max-attempts N]
+  console.log(`Usage: node scripts/stage6h/online-preflight.cjs [--base-url URL] [--timeout-ms MS] [--max-attempts N] [--expect-commit SHA]
 
 Runs a zero-cost online preflight:
 - GET /, /upload/, /result/, /poster/
@@ -376,12 +380,22 @@ function getApiErrorCode(text) {
   }
 }
 
+function parseBuildMeta(text) {
+  try {
+    const json = JSON.parse(text);
+    return json && typeof json === 'object' ? json : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
 async function runPreflight({
   baseUrl = DEFAULT_BASE_URL,
   fetchImpl = null,
   requestImpl = null,
   timeoutMs = DEFAULT_TIMEOUT_MS,
-  maxAttempts = DEFAULT_MAX_ATTEMPTS
+  maxAttempts = DEFAULT_MAX_ATTEMPTS,
+  expectedCommitSha = null
 } = {}) {
   const normalizedBaseUrl = String(baseUrl).replace(/\/+$/, '');
   const pages = [];
@@ -440,6 +454,32 @@ async function runPreflight({
     has_raw_response: hasRawResponseMarker(apiText)
   };
 
+  const metaResponse = await requestTextWithRetry({
+    fetchImpl,
+    requestImpl,
+    url: `${normalizedBaseUrl}/build-meta.json`,
+    options: { method: 'GET' },
+    timeoutMs,
+    maxAttempts
+  });
+  const metaText = metaResponse.text || '';
+  const parsedMeta = parseBuildMeta(metaText);
+  const commitSha = parsedMeta && typeof parsedMeta.commit_sha === 'string' ? parsedMeta.commit_sha : null;
+  const buildMeta = {
+    path: '/build-meta.json',
+    http_status: metaResponse.status,
+    available: metaResponse.status === 200 && Boolean(parsedMeta),
+    commit_sha: commitSha,
+    branch: parsedMeta && typeof parsedMeta.branch === 'string' ? parsedMeta.branch : null,
+    expected_commit_sha: expectedCommitSha || null,
+    matches_expected_commit: expectedCommitSha ? commitSha === expectedCommitSha : null,
+    attempts: metaResponse.attempts,
+    has_api_key: hasApiKeyMarker(metaText),
+    has_base64: hasBase64Marker(metaText),
+    has_stack: hasStackMarker(metaText),
+    has_raw_response: hasRawResponseMarker(metaText)
+  };
+
   const pageOk = pages.every((page) => (
     page.ok
     && page.palmmi
@@ -456,13 +496,21 @@ async function runPreflight({
     && !apiInvalidPost.has_stack
     && !apiInvalidPost.has_raw_response
   );
+  const buildMetaOk = (
+    !buildMeta.has_api_key
+    && !buildMeta.has_base64
+    && !buildMeta.has_stack
+    && !buildMeta.has_raw_response
+    && (!expectedCommitSha || buildMeta.matches_expected_commit === true)
+  );
 
   return {
-    ok: pageOk && apiOk,
+    ok: pageOk && apiOk && buildMetaOk,
     stage: '6H',
     base_url: normalizedBaseUrl,
     pages,
     api_invalid_post: apiInvalidPost,
+    build_meta: buildMeta,
     api_calls_made: 0,
     quota_consumed: false,
     real_qwen_called: false,
