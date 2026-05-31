@@ -75,6 +75,12 @@ npm run preflight:stage6h -- --expect-commit <Codex 最终报告里的最新 com
 
 如果暂时没有时间测 Safari / Chrome，先测 iPhone 微信和 Android 微信也可以进入 Stage 6I 条件收口判断。未测的 Safari / Chrome 仍会保留为 `MANUAL_REQUIRED`，不会被写成 PASS。
 
+纯文本复制版也已单独放在：
+
+```text
+docs/STAGE6H_USER_REPLY_TEMPLATE.txt
+```
+
 把下面这段复制给 Codex，并把 `待填` 改成实际情况。不要粘贴图片、API Key、base64、raw response 或隐私信息。
 
 ```text
