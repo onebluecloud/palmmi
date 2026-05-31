@@ -78,7 +78,7 @@ Code-bearing commits:
 
 - `fd34b6ebc9ed5a90c34f2a537a9d8f7540bb9004` - `feat: add stage 8 feedback template page`
 - `67e7d46494633394114669949e49cb5a2185f53c` - `fix: avoid feedback preflight false positives`
-- `67fa461e3aeb304ed0bde9d9c1e2ec7350aed176` - latest aggregate deployment confirmation that includes `/feedback/`
+- `67fa461e3aeb304ed0bde9d9c1e2ec7350aed176` - aggregate deployment confirmation before this docs-only status refresh that includes `/feedback/`
 
 Zero-cost online preflight passed for `67e7d46494633394114669949e49cb5a2185f53c`:
 
@@ -90,4 +90,4 @@ Zero-cost online preflight passed for `67e7d46494633394114669949e49cb5a2185f53c`
 - `real_qwen_called=false`.
 - No API key, base64, raw provider response, or stack leak detected.
 
-The latest aggregate preflight also passed for `67fa461e3aeb304ed0bde9d9c1e2ec7350aed176`; `/feedback/` stayed HTTP 200, `api_calls_made=0`, and no sensitive leak was detected.
+The aggregate preflight before this docs-only status refresh also passed for `67fa461e3aeb304ed0bde9d9c1e2ec7350aed176`; `/feedback/` stayed HTTP 200, `api_calls_made=0`, and no sensitive leak was detected.

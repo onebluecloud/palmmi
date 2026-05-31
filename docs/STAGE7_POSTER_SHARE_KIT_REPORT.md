@@ -6,7 +6,7 @@ Status: `READY_FOR_INTERNAL_TESTING_NOT_PUBLIC`
 
 Feature commit: `a8e8a106489475a60af37c5e84d293fd794dcd54`
 
-Latest confirmed deployment commit: `67fa461e3aeb304ed0bde9d9c1e2ec7350aed176`
+Most recent deployment confirmation before this docs-only status refresh: `67fa461e3aeb304ed0bde9d9c1e2ec7350aed176`
 
 Deployment: `DEPLOYED_CONFIRMED_BY_BUILD_META`
 
@@ -110,7 +110,7 @@ quota_consumed=false
 real_qwen_called=false
 ```
 
-Latest aggregate deployment check:
+Most recent aggregate deployment check before this docs-only status refresh:
 
 ```text
 npm run preflight:stage6h -- --expect-commit 67fa461e3aeb304ed0bde9d9c1e2ec7350aed176 --max-attempts 4
