@@ -9,7 +9,7 @@
     "test:stage6f": "node tests/stage6f/fixture-coverage.test.cjs && node tests/stage6f/mobile-e2e.test.cjs",
     "test:stage6f:real": "node tests/stage6f/mobile-e2e.test.cjs --real-qwen-e2e",
     "test:stage6h": "node tests/stage6h/build-meta.test.cjs && node tests/stage6h/online-preflight.test.cjs && node tests/stage6h/manual-result-check.test.cjs",
-    "test:stage6i": "node tests/stage6i/release-candidate-precheck.test.cjs",
+    "test:stage6i": "node tests/stage6i/release-candidate-precheck.test.cjs && node tests/stage6i/stage-status-docs.test.cjs",
     "e2e:real-qwen": "npm run test:stage6f:real",
     "preflight:stage6h": "node scripts/stage6h/online-preflight.cjs",
     "precheck:stage6i": "node scripts/stage6i/release-candidate-precheck.cjs",
