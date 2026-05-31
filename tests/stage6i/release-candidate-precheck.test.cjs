@@ -133,6 +133,7 @@ async function main() {
 
   const formalWithInsufficientManual = await runStage6iPrecheck({
     requireManualResult: true,
+    expectedCommitSha: 'abcdef1234567890abcdef1234567890abcdef12',
     manualResultFile: 'C:\\temp\\stage6h-result.txt',
     env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '0' },
     runCommand: async (command) => {
@@ -185,6 +186,26 @@ async function main() {
   assert.equal(failFastCommandRan, false);
   assert.equal(failFast.api_calls_made, 0);
   assert.equal(failFast.quota_consumed, false);
+
+  let missingCommitCommandRan = false;
+  const missingCommit = await runStage6iPrecheck({
+    requireManualResult: true,
+    manualResultFile: 'C:\\temp\\stage6h-result.txt',
+    env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '0' },
+    runCommand: async () => {
+      missingCommitCommandRan = true;
+      throw new Error('formal gate without expected commit should fail before child commands');
+    }
+  });
+
+  assert.equal(missingCommit.precheck_ok, false);
+  assert.equal(missingCommit.ok, false);
+  assert.equal(missingCommit.formal_gate_ok, false);
+  assert.equal(missingCommit.error_code, 'STAGE6I_EXPECTED_COMMIT_REQUIRED');
+  assert.deepEqual(missingCommit.commands, []);
+  assert.equal(missingCommitCommandRan, false);
+  assert.equal(missingCommit.api_calls_made, 0);
+  assert.equal(missingCommit.quota_consumed, false);
 
   const guarded = await runStage6iPrecheck({
     env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '1' },
