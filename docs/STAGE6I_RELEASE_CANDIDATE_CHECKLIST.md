@@ -40,7 +40,7 @@ Preferred aggregate command:
 npm run precheck:stage6i -- --expect-commit <latest-origin-main-commit> --manual-result-file <Codex-saved-user-result-text> --require-manual-result
 ```
 
-This command runs only the zero-cost checks listed below. It refuses to run if `PALMMI_ALLOW_REAL_QWEN_TESTS=1` is set, redacts command output summaries, and reports `api_calls_made=0`, `quota_consumed=false`, and `real_qwen_called=false` when the path is safe. Without `--manual-result-file`, it can still prove the automated precheck is safe, but `can_enter_stage6i` remains `false` because Stage 6H manual evidence is missing. Use `--require-manual-result` for the formal Stage 6I gate so missing or insufficient manual evidence exits fail-safe.
+This command runs only the zero-cost checks listed below. It refuses to run if `PALMMI_ALLOW_REAL_QWEN_TESTS=1` is set, redacts command output summaries, and reports `api_calls_made=0`, `quota_consumed=false`, and `real_qwen_called=false` when the path is safe. Without `--manual-result-file`, it can still prove the automated precheck is safe, but `can_enter_stage6i` remains `false` because Stage 6H manual evidence is missing. Use `--require-manual-result` for the formal Stage 6I gate so missing or insufficient manual evidence exits fail-safe. If `--require-manual-result` is used without `--manual-result-file`, the command fails immediately with `STAGE6I_MANUAL_RESULT_FILE_MISSING` and does not run child commands.
 
 | Command | Purpose | Real Qwen Cost |
 |---|---|---|
@@ -68,6 +68,7 @@ Codex ran a Stage 6I preparation precheck on 2026-05-31. This does not promote S
 | `npm run preflight:stage6h` | PASS | Online pages passed; invalid API POST returned controlled 400; `api_calls_made=0`, `quota_consumed=false`. |
 | `npm run precheck:stage6i -- --expect-commit 107b864627532992b7eb5366165ecffc23d96371` | PASS_ZERO_COST_NO_MANUAL_RESULT | Aggregated safe checks passed with `precheck_ok=true`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`; no manual-result file means `can_enter_stage6i=false` until Stage 6H user evidence arrives. |
 | `npm run precheck:stage6i -- --expect-commit 83084e127a90b2a136e8ae10fd4bce122d16a43a --require-manual-result` | EXPECTED_FAILSAFE | Aggregated safe checks passed with zero Qwen calls, then formal gate exited non-zero with `STAGE6I_MANUAL_RESULT_REQUIRED` because no Stage 6H manual-result file was supplied. |
+| `node tests/stage6i/release-candidate-precheck.test.cjs` | PASS | Confirms formal gate without `--manual-result-file` fails fast with `STAGE6I_MANUAL_RESULT_FILE_MISSING` before any child command runs. |
 
 Real Qwen calls made by this precheck: `0`.
 

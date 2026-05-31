@@ -184,6 +184,27 @@ async function runStage6iPrecheck(options = {}) {
   const env = options.env || process.env;
   const startedAt = Date.now();
 
+  if (options.requireManualResult === true && !options.manualResultFile) {
+    return {
+      ok: false,
+      precheck_ok: false,
+      formal_gate_ok: false,
+      stage: '6I',
+      stage6i_status: 'BLOCKED_BY_STAGE6H_MANUAL_REQUIRED',
+      error_code: 'STAGE6I_MANUAL_RESULT_FILE_MISSING',
+      message: '--manual-result-file is required when --require-manual-result is used.',
+      can_enter_stage6i: false,
+      manual_result_required: true,
+      manual_result: { status: 'SKIPPED_NO_MANUAL_RESULT_FILE' },
+      commands: [],
+      command_failure_count: 0,
+      api_calls_made: 0,
+      quota_consumed: false,
+      real_qwen_called: false,
+      duration_ms: Date.now() - startedAt
+    };
+  }
+
   if (env.PALMMI_ALLOW_REAL_QWEN_TESTS === '1') {
     return {
       ok: false,

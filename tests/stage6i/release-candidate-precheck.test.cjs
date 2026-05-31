@@ -131,25 +131,60 @@ async function main() {
   assert.equal(withoutManual.can_enter_stage6i, false);
   assert.equal(withoutManual.manual_result.status, 'SKIPPED_NO_MANUAL_RESULT_FILE');
 
-  const formalWithoutManual = await runStage6iPrecheck({
+  const formalWithInsufficientManual = await runStage6iPrecheck({
     requireManualResult: true,
+    manualResultFile: 'C:\\temp\\stage6h-result.txt',
     env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '0' },
-    runCommand: async (command) => ({
-      status: 0,
-      stdout: command.name === 'npm run smoke:stage6f:qwen'
-        ? JSON.stringify({ api_calls_made: 0, quota_consumed: false })
-        : JSON.stringify({ api_calls_made: 0, quota_consumed: false, real_qwen_called: false }),
-      stderr: ''
-    })
+    runCommand: async (command) => {
+      if (command.name === 'npm run check:stage6h:manual') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            can_enter_stage6i: false,
+            stage6h_minimum_conditional_pass: false,
+            api_calls_made: 0,
+            quota_consumed: false,
+            real_qwen_called: false
+          }),
+          stderr: ''
+        };
+      }
+      return {
+        status: 0,
+        stdout: command.name === 'npm run smoke:stage6f:qwen'
+          ? JSON.stringify({ api_calls_made: 0, quota_consumed: false })
+          : JSON.stringify({ api_calls_made: 0, quota_consumed: false, real_qwen_called: false }),
+        stderr: ''
+      };
+    }
   });
 
-  assert.equal(formalWithoutManual.precheck_ok, true);
-  assert.equal(formalWithoutManual.ok, false);
-  assert.equal(formalWithoutManual.formal_gate_ok, false);
-  assert.equal(formalWithoutManual.error_code, 'STAGE6I_MANUAL_RESULT_REQUIRED');
-  assert.equal(formalWithoutManual.manual_result_required, true);
-  assert.equal(formalWithoutManual.api_calls_made, 0);
-  assert.equal(formalWithoutManual.quota_consumed, false);
+  assert.equal(formalWithInsufficientManual.precheck_ok, true);
+  assert.equal(formalWithInsufficientManual.ok, false);
+  assert.equal(formalWithInsufficientManual.formal_gate_ok, false);
+  assert.equal(formalWithInsufficientManual.error_code, 'STAGE6I_MANUAL_RESULT_NOT_READY');
+  assert.equal(formalWithInsufficientManual.manual_result_required, true);
+  assert.equal(formalWithInsufficientManual.api_calls_made, 0);
+  assert.equal(formalWithInsufficientManual.quota_consumed, false);
+
+  let failFastCommandRan = false;
+  const failFast = await runStage6iPrecheck({
+    requireManualResult: true,
+    env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '0' },
+    runCommand: async () => {
+      failFastCommandRan = true;
+      throw new Error('formal gate without manual file should fail before child commands');
+    }
+  });
+
+  assert.equal(failFast.precheck_ok, false);
+  assert.equal(failFast.ok, false);
+  assert.equal(failFast.formal_gate_ok, false);
+  assert.equal(failFast.error_code, 'STAGE6I_MANUAL_RESULT_FILE_MISSING');
+  assert.deepEqual(failFast.commands, []);
+  assert.equal(failFastCommandRan, false);
+  assert.equal(failFast.api_calls_made, 0);
+  assert.equal(failFast.quota_consumed, false);
 
   const guarded = await runStage6iPrecheck({
     env: { PALMMI_ALLOW_REAL_QWEN_TESTS: '1' },
