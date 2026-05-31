@@ -8,6 +8,8 @@ Stage 6G-Fix status: `CONDITIONAL_PASS`.
 
 Default tests are now isolated from real Qwen E2E. `npm test` does not run the production normal-palm upload, does not require `VLM_API_KEY` / Qwen keys, reports `api_calls_made=0`, and does not consume Qwen quota.
 
+Finalize update: the test-cost isolation fix was committed as `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` and pushed to `origin/main`. Cloudflare Pages deployment status could not be confirmed through Wrangler because the local non-interactive environment has no usable Cloudflare API token. Online basic verification for `https://palmmi.onebluecloud723.workers.dev` passed, but the Cloudflare Dashboard deployment entry still requires manual confirmation.
+
 ## Goal
 
 Fix the Stage 6G test-cost risk where `test:stage6f` and `npm test` each performed one real production Qwen call. Real Qwen E2E must now be manual-only, explicitly guarded, and excluded from default test / CI / build paths.
@@ -55,6 +57,19 @@ Without the guard, `scripts/stage6f/real-qwen-smoke.cjs --real` returns `REAL_QW
 | `npm run security-scan` | PASS | `finding_count=0`; no key, base64, raw response, persistent image storage, or sensitive production logging findings. |
 | `npm run smoke:stage6f:qwen` | PASS | Dry run returned `REAL_QWEN_DISABLED`, `api_calls_made=0`, `quota_consumed=false`. |
 
+## Finalize Verification
+
+| Check | Result | Evidence |
+|---|---|---|
+| Push to `origin/main` | PASS | `c0664a3e7b3f984feab1b56c8e9f3bb30636c3aa` is present at `refs/heads/main`. |
+| GitHub commit checks | PASS | No GitHub status checks or workflow runs are configured for this commit. |
+| Cloudflare deployment query | BLOCKED | `wrangler pages deployment list --project-name palmmi --environment production --json` requires `CLOUDFLARE_API_TOKEN`; no token was configured or requested. |
+| Online `/` | PASS | HTTP 200, Palmmi page, not Hello World, no sensitive leak markers. |
+| Online `/upload/` | PASS | HTTP 200, Palmmi page, not Hello World, no sensitive leak markers. |
+| Online `/result/` | PASS | HTTP 200, Palmmi page, not Hello World, no sensitive leak markers. |
+| Online `/poster/` | PASS | HTTP 200, Palmmi page, not Hello World, no sensitive leak markers. |
+| Online `POST /api/analyze` empty JSON | PASS | HTTP 400, `FILE_TYPE_UNSUPPORTED`, no key/base64/raw provider response/stack leak. |
+
 ## Cloudflare / CI Boundary
 
 Cloudflare build remains `npm run build`, which does not run real Qwen. No `.github` workflows are present in this repo. GitHub / CI default should use `npm test`, `npm run build`, and `npm run security-scan`; none of these require real keys or consume Qwen quota.
@@ -80,7 +95,7 @@ Before running any of them, set `PALMMI_ALLOW_REAL_QWEN_TESTS=1` and ensure a Qw
 
 ## Stage 6H Readiness
 
-Stage 6H can be entered conditionally. The code/test-cost blocker is fixed; remaining gates are manual physical-device confirmation and any optional manually approved real Qwen E2E before launch.
+Stage 6H remains blocked until the Cloudflare Dashboard confirms the latest deployment for the pushed commit. The code/test-cost blocker is fixed; remaining gates are Cloudflare deployment confirmation, manual physical-device confirmation, and any optional manually approved real Qwen E2E before launch.
 
 ## Not Done
 
