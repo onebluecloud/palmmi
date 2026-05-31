@@ -24,6 +24,22 @@ Stage 6I precheck: PASS_ZERO_COST
 
 Reason: 2026-05-31 Codex 已预跑 Stage 6I 零成本检查：`npm test`、`npm run build`、`npm run security-scan`、`npm run smoke:stage6f:qwen` 均通过；`npm test` 默认 `api_calls_made=0`、`quota_consumed=false`，`smoke:stage6f:qwen` dry run `api_calls_made=0`、`quota_consumed=false`。本轮未调用真实 Qwen，未消耗额度。该结果只作为 Stage 6I 准备，不改变 Stage 6H 真机验收缺失导致的阻塞状态。
 
+Stage 7 prep status: PREPARED_NOT_ACTIVE
+
+Reason: 2026-05-31 Codex 已补齐 Stage 7 宣发准备文档：`docs/STAGE7_MARKETING_PREP_PLAN.md`、`docs/STAGE7_ACCOUNT_PROFILE_GUIDE.md`、`docs/STAGE7_CONTENT_DRAFTS.md`。这些内容仅为内部准备稿，不是公开发布，不应直接发布。Stage 7 仍不能标记 PASS，因为 Stage 6H 真机验收仍为 `MANUAL_REQUIRED`，Stage 6I 仍为 `BLOCKED_BY_STAGE6H_MANUAL_REQUIRED`。
+
+Donation strategy status: DRAFT_ONLY_NO_CODE
+
+Reason: 2026-05-31 Codex 已新增 `docs/DONATION_STRATEGY_DRAFT.md`，只记录未来是否考虑打赏 / 支付的判断条件和风险；本轮未新增支付、打赏、二维码、登录、会员、数据库或计费逻辑。
+
+Stage 8 soft launch status: NOT_STARTED_BLOCKED_BY_STAGE6H_6I_7
+
+Reason: 2026-05-31 Codex 已新增 `docs/STAGE8_SOFT_LAUNCH_REPORT.md` 和 `docs/STAGE8_FEEDBACK_LOG.md` 作为小范围灰度发布模板。Stage 8 尚未开始，不应公开分享链接或记录为 PASS；进入 Stage 8 前仍需 Stage 6H、Stage 6I 和 Stage 7 审核通过。
+
+Stage 7 / Donation / Stage 8 prep verification: PASS_ZERO_COST
+
+Reason: 2026-05-31 Codex 已运行 `npm run security-scan`、`npm run smoke:stage6f:qwen`、`npm run build`、`npm test`。结果均 PASS；security scan `finding_count=0`；smoke dry run `api_calls_made=0`、`quota_consumed=false`；`npm test` 默认真实 Qwen 路径继续禁用，`api_calls_made=0`、`quota_consumed=false`。本轮未设置 `PALMMI_ALLOW_REAL_QWEN_TESTS=1`，未调用真实 Qwen，未消耗额度。
+
 Note: 下方早期 Stage 6F 子阶段记录保留当时状态，可能包含旧模型、旧 BLOCKED 结论或旧 `npm test` 状态；当前收口判断以上方 Stage 6G `CONDITIONAL_PASS` 和 2026-05-31 Stage 6G 报告为准。
 
 ## 已完成
