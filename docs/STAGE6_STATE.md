@@ -40,6 +40,10 @@ Stage 7 / Donation / Stage 8 prep verification: PASS_ZERO_COST
 
 Reason: 2026-05-31 Codex 已运行 `npm run security-scan`、`npm run smoke:stage6f:qwen`、`npm run build`、`npm test`。结果均 PASS；security scan `finding_count=0`；smoke dry run `api_calls_made=0`、`quota_consumed=false`；`npm test` 默认真实 Qwen 路径继续禁用，`api_calls_made=0`、`quota_consumed=false`。本轮未设置 `PALMMI_ALLOW_REAL_QWEN_TESTS=1`，未调用真实 Qwen，未消耗额度。
 
+Stage 7 / Donation / Stage 8 prep push status: PUSHED_PENDING_CLOUDFLARE_CONFIRMATION
+
+Reason: 2026-05-31 Stage 7 / Donation / Stage 8 准备文档已提交并推送到 `origin/main`，commit `d5afc2ee653c50874fd6f7ac8bd3c3c6a61f63e0`。Codex 已复查线上 `https://palmmi.onebluecloud723.workers.dev` 的 `/`、`/upload/`、`/result/`、`/poster/` 均 HTTP 200 且为 Palmmi 页面，非图片 `POST /api/analyze` 返回 HTTP 400 脱敏错误，未发现 API key、base64 或 stack 泄露。GitHub commit status / workflow run 均为空；Wrangler 查询 Cloudflare Pages deployment 因本地缺少 `CLOUDFLARE_API_TOKEN` 且非交互环境无法取 auth token 失败。因此不能由 Codex 确认 Cloudflare 最新部署 commit 是否已到 `d5afc2e...`，仍需用户在 Cloudflare Dashboard 人工确认，Codex 不伪造部署状态。
+
 Note: 下方早期 Stage 6F 子阶段记录保留当时状态，可能包含旧模型、旧 BLOCKED 结论或旧 `npm test` 状态；当前收口判断以上方 Stage 6G `CONDITIONAL_PASS` 和 2026-05-31 Stage 6G 报告为准。
 
 ## 已完成
