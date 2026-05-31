@@ -75,7 +75,7 @@ Codex added a local text-only helper for the moment when the user sends true-dev
 npm run check:stage6h:manual -- --file <Codex-saved-user-result-text>
 ```
 
-It checks whether the pasted Stage 6H template has missing required fields, obvious P0 / P1 blockers, sensitive leak observations, and the minimum iPhone WeChat + Android WeChat condition for `CONDITIONAL_PASS`. It reports `api_calls_made=0`, `quota_consumed=false`, and `real_qwen_called=false`. It does not upload images, call Qwen, or prove that the user's true-device statements are correct.
+It checks whether the pasted Stage 6H template has missing required fields, obvious P0 / P1 blockers, sensitive leak observations, and the minimum iPhone WeChat + Android WeChat condition for `CONDITIONAL_PASS`. It reports `can_enter_stage6i=true` when that minimum gate is met, while still keeping untested iPhone Safari / Android Chrome fields in `missing_required`. It reports `api_calls_made=0`, `quota_consumed=false`, and `real_qwen_called=false`. It does not upload images, call Qwen, or prove that the user's true-device statements are correct.
 
 ## 4. 真机人工验收清单
 
@@ -216,7 +216,7 @@ It checks whether the pasted Stage 6H template has missing required fields, obvi
 - 是否可以进入 Stage 6I / 发布前收口：`BLOCKED`
 - 阻塞项：iPhone Safari、iPhone 微信、Android Chrome、Android 微信真实设备验收未完成。
 
-下一步：用户按第 4、5、6 节清单完成真机测试，并把每台设备的结果反馈给 Codex。Codex 只能根据用户真实反馈更新 Stage 6H 结论，不能代填或伪造真机结果。
+下一步：用户按第 4、5、6 节清单完成真机测试，并把每台设备的结果反馈给 Codex。最低可进入 Stage 6I 条件收口的真机门槛是 iPhone 微信和 Android 微信各完成 1 轮真实清晰掌纹测试，且没有白屏、卡死、上传完全不可用、结果页完全不可用、海报页完全不可用或敏感信息泄露。iPhone Safari / Android Chrome 如仍未测，必须继续保留为 `MANUAL_REQUIRED` 风险。Codex 只能根据用户真实反馈更新 Stage 6H 结论，不能代填或伪造真机结果。
 
 ## 9. 非技术测试速查入口
 

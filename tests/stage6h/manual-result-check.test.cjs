@@ -54,9 +54,10 @@ function main() {
     deviceBlock('Android Chrome', { '相册上传清晰掌心是否成功': '待填' }),
     deviceBlock('Android 微信')
   ].join('\n\n'));
-  assert.equal(wechatOnly.ok, false);
-  assert.equal(wechatOnly.can_enter_stage6i, false);
+  assert.equal(wechatOnly.ok, true);
+  assert.equal(wechatOnly.can_enter_stage6i, true);
   assert.equal(wechatOnly.stage6h_minimum_conditional_pass, true);
+  assert.equal(wechatOnly.all_manual_required_complete, false);
   assert.ok(wechatOnly.missing_required.some((item) => item.device === 'iPhone Safari'));
   assert.ok(wechatOnly.missing_required.some((item) => item.device === 'Android Chrome'));
 

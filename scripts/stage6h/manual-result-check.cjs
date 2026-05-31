@@ -175,9 +175,11 @@ function evaluateManualResult(text) {
 
   const deploymentConfirmed = extractDeploymentConfirmed(sourceText);
   const minimumWechatPass = hasMinimumWechatPass(devices['iPhone 微信']) && hasMinimumWechatPass(devices['Android 微信']);
-  const canEnterStage6i = deploymentConfirmed
-    && DEVICE_NAMES.every((deviceName) => devices[deviceName].required_complete && devices[deviceName].no_severe_blocker);
+  const allManualRequiredComplete = DEVICE_NAMES.every((deviceName) => (
+    devices[deviceName].required_complete && devices[deviceName].no_severe_blocker
+  ));
   const stage6hMinimumConditionalPass = deploymentConfirmed && minimumWechatPass && severeBlockers.length === 0;
+  const canEnterStage6i = stage6hMinimumConditionalPass;
 
   return {
     ok: canEnterStage6i,
@@ -185,6 +187,7 @@ function evaluateManualResult(text) {
     deployment_confirmed: deploymentConfirmed,
     can_enter_stage6i: canEnterStage6i,
     stage6h_minimum_conditional_pass: stage6hMinimumConditionalPass,
+    all_manual_required_complete: allManualRequiredComplete,
     devices,
     missing_required: missingRequired,
     severe_blockers: severeBlockers,

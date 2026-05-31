@@ -152,3 +152,8 @@ npm run check:stage6h:manual -- --file <Codex 保存的回填文本>
 ```
 
 该命令只读取文字，不上传图片，不调用 Qwen，不消耗额度。检查器只能帮助发现漏填和明显阻塞项，不能替代真实手机测试。
+
+检查器输出里：
+
+- `can_enter_stage6i=true`：表示 iPhone 微信 + Android 微信最低门槛已满足，且没有明显 P0 / P1 阻塞；可以进入 Stage 6I 条件收口。
+- `missing_required` 不为空：表示仍有 iPhone Safari / Android Chrome 或其他项目没测，必须继续记录为 `MANUAL_REQUIRED`，不能写成 PASS。

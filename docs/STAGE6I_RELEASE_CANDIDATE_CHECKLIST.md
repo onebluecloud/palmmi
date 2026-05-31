@@ -6,7 +6,7 @@ Date: 2026-05-31
 
 Stage 6I status: `BLOCKED_BY_STAGE6H_MANUAL_REQUIRED`
 
-Stage 6I is not active yet. This checklist is prepared in advance so the release-candidate closeout can start immediately after Stage 6H real-device results are available.
+Stage 6I is not active yet. This checklist is prepared in advance so the release-candidate closeout can start immediately after Stage 6H reaches at least `CONDITIONAL_PASS`.
 
 Current blocker:
 
@@ -17,16 +17,16 @@ Current blocker:
 
 ## 2. Entry Criteria
 
-Stage 6I can start only after:
+Stage 6I can start after Stage 6H reaches at least `CONDITIONAL_PASS`. The minimum manual gate for `CONDITIONAL_PASS` is iPhone WeChat plus Android WeChat, no P0 / P1 true-device blocker, and any untested iPhone Safari / Android Chrome items kept as `MANUAL_REQUIRED` rather than marked PASS.
 
 | Gate | Required Result | Current Result | Evidence |
 |---|---|---|---|
 | Stage 6G-Finalize deployed | PASS | PASS | Latest deployment is now confirmed through `/build-meta.json`; Cloudflare Dashboard is only a fallback if build metadata is unavailable. |
 | Latest pushed documentation state deployed | PASS / MANUAL_REQUIRED | PASS_BY_BUILD_META | `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` confirms the live workers.dev commit through `/build-meta.json` without Cloudflare auth. Dashboard is only a fallback if this command fails. |
 | Stage 6H automated online review | PASS | PASS | `/`, `/upload/`, `/result/`, `/poster/`, empty API POST, and non-image API POST passed. |
-| iPhone Safari real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
+| iPhone Safari real device | PASS / CONDITIONAL_PASS / MANUAL_REQUIRED_WITH_RISK | MANUAL_REQUIRED | Waiting for user test result; can remain MANUAL_REQUIRED only if WeChat minimum gate passes and no P0 / P1 blocker is observed. |
 | iPhone WeChat real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
-| Android Chrome real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
+| Android Chrome real device | PASS / CONDITIONAL_PASS / MANUAL_REQUIRED_WITH_RISK | MANUAL_REQUIRED | Waiting for user test result; can remain MANUAL_REQUIRED only if WeChat minimum gate passes and no P0 / P1 blocker is observed. |
 | Android WeChat real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
 | No P0 / P1 true-device blocker | PASS | UNKNOWN | Cannot be known until real-device testing finishes. |
 
@@ -42,6 +42,7 @@ These commands must be re-run when Stage 6I actually starts:
 | `npm run smoke:stage6f:qwen` | Dry-run Qwen smoke; must report `api_calls_made=0`. | NO |
 | `npm run preflight:stage6h` | Online page/API invalid-input preflight; must report `api_calls_made=0`. | NO |
 | `npm run preflight:stage6h -- --expect-commit <commit>` | Same as above, plus deployed commit check through `/build-meta.json`. | NO |
+| `npm run check:stage6h:manual -- --file <result-text>` | Text-only check of user true-device result paste; must report `api_calls_made=0`. | NO |
 
 Do not run `npm run test:stage6f:real`, `npm run e2e:real-qwen`, or any `--real` smoke command unless the user explicitly approves a real Qwen test and accepts quota use.
 
@@ -72,6 +73,7 @@ Qwen quota consumed by this precheck: `NO`.
 | Online pages accessible | PRECHECK_PASS | `npm run preflight:stage6h` verified `/`, `/upload/`, `/result/`, `/poster/` on workers.dev. |
 | API invalid input is sanitized | PRECHECK_PASS | `npm run preflight:stage6h` verified invalid `POST /api/analyze` returns controlled 400 and no sensitive leak. |
 | Deployed commit self-check | PRECHECK_PASS | `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` confirms `/build-meta.json` matches the expected commit. |
+| Manual result text checker | READY_ZERO_COST | `npm run check:stage6h:manual` can classify pasted true-device results; it does not verify the truth of the manual claims. |
 | Result page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |
 | Poster page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |
 | WeChat WebView upload works | WAITING_STAGE6H | iPhone and Android WeChat manual results required. |
