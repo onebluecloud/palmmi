@@ -92,6 +92,22 @@ quota_consumed=false
 real_qwen_called=false
 ```
 
+Copy-cleanup deployment check:
+
+```text
+npm run preflight:stage6h -- --expect-commit ba14ea2b58b340922522f5478abc4252b64caf7c --max-attempts 4
+```
+
+Result:
+
+```text
+PASS
+build_meta.matches_expected_commit=true
+api_calls_made=0
+quota_consumed=false
+real_qwen_called=false
+```
+
 ## 6. Remaining Risk
 
 - iPhone Safari, iPhone WeChat, Android Chrome, and Android WeChat real-device save/download behavior remains `MANUAL_REQUIRED`.
