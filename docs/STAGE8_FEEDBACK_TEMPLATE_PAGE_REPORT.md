@@ -71,3 +71,20 @@ Stage 8 feedback template page = READY_FOR_INTERNAL_TESTING_NOT_PUBLIC
 ```
 
 Stage 8 soft launch itself is still not started.
+
+## 8. Deployment Confirmation
+
+Code-bearing commits:
+
+- `fd34b6ebc9ed5a90c34f2a537a9d8f7540bb9004` - `feat: add stage 8 feedback template page`
+- `67e7d46494633394114669949e49cb5a2185f53c` - `fix: avoid feedback preflight false positives`
+
+Zero-cost online preflight passed for `67e7d46494633394114669949e49cb5a2185f53c`:
+
+- `/`, `/upload/`, `/result/`, `/poster/`, `/feedback/`: HTTP 200 Palmmi pages.
+- `/api/analyze` invalid text body: HTTP 400 sanitized `INVALID_REQUEST_BODY`.
+- `/build-meta.json`: matched expected commit.
+- `api_calls_made=0`.
+- `quota_consumed=false`.
+- `real_qwen_called=false`.
+- No API key, base64, raw provider response, or stack leak detected.

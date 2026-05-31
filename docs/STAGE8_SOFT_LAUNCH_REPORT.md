@@ -28,7 +28,7 @@ Current status:
 | Stage 7 | `PREPARED_NOT_ACTIVE` |
 | Poster save/copy | `SIMULATED_PASS_MANUAL_REQUIRED` |
 | Feedback log | Template created in `docs/STAGE8_FEEDBACK_LOG.md` |
-| Feedback page | `/feedback/` ready for internal testing, no network submit |
+| Feedback page | `/feedback/` deployed and ready for internal testing, no network submit |
 | Public release | Not allowed |
 
 ## 2. Soft Launch Scope
@@ -126,7 +126,7 @@ Do not fill this as PASS before a real soft launch.
 | Upload success | NOT_STARTED | Waiting for testers. |
 | Result success | NOT_STARTED | Waiting for testers. |
 | Poster save success | NOT_STARTED | Waiting for testers. |
-| Feedback template page | READY_ZERO_COST | `/feedback/` exists; automated copy-template check passed with `fetch_calls=0`. |
+| Feedback template page | READY_ZERO_COST | `/feedback/` exists; automated copy-template and online preflight checks passed with `api_calls_made=0`. |
 | WeChat behavior | NOT_STARTED | Waiting for testers. |
 | Qwen cost acceptable | NOT_STARTED | Waiting for controlled usage. |
 | Critical issues | UNKNOWN | Cannot conclude before launch. |

@@ -56,6 +56,10 @@ Stage 8 feedback template page verification: PASS_ZERO_COST
 
 Reason: 2026-05-31 Codex 已运行 `npm run test:stage6f` 和 `node tests\stage6h\online-preflight.test.cjs`。Stage 6F 摘要新增 `stage8.feedback_static_contract.status=PASS` 和 `stage8.feedback_template_page.status=PASS`，其中 `fetch_calls=0`；Stage 6H 线上预检单测已把 `/feedback/` 纳入 GET 页面列表。该验证不上传真实图片，不设置 `PALMMI_ALLOW_REAL_QWEN_TESTS=1`，不调用真实 Qwen，不消耗额度。
 
+Stage 8 feedback template page push status: DEPLOYED_CONFIRMED_BY_BUILD_META
+
+Reason: 2026-05-31 `/feedback/` 反馈模板页已提交并推送到 `origin/main`：`fd34b6ebc9ed5a90c34f2a537a9d8f7540bb9004`（`feat: add stage 8 feedback template page`）。随后 Codex 修复了线上预检对反馈页安全提示文案的敏感词误报，并推送 `67e7d46494633394114669949e49cb5a2185f53c`（`fix: avoid feedback preflight false positives`）。`npm run preflight:stage6h -- --expect-commit 67e7d46494633394114669949e49cb5a2185f53c --max-attempts 4` 已 PASS：`/`、`/upload/`、`/result/`、`/poster/`、`/feedback/` 均 HTTP 200 且为 Palmmi 页面，不是 Hello World；无效 `POST /api/analyze` 返回脱敏 `INVALID_REQUEST_BODY`；`/build-meta.json` 匹配目标 commit；`api_calls_made=0`、`quota_consumed=false`、`real_qwen_called=false`；未发现 API key、base64、raw provider response 或 stack 泄露。
+
 Stage 9 public launch status: NOT_STARTED_BLOCKED_BY_FINAL_TRUE_DEVICE_GATE
 
 Reason: 2026-05-31 Codex 已新增 `docs/STAGE9_PUBLIC_LAUNCH_GUARD.md`，只作为正式公开发布前的内部守门清单。Stage 9 尚未开始，不应发布到小红书、抖音、X、朋友圈或任何公开渠道；进入 Stage 9 前仍需 Stage 6H 真机验收、Stage 6I 正式门禁和 Stage 8 小范围灰度反馈通过。当前真机测试只是被推迟，不是被取消。
