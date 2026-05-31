@@ -34,6 +34,14 @@ Stage 6I can start after Stage 6H reaches at least `CONDITIONAL_PASS`. The minim
 
 These commands must be re-run when Stage 6I actually starts:
 
+Preferred aggregate command:
+
+```text
+npm run precheck:stage6i -- --expect-commit <latest-origin-main-commit> --manual-result-file <Codex-saved-user-result-text>
+```
+
+This command runs only the zero-cost checks listed below. It refuses to run if `PALMMI_ALLOW_REAL_QWEN_TESTS=1` is set, redacts command output summaries, and reports `api_calls_made=0`, `quota_consumed=false`, and `real_qwen_called=false` when the path is safe. Without `--manual-result-file`, it can still prove the automated precheck is safe, but `can_enter_stage6i` remains `false` because Stage 6H manual evidence is missing.
+
 | Command | Purpose | Real Qwen Cost |
 |---|---|---|
 | `npm test` | Default regression; must not call real Qwen. | NO |
@@ -43,6 +51,7 @@ These commands must be re-run when Stage 6I actually starts:
 | `npm run preflight:stage6h` | Online page/API invalid-input preflight; must report `api_calls_made=0`. | NO |
 | `npm run preflight:stage6h -- --expect-commit <commit>` | Same as above, plus deployed commit check through `/build-meta.json`. | NO |
 | `npm run check:stage6h:manual -- --file <result-text>` | Text-only check of user true-device result paste; must report `api_calls_made=0`. | NO |
+| `npm run precheck:stage6i -- --expect-commit <commit> --manual-result-file <result-text>` | Aggregates the zero-cost commands above and blocks if real-Qwen env is enabled. | NO |
 
 Do not run `npm run test:stage6f:real`, `npm run e2e:real-qwen`, or any `--real` smoke command unless the user explicitly approves a real Qwen test and accepts quota use.
 
@@ -52,11 +61,12 @@ Codex ran a Stage 6I preparation precheck on 2026-05-31. This does not promote S
 
 | Command | Result | Evidence |
 |---|---|---|
-| `npm test` | PASS | Stage 5P + safe Stage 6F/6G suite passed; `normal_palm_upload.status=DISABLED_BY_DEFAULT`, `api_calls_made=0`, `quota_consumed=false`, `has_qwen_key=false`. |
+| `npm test` | PASS | Stage 5P + safe Stage 6F/6G + Stage 6H + Stage 6I script tests passed; `normal_palm_upload.status=DISABLED_BY_DEFAULT`, `api_calls_made=0`, `quota_consumed=false`. |
 | `npm run build` | PASS | Cloudflare Pages static output written to `dist`. |
 | `npm run security-scan` | PASS | `finding_count=0`; no key/base64/raw response/persistent image storage/sensitive logging findings. |
 | `npm run smoke:stage6f:qwen` | PASS | Dry run returned `REAL_QWEN_DISABLED`, `api_calls_made=0`, `quota_consumed=false`. |
 | `npm run preflight:stage6h` | PASS | Online pages passed; invalid API POST returned controlled 400; `api_calls_made=0`, `quota_consumed=false`. |
+| `npm run precheck:stage6i -- --expect-commit 107b864627532992b7eb5366165ecffc23d96371` | PASS_ZERO_COST_NO_MANUAL_RESULT | Aggregated safe checks passed with `precheck_ok=true`, `api_calls_made=0`, `quota_consumed=false`, `real_qwen_called=false`; no manual-result file means `can_enter_stage6i=false` until Stage 6H user evidence arrives. |
 
 Real Qwen calls made by this precheck: `0`.
 
@@ -73,6 +83,7 @@ Qwen quota consumed by this precheck: `NO`.
 | Online pages accessible | PRECHECK_PASS | `npm run preflight:stage6h` verified `/`, `/upload/`, `/result/`, `/poster/` on workers.dev. |
 | API invalid input is sanitized | PRECHECK_PASS | `npm run preflight:stage6h` verified invalid `POST /api/analyze` returns controlled 400 and no sensitive leak. |
 | Deployed commit self-check | PRECHECK_PASS | `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` confirms `/build-meta.json` matches the expected commit. |
+| Stage 6I aggregate precheck | READY_ZERO_COST | `npm run precheck:stage6i` runs the safe command set, refuses `PALMMI_ALLOW_REAL_QWEN_TESTS=1`, and redacts command output summaries. |
 | Manual result text checker | READY_ZERO_COST | `npm run check:stage6h:manual` can classify pasted true-device results; it does not verify the truth of the manual claims. |
 | Result page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |
 | Poster page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |
@@ -127,6 +138,7 @@ Stage 6I can be marked `PASS` or `CONDITIONAL_PASS` only after:
 - `npm run smoke:stage6f:qwen` dry run reports `api_calls_made=0`.
 - `npm run preflight:stage6h` reports `api_calls_made=0`, `quota_consumed=false`, and no sensitive leak.
 - If `/build-meta.json` is deployed, `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` confirms the live commit.
+- `npm run precheck:stage6i -- --expect-commit <latest-origin-main-commit> --manual-result-file <result-text>` reports `precheck_ok=true` and `can_enter_stage6i=true`.
 - Online pages and invalid API responses pass.
 - Remaining risks are documented and acceptable for limited release-candidate use.
 
