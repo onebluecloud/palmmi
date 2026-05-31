@@ -2,6 +2,38 @@
 
 Date: 2026-05-22
 
+## Stage 6F 收口记录（2026-05-31）
+
+本轮只更新收口记录，不做功能修改。最新提交为 `4473418 fix: use enabled qwen vl flash model`。Qwen 默认模型已从不可用裸别名 `qwen3-vl-flash` 切换为可用版本 `qwen3-vl-flash-2026-01-22`，且自动化验证未发现回退。
+
+说明：本报告下方保留了 Stage 6F 早期子阶段的历史记录，可能包含当时的旧模型、旧 BLOCKED 结论或旧 `npm test` 状态；当前收口判断以本节为准。
+
+| 验证项 | 结果 | 说明 |
+|---|---|---|
+| git 工作区 | PASS | 工作区干净，最新提交 `4473418 fix: use enabled qwen vl flash model` |
+| 默认模型 | PASS | `qwen3-vl-flash-2026-01-22`；未回退到裸别名 `qwen3-vl-flash` |
+| Stage 5P | PASS | `npm run test:stage5p` 通过 |
+| build | PASS | `npm run build` 通过 |
+| security-scan | PASS | `node scripts\stage6f\security-scan.cjs` 通过，`finding_count=0` |
+| Qwen smoke | PASS | `npm run smoke:stage6f:qwen` dry run 通过，默认模型正确，未调用真实 Qwen |
+| Stage 6F | PASS | `npm run test:stage6f` 通过；Production 正常掌纹上传 HTTP 200，`provider=qwen`，有 `analysis_result` |
+| `npm test` | PASS | Stage 5P + Stage 6F 全量测试通过 |
+| result 页面 | PASS | 自动化确认可读取真实分析结果并展示 ready 区域 |
+| poster 页面 | PASS | 自动化确认可读取真实分析结果并展示 ready 区域 |
+| `VLM_API_REQUEST_FAILED` | PASS | 真实链路未复现；仅模拟错误用例中出现 |
+| secret / base64 / raw response 泄露 | PASS | 安全扫描未发现；测试输出未打印敏感内容 |
+
+Stage 6F 当前收口状态：`CONDITIONAL_PASS`。原因：自动化、本地和 Production E2E 已通过，Qwen 默认模型问题已修复，结果页和海报页已通过自动化验证；但微信真机和真实浏览器设备人工验收仍需用户确认，不能伪造成 PASS。
+
+### 人工真机验收待确认
+
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| iPhone 微信真机 | MANUAL_REQUIRED | 用户未提供本轮真机结果 |
+| Android 微信真机 | MANUAL_REQUIRED | 用户未提供本轮真机结果 |
+| iPhone Safari 真机 | MANUAL_REQUIRED | 用户未提供本轮真机结果 |
+| Android Chrome 真机 | MANUAL_REQUIRED | 用户未提供本轮真机结果 |
+
 ## Stage 6F-Final-Classifier-Hard-Fix-2 追加记录
 
 本轮不是 Stage 6G，不真实调用 Qwen。用户在 commit `66f83452894b6ea0db785ebefe2cb08c10b33ba1` 上运行真实 5 手掌 smoke：not-palm PASS，但 `palm-1` 到 `palm-5` 全部返回 `LOW_INFORMATION_FEATURE_SET`，`api_calls_made=11`。这证明非手掌闸门稳定，但上一轮 feature information gate 过度拦截真实手掌；同时 `--debug-classifier` 输出为 null、collapse_analysis 将 5 张 palm 统计为 0，诊断不可用。
@@ -698,7 +730,7 @@ Codex 没有把微信真机修复伪造成 PASS。安卓微信问题仅能写为
 | 生产地址 | `https://palmmi.pages.dev/` |
 | API 地址 | `https://palmmi.pages.dev/api/analyze` |
 | endpoint | `dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` |
-| model | `qwen3-vl-flash` |
+| model | `qwen3-vl-flash-2026-01-22` |
 | provider | `qwen` |
 
 ## 4. Stage 6F 可执行状态
@@ -789,6 +821,8 @@ Codex 没有把微信真机修复伪造成 PASS。安卓微信问题仅能写为
 ```text
 WeChat iOS WebView: MANUAL_REQUIRED
 WeChat Android WebView: MANUAL_REQUIRED
+iPhone Safari physical device: MANUAL_REQUIRED
+Android Chrome physical device: MANUAL_REQUIRED
 ```
 
 Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由真实设备补测。
@@ -805,6 +839,8 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 | 安卓微信进入结果页 | MANUAL_REQUIRED |
 | 安卓微信进入海报页 | MANUAL_REQUIRED |
 | 安卓微信长按保存 / 分享体验 | MANUAL_REQUIRED |
+| iPhone Safari 真机打开 / 上传 / 结果 / 海报 | MANUAL_REQUIRED |
+| Android Chrome 真机打开 / 上传 / 结果 / 海报 | MANUAL_REQUIRED |
 
 代码层风险判断：
 
@@ -864,7 +900,7 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 | `npm run test:stage6f` | PASS | 生产移动端模拟、真实 Qwen 回归、异常输入模拟通过 |
 | `npm run build` | PASS | `dist` 构建成功 |
 | `npm run scan:stage6f` | PASS | 泄露 / 存储扫描通过 |
-| `npm test` | NOT_AVAILABLE | `package.json` 没有总 `test` 脚本；未伪造 PASS |
+| `npm test` | PASS | 顶层测试脚本已存在，Stage 5P + Stage 6F 全量通过 |
 
 ## 15. 禁止项检查
 
@@ -882,9 +918,9 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 
 ## 16. 是否可以进入 Stage 6G
 
-是否可以进入 Stage 6G: BLOCKED
+是否可以进入 Stage 6G: RECOMMENDED_AFTER_STAGE6F_CONDITIONAL_PASS
 
-条件：真实 Qwen smoke 和真实 A/B smoke 已完成记录，A/B 结论为不建议切换 `qwen3.6-flash`。Final-Fix 代码层和 mock 回归已通过，但在本轮部署后，仍必须补充安卓微信拍照上传、相册上传、非手掌稳定 `NOT_PALM` 且不超时、正常手掌出本地分类结果、多手掌不再全部塌缩 P25、海报生成和 iPhone 微信真机测试；在用户提供真实复测通过结果前，不允许进入 Stage 6G。建议同时补充偏暗、模糊、裁切不完整的明确图片 fixture。
+条件：Stage 6F 当前为 `CONDITIONAL_PASS`。自动化、本地、Production E2E、默认模型修复、结果页和海报页验证均已通过；仍必须保留微信真机和真实浏览器设备人工验收为 `MANUAL_REQUIRED`，不能伪造成 PASS。若用户接受该人工验收闸门继续作为 Stage 6G 风险项，可以进入 Stage 6G，重点处理上线前稳定性、错误提示、限流、成本保护和日志最小化。
 
 ## 17. 当前阻塞项
 
@@ -892,7 +928,9 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 |---|---|---|
 | iPhone 微信真机测试 | MANUAL_REQUIRED | Codex 不能自动完成 |
 | 安卓微信真机测试 | MANUAL_REQUIRED | Codex 不能自动完成 |
-| 安卓微信最终复测 | MANUAL_RETEST_REQUIRED | 部署后需确认非手掌 `NOT_PALM`、正常手掌出本地分类结果、有效结果可生成海报 |
+| iPhone Safari 真机测试 | MANUAL_REQUIRED | 用户未提供本轮真机结果 |
+| Android Chrome 真机测试 | MANUAL_REQUIRED | 用户未提供本轮真机结果 |
+| 安卓微信最终复测 | MANUAL_REQUIRED | 需确认非手掌、正常手掌、结果页和海报页真机体验 |
 | 偏暗图 fixture | BLOCKED_BY_MISSING_FIXTURE | 仓库未发现明确图片 fixture |
 | 模糊图 fixture | BLOCKED_BY_MISSING_FIXTURE | 仓库未发现明确图片 fixture |
 | 裁切不完整图 fixture | BLOCKED_BY_MISSING_FIXTURE | 仓库未发现明确图片 fixture |
@@ -958,4 +996,4 @@ Codex 没有把微信真机测试伪造成自动化 PASS。以下项目必须由
 | 没有修改 Stage 3 规则 / 权重 / 阈值 | PASS | 未修改相关文件 |
 | 没有重做 Stage 4 UI | PASS | 未修改 UI 主风格 |
 | 没有重写 Stage 5 VLM 主逻辑 | PASS | 未修改 VLM 主逻辑 |
-| 是否可以进入 Stage 6G | FAIL | 真实 smoke 和 A/B smoke 已记录；Final-Fix 部署后仍需安卓微信最终复测和 iOS 微信真机测试 |
+| 是否可以进入 Stage 6G | CONDITIONAL | 自动化和 Production E2E 已通过；真机人工验收仍需用户确认，可作为 Stage 6G 风险项继续跟进 |

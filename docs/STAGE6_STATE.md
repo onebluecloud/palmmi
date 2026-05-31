@@ -2,13 +2,15 @@
 
 ## 当前阶段
 
-Stage 6F：Final-Classifier-Hard-Fix-2 代码层已完成，真实 collapse smoke 和微信真机仍需复测。
+Stage 6F：CONDITIONAL_PASS。
 
-Stage 6F status: FINAL_CLASSIFIER_HARD_FIX_2_CODE_PASS / REAL_COLLAPSE_SMOKE_REQUIRED / ANDROID_WECHAT_RETEST_REQUIRED
+Stage 6F status: CONDITIONAL_PASS
 
-Stage 6G: BLOCKED
+Stage 6G: RECOMMENDED_NEXT_AFTER_MANUAL_CONFIRMATION
 
-Reason: 用户真实 5 手掌 smoke 已证明 commit `66f83452894b6ea0db785ebefe2cb08c10b33ba1` 仍不能进入 Stage 6G：not-palm PASS，但 5 张 palm 全部 `LOW_INFORMATION_FEATURE_SET`，`api_calls_made=11`，且 debug 缺失、collapse_analysis 将 palm 统计为 0。本轮修复中文 / 别名 palm_features normalize、放宽 feature information gate、LOW_INFORMATION debug 输出，以及 `ALL_PALM_LOW_INFORMATION` hard fail。Stage 6G 仍 BLOCKED，原因是新 commit 仍需真实 collapse smoke、安卓微信最终真机复测和 iOS 微信真机验收。
+Reason: 2026-05-26 至 2026-05-31 收口验证确认：默认 Qwen 模型已从不可用裸别名 `qwen3-vl-flash` 切换到可用版本 `qwen3-vl-flash-2026-01-22`；本地自动化、build、安全扫描、Stage 6F Production E2E 和 `npm test` 均通过；Production 正常掌纹上传返回 HTTP 200、`provider=qwen`、有 `analysis_result`；`/result/` 和 `/poster/` 已通过自动化验证可读取真实分析结果。Stage 6F 仍标记为 CONDITIONAL_PASS，而不是无条件 PASS，原因是 iPhone 微信、Android 微信、iPhone Safari 真机和 Android Chrome 真机验收仍需用户确认，Codex 未伪造人工真机结果。
+
+Note: 下方早期 Stage 6F 子阶段记录保留当时状态，可能包含旧模型、旧 BLOCKED 结论或旧 `npm test` 状态；当前收口判断以上方 `CONDITIONAL_PASS` 和 2026-05-31 收口记录为准。
 
 ## 已完成
 
@@ -112,6 +114,19 @@ Reason: 用户真实 5 手掌 smoke 已证明 commit `66f83452894b6ea0db785ebefe
   - `candidate_results` 增加 `confidence`、`reason`、`score_breakdown`，用于诊断不是默认人格。
   - smoke collapse 诊断增加 `candidate_distribution`；3 个及以上 palm 样本全部同一人格时输出 `PERSONALITY_COLLAPSE_RISK`，全部 P31 时记录 `All tested palm samples collapsed to 留一手.`
   - `npm run test:stage6f` 已覆盖 no-default-留一手、不同特征不同候选、deterministic、score_breakdown、poster 和 NOT_PALM 回归。
+- Stage 6F 收口记录（2026-05-31）：
+  - 最新提交：`4473418 fix: use enabled qwen vl flash model`。
+  - 默认模型：`qwen3-vl-flash-2026-01-22`，未回退到裸别名 `qwen3-vl-flash`。
+  - `npm run test:stage5p`：PASS。
+  - `npm run build`：PASS。
+  - `node scripts\stage6f\security-scan.cjs`：PASS，`finding_count=0`。
+  - `npm run smoke:stage6f:qwen`：PASS，dry run 默认模型正确，`api_calls_made=0`。
+  - `npm run test:stage6f`：PASS，Production 正常掌纹上传 HTTP 200，`provider=qwen`，有 `analysis_result`。
+  - `npm test`：PASS。
+  - `/result/` 页面：PASS，自动化确认可读取真实分析结果。
+  - `/poster/` 页面：PASS，自动化确认可读取真实分析结果。
+  - `VLM_API_REQUEST_FAILED`：真实链路未复现，仅模拟错误用例中出现。
+  - Key / Token / base64 / raw response 泄露：未发现。
 - Stage 6F-Final-Classifier-Hard-Fix：
   - 已记录 `f3d2afdc93aa87b58b54436616e13562d18434a7` 安卓微信真机复测失败：多个不同手掌仍全部输出 `P31 留一手`，不能再作为可接受版本。
   - 新增 `LOW_INFORMATION_FEATURE_SET`：`valid_palm=true` 但 `main_line_type` 缺失或 6 个核心 palm features 中可用字段少于 3 个时，不输出任何人格。
@@ -162,12 +177,12 @@ Stage 6F-Fix-3 部署到 `aa51bf5bdfe1822cb98059878ab3c74f6cb5e708` 后，用户
 | 项 | 状态 | 说明 |
 |---|---|---|
 | endpoint | PASS | `dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` |
-| model | PASS | `qwen3-vl-flash` |
+| model | PASS | `qwen3-vl-flash-2026-01-22` |
 | provider | PASS | 生产 API 返回 `qwen` |
 | analysis_result | PASS | 生产 API 返回结构化结果 |
-| 结果页 | CODE_FIXED_MANUAL_RETEST_REQUIRED | Fix-2 后成功结果先写入 `palmmi:last-analysis` 再跳转 |
-| 海报页 | CODE_FIXED_MANUAL_RETEST_REQUIRED | 读取同一稳定脱敏结果 |
-| 当前生产正常上传 | FAIL_BEFORE_FIX4_DEPLOYMENT | 本轮测试记录当前已部署版本仍可能失败；需本次部署后复测 |
+| 结果页 | PASS_AUTOMATED_PRODUCTION_E2E | 自动化确认可读取真实分析结果 |
+| 海报页 | PASS_AUTOMATED_PRODUCTION_E2E | 自动化确认可读取真实分析结果 |
+| 当前生产正常上传 | PASS | 正常掌纹上传 HTTP 200，`provider=qwen`，有 `analysis_result` |
 
 ## Stage 6F-Fix-2 修复状态
 
@@ -249,7 +264,7 @@ Stage 6F-Fix-3 部署到 `aa51bf5bdfe1822cb98059878ab3c74f6cb5e708` 后，用户
 | 项目 | 状态 | 说明 |
 |---|---|---|
 | `PALMMI_QWEN_MODEL` / `QWEN_MODEL` | PASS | 支持 env 配置；显式 model 参数优先 |
-| 生产默认模型 | PASS | 仍为 `qwen3-vl-flash`，未直接切生产模型 |
+| 生产默认模型 | PASS | 已切换为可用版本 `qwen3-vl-flash-2026-01-22`，未回退到不可用裸别名 |
 | A/B smoke `--models` | PASS | 支持 `qwen3-vl-flash,qwen3.6-flash` |
 | A/B smoke `--collapse-check` | PASS | 多 palm 样本统计塌缩风险 |
 | A/B smoke `--max-real-calls` | PASS | 预计调用数超过限制时拒绝运行 |
@@ -259,13 +274,13 @@ Stage 6F-Fix-3 部署到 `aa51bf5bdfe1822cb98059878ab3c74f6cb5e708` 后，用户
 | LOW_CONFIDENCE 海报 | PASS | 有效低置信人格结果允许生成基础海报 |
 | result / poster contract | PASS | poster 最低字段与 result 读取保持一致 |
 | 海报按钮逻辑 | PASS | `OK` / `LOW_CONFIDENCE` 有效结果可进入海报；无效图片继续阻止 |
-| `npm test` | NOT_AVAILABLE | `package.json` 无总 `test` 脚本 |
+| `npm test` | PASS | 顶层测试脚本已存在并通过 |
 | `npm run build` | PASS | Cloudflare Pages 静态产物构建成功 |
 | `npm run test:stage6f` | PASS | 命令退出码 0；Classifier-Calibration mock 回归通过，生产旧部署上传子项等待部署后复测 |
 | 安全扫描 | PASS | `finding_count=0` |
 | smoke dry run | PASS | 无 `--real`，`REAL_QWEN_DISABLED`，`api_calls_made=0` |
 | 真实 A/B smoke | RECORDED_INCONCLUSIVE | 用户已运行；不建议切 `qwen3.6-flash`，本轮 Codex 未再次执行 `--real` |
-| 安卓微信最终复测 | MANUAL_RETEST_REQUIRED | 部署后需要用户测非手掌、正常手掌、海报 |
+| 安卓微信最终复测 | MANUAL_REQUIRED | 需要用户真机确认非手掌、正常手掌、结果页和海报页 |
 | iOS 微信测试 | MANUAL_REQUIRED | 仍未真机验收 |
 
 ## Stage 6F-Final-Fix 状态
@@ -314,26 +329,30 @@ Stage 6F-Fix-3 部署到 `aa51bf5bdfe1822cb98059878ab3c74f6cb5e708` 后，用户
 ## 当前微信真机测试状态
 
 ```text
-WeChat Android: MANUAL_RETEST_REQUIRED
+WeChat Android: MANUAL_REQUIRED
 WeChat iOS: MANUAL_REQUIRED
+iPhone Safari physical device: MANUAL_REQUIRED
+Android Chrome physical device: MANUAL_REQUIRED
 ```
 
 | 项目 | 状态 |
 |---|---|
-| 安卓微信打开首页 | MANUAL_RETEST_REQUIRED |
-| 安卓微信拍照上传 | MANUAL_RETEST_REQUIRED |
-| 安卓微信相册上传 | MANUAL_RETEST_REQUIRED |
-| 安卓微信非手掌图片拒绝 | MANUAL_RETEST_REQUIRED |
-| 安卓微信非手掌不返回超时 | MANUAL_RETEST_REQUIRED |
-| 安卓微信多手掌不塌缩 P25 | MANUAL_RETEST_REQUIRED |
-| 安卓微信进入结果页 | MANUAL_RETEST_REQUIRED |
-| 安卓微信进入海报页 | MANUAL_RETEST_REQUIRED |
-| 安卓微信长按保存 / 分享体验 | MANUAL_RETEST_REQUIRED |
+| 安卓微信打开首页 | MANUAL_REQUIRED |
+| 安卓微信拍照上传 | MANUAL_REQUIRED |
+| 安卓微信相册上传 | MANUAL_REQUIRED |
+| 安卓微信非手掌图片拒绝 | MANUAL_REQUIRED |
+| 安卓微信非手掌不返回超时 | MANUAL_REQUIRED |
+| 安卓微信多手掌不塌缩 P25 / P31 / 其他固定人格 | MANUAL_REQUIRED |
+| 安卓微信进入结果页 | MANUAL_REQUIRED |
+| 安卓微信进入海报页 | MANUAL_REQUIRED |
+| 安卓微信长按保存 / 分享体验 | MANUAL_REQUIRED |
 | iPhone 微信打开首页 | MANUAL_REQUIRED |
 | iPhone 微信上传图片 | MANUAL_REQUIRED |
 | iPhone 微信进入结果页 | MANUAL_REQUIRED |
 | iPhone 微信进入海报页 | MANUAL_REQUIRED |
 | iPhone 微信长按保存 / 分享体验 | MANUAL_REQUIRED |
+| iPhone Safari 真机打开 / 上传 / 结果 / 海报 | MANUAL_REQUIRED |
+| Android Chrome 真机打开 / 上传 / 结果 / 海报 | MANUAL_REQUIRED |
 
 Codex 没有把微信真机测试伪造成 PASS。
 
@@ -362,24 +381,20 @@ Codex 没有把微信真机测试伪造成 PASS。
 
 | 阻塞项 | 状态 | 说明 |
 |---|---|---|
-| `f3d2afd` 安卓微信真机复测 | FAIL_CONFIRMED | 已失败；多个不同手掌仍全部 `P31 留一手`，不要再复测该 commit |
-| 安卓微信 Hard-Fix 后真机复测 | MANUAL_RETEST_REQUIRED | 必须等待新 commit 部署后，由用户重新测试多张不同手掌是否不再全部 `P31 留一手` |
-| iPhone 微信真机测试 | MANUAL_REQUIRED | 需要真实设备截图或测试结果 |
-| Hard-Fix 部署后生产真实上传确认 | MANUAL_RETEST_REQUIRED | 当前代码修复后需等待 Pages 部署并复测 |
-| 安卓微信非手掌拒绝复测 | CODE_REVIEW_PASS / RETEST_RECOMMENDED | 用户已反馈非手掌识别通过；部署后建议快速确认未回退 |
-| 安卓微信海报生成复测 | CODE_REVIEW_PASS / RETEST_RECOMMENDED | 用户已反馈海报生成通过；部署后建议快速确认未回退 |
-| 安卓微信正常手掌人格多样性复测 | MANUAL_RETEST_REQUIRED | 本轮已新增低信息闸门和 collapse hard fail；仍需用户真机确认多个手掌不再全部 `P31 留一手` |
-| 安卓微信人格塌缩观察 | MANUAL_RETEST_REQUIRED | 重点观察是否从 `P31 留一手` 转移到另一个固定人格 |
-| 真实 A/B smoke | RECORDED_INCONCLUSIVE | 用户已运行；当前结论是不切 `qwen3.6-flash`，不再作为进入 6G 的单独前置项 |
+| iPhone 微信真机测试 | MANUAL_REQUIRED | 需要真实设备截图或测试结果，不能由自动化代替 |
+| 安卓微信真机测试 | MANUAL_REQUIRED | 需要真实设备截图或测试结果，不能由自动化代替 |
+| iPhone Safari 真机测试 | MANUAL_REQUIRED | 需要用户补充真实设备结果 |
+| Android Chrome 真机测试 | MANUAL_REQUIRED | 需要用户补充真实设备结果 |
+| 安卓微信人格塌缩观察 | MANUAL_REQUIRED | 重点观察是否从 `P31 留一手` 转移到另一个固定人格；自动化和 dry smoke 当前未复现旧问题 |
 | 偏暗图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
 | 模糊图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
 | 裁切不完整图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
 
 ## 是否可以进入 Stage 6G
 
-是否可以进入 Stage 6G: BLOCKED
+是否可以进入 Stage 6G: RECOMMENDED_AFTER_STAGE6F_CONDITIONAL_PASS
 
-条件：`f3d2afd` 已被安卓微信真机证明失败，不能作为进入 Stage 6G 的依据。只有本轮 Hard-Fix 新 commit 部署后，安卓微信多张正常手掌不再全部塌缩为 `P31 留一手` 或另一个固定人格，真实 5 张 palm smoke 若仍少于 2 个不同人格会 hard fail，且非手掌 / 结果页 / 海报链路保持不回退，并继续保持无 Key / Token / base64 / raw response 泄露，才允许重新评估 Stage 6G。
+条件：Stage 6F 当前为 CONDITIONAL_PASS。自动化、本地、Production E2E、默认模型修复、结果页和海报页验证均已通过；仍需用户补充微信和真机浏览器人工验收。若用户接受该人工验收闸门继续保留为 Stage 6G 风险项，可以进入 Stage 6G，重点处理上线前稳定性、错误提示、限流、成本保护和日志最小化。
 
 ## 当前禁止修改
 
