@@ -12,16 +12,12 @@ Status: `USER_ACTION_REQUIRED`
 https://palmmi.onebluecloud723.workers.dev
 ```
 
-Codex 已提供零成本命令确认线上部署 commit。当前已确认的最新线上 commit 是：
-
-```text
-513f57cb9688eb6d3ad73eed7f23c25338381598
-```
+Codex 已提供零成本命令确认线上部署 commit。每次 Codex 推送新提交后，以 Codex 最终报告里的最新 commit 和 `/build-meta.json` 预检输出为准，不要从旧聊天记录复制旧 commit。
 
 优先使用命令，不需要手动打开 Cloudflare Dashboard：
 
 ```text
-npm run preflight:stage6h -- --expect-commit 513f57cb9688eb6d3ad73eed7f23c25338381598
+npm run preflight:stage6h -- --expect-commit <Codex 最终报告里的最新 commit>
 ```
 
 如果该命令失败，再去 Cloudflare Dashboard 看最新部署；如果最新部署不是最终报告里的最新 commit，先不要做真机结论，只等部署成功后再测。
@@ -37,7 +33,7 @@ npm run preflight:stage6h
 可用下面命令确认线上部署 commit：
 
 ```text
-npm run preflight:stage6h -- --expect-commit 513f57cb9688eb6d3ad73eed7f23c25338381598
+npm run preflight:stage6h -- --expect-commit <Codex 最终报告里的最新 commit>
 ```
 
 ## 2. 测试前准备
