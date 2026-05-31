@@ -36,13 +36,21 @@ Stage 8 soft launch status: NOT_STARTED_BLOCKED_BY_STAGE6H_6I_7
 
 Reason: 2026-05-31 Codex 已新增 `docs/STAGE8_SOFT_LAUNCH_REPORT.md` 和 `docs/STAGE8_FEEDBACK_LOG.md` 作为小范围灰度发布模板。Stage 8 尚未开始，不应公开分享链接或记录为 PASS；进入 Stage 8 前仍需 Stage 6H、Stage 6I 和 Stage 7 审核通过。
 
-Stage 7 / Donation / Stage 8 prep verification: PASS_ZERO_COST
+Stage 9 public launch status: NOT_STARTED_BLOCKED_BY_STAGE6H_6I_8
+
+Reason: 2026-05-31 Codex 已新增 `docs/STAGE9_PUBLIC_LAUNCH_GUARD.md`，只作为正式公开发布前的内部守门清单。Stage 9 尚未开始，不应发布到小红书、抖音、X、朋友圈或任何公开渠道；进入 Stage 9 前仍需 Stage 6H 真机验收、Stage 6I 收口和 Stage 8 小范围灰度反馈通过。
+
+Stage 10 post-launch iteration status: NOT_STARTED_BLOCKED_BY_STAGE9
+
+Reason: 2026-05-31 Codex 已新增 `docs/STAGE10_POST_LAUNCH_ITERATION_PLAN.md`，只作为正式发布后的数据复盘和商业化判断框架。Stage 10 尚未开始；本轮未新增支付、打赏、登录、数据库、追踪或域名 / DNS 改动。
+
+Stage 7 / Donation / Stage 8 / Stage 9 / Stage 10 prep verification: PASS_ZERO_COST
 
 Reason: 2026-05-31 Codex 已运行 `npm run security-scan`、`npm run smoke:stage6f:qwen`、`npm run build`、`npm test`。结果均 PASS；security scan `finding_count=0`；smoke dry run `api_calls_made=0`、`quota_consumed=false`；`npm test` 默认真实 Qwen 路径继续禁用，`api_calls_made=0`、`quota_consumed=false`。本轮未设置 `PALMMI_ALLOW_REAL_QWEN_TESTS=1`，未调用真实 Qwen，未消耗额度。
 
-Stage 7 / Donation / Stage 8 prep push status: DEPLOYED_CONFIRMED_BY_BUILD_META
+Stage 7 / Donation / Stage 8 / Stage 9 / Stage 10 prep push status: DEPLOYED_CONFIRMED_BY_BUILD_META
 
-Reason: 2026-05-31 Stage 7 / Donation / Stage 8 准备文档已提交并推送到 `origin/main`，并已包含在后续最新部署树中。Codex 已复查线上 `https://palmmi.onebluecloud723.workers.dev` 的 `/`、`/upload/`、`/result/`、`/poster/` 均 HTTP 200 且为 Palmmi 页面，无效 `POST /api/analyze` 返回 HTTP 400 脱敏错误，未发现 API key、base64、raw provider response 或 stack 泄露。Cloudflare 最新部署不再依赖 Dashboard 人工确认，优先通过 `/build-meta.json` 和 `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` 确认。
+Reason: 2026-05-31 Stage 7 / Donation / Stage 8 / Stage 9 / Stage 10 准备文档已提交并推送到 `origin/main`，并已包含在后续最新部署树中。Codex 已复查线上 `https://palmmi.onebluecloud723.workers.dev` 的 `/`、`/upload/`、`/result/`、`/poster/` 均 HTTP 200 且为 Palmmi 页面，无效 `POST /api/analyze` 返回 HTTP 400 脱敏错误，未发现 API key、base64、raw provider response 或 stack 泄露。Cloudflare 最新部署不再依赖 Dashboard 人工确认，优先通过 `/build-meta.json` 和 `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` 确认。
 
 Stage 6H user quick test packet: READY
 
