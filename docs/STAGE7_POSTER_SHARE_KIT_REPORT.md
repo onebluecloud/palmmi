@@ -4,6 +4,10 @@ Date: 2026-05-31
 
 Status: `READY_FOR_INTERNAL_TESTING_NOT_PUBLIC`
 
+Commit: `a8e8a106489475a60af37c5e84d293fd794dcd54`
+
+Deployment: `DEPLOYED_CONFIRMED_BY_BUILD_META`
+
 ## 1. Goal
 
 Turn the poster page save/copy controls from placeholders into a minimal local share kit for later small-scale testing.
@@ -63,6 +67,22 @@ api_calls_made=0
 quota_consumed=false
 smoke.status=REAL_QWEN_DISABLED
 security_scan.finding_count=0
+```
+
+Latest deployment check:
+
+```text
+npm run preflight:stage6h -- --expect-commit a8e8a106489475a60af37c5e84d293fd794dcd54
+```
+
+Result:
+
+```text
+PASS
+build_meta.matches_expected_commit=true
+api_calls_made=0
+quota_consumed=false
+real_qwen_called=false
 ```
 
 ## 6. Remaining Risk

@@ -36,6 +36,10 @@ Stage 7 poster share kit verification: PASS_ZERO_COST
 
 Reason: 2026-05-31 Codex 已运行 `node tests\stage6f\stage6g-guards.test.cjs`、`npm run test:stage6f`、`npm run smoke:stage6f:qwen`、`npm run security-scan`、`npm run build`、`npm test`。结果均 PASS；`stage7.poster_share_kit_helpers.status=PASS`、`stage7.poster_share_kit_actions.status=PASS`；security scan `finding_count=0`；smoke dry run `api_calls_made=0`、`quota_consumed=false`；`npm test` 中真实 Qwen E2E 继续 `DISABLED_BY_DEFAULT`，`api_calls_made=0`、`quota_consumed=false`。本轮未设置 `PALMMI_ALLOW_REAL_QWEN_TESTS=1`，未调用真实 Qwen，未消耗额度。
 
+Stage 7 poster share kit push status: DEPLOYED_CONFIRMED_BY_BUILD_META
+
+Reason: 2026-05-31 海报分享工具已提交并推送到 `origin/main`：`a8e8a106489475a60af37c5e84d293fd794dcd54`（`feat: enable poster share kit`）。Codex 已运行 `npm run preflight:stage6h -- --expect-commit a8e8a106489475a60af37c5e84d293fd794dcd54`，线上 `https://palmmi.onebluecloud723.workers.dev` 的 `/`、`/upload/`、`/result/`、`/poster/` 均 HTTP 200 且为 Palmmi 页面，`/build-meta.json` 匹配该 commit，无效 `POST /api/analyze` 返回脱敏 `INVALID_REQUEST_BODY`，`api_calls_made=0`、`quota_consumed=false`、`real_qwen_called=false`，未发现 API key、base64、raw provider response 或 stack 泄露。
+
 Donation strategy status: DRAFT_ONLY_NO_CODE
 
 Reason: 2026-05-31 Codex 已新增 `docs/DONATION_STRATEGY_DRAFT.md`，只记录未来是否考虑打赏 / 支付的判断条件和风险；本轮未新增支付、打赏、二维码、登录、会员、数据库或计费逻辑。

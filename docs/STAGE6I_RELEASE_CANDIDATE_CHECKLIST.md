@@ -131,6 +131,7 @@ Known recent commits:
 
 - `b002515319293798dea1cc069389a6d052fbd3a9` - build metadata preflight documented as the deployment gate.
 - `0be17d2c7793f2b8f1a8a06bdc61c9f0e3f64001` - Stage 6 state deployment-confirmation status update.
+- `a8e8a106489475a60af37c5e84d293fd794dcd54` - Stage 7 poster share kit, deployed and confirmed by `/build-meta.json`.
 - `d5afc2ee653c50874fd6f7ac8bd3c3c6a61f63e0` - Stage 7 / Donation / Stage 8 planning drafts.
 - `4b6d1c7a8e57152dce5df89befbcc72d8cbc757f` - Stage 6I release-candidate checklist.
 - `642887835db8bdfe8227e159f0aca0e39389df45` - Stage 6H real-device acceptance checklist.
