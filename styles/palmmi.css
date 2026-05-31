@@ -1716,6 +1716,33 @@ p {
   opacity: 0.58;
 }
 
+.feedback-ready {
+  grid-template-columns: 1fr;
+}
+
+.feedback-card,
+.feedback-detail {
+  min-width: 0;
+}
+
+.feedback-template {
+  width: 100%;
+  min-height: 420px;
+  resize: vertical;
+  padding: 16px;
+  border: 1px solid rgba(11, 12, 14, 0.16);
+  border-radius: 8px;
+  background: rgba(244, 241, 234, 0.72);
+  color: var(--ink);
+  font: 13px/1.65 var(--font-body);
+  overflow-wrap: anywhere;
+}
+
+.feedback-template:focus {
+  outline: 2px solid rgba(127, 224, 195, 0.7);
+  outline-offset: 2px;
+}
+
 .poster-problem {
   position: relative;
   min-height: calc(100svh - 116px);
@@ -1931,6 +1958,10 @@ p {
 
   .result-ready {
     grid-template-columns: minmax(0, 1fr) minmax(320px, 430px);
+  }
+
+  .feedback-ready {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   }
 
   .poster-ready {

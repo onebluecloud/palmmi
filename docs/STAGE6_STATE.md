@@ -44,9 +44,17 @@ Donation strategy status: DRAFT_ONLY_NO_CODE
 
 Reason: 2026-05-31 Codex 已新增 `docs/DONATION_STRATEGY_DRAFT.md`，只记录未来是否考虑打赏 / 支付的判断条件和风险；本轮未新增支付、打赏、二维码、登录、会员、数据库或计费逻辑。
 
-Stage 8 soft launch status: NOT_STARTED_FINAL_GATE_DEPENDS_ON_STAGE6H_6I_7
+Stage 8 soft launch status: NOT_STARTED_FEEDBACK_ENTRY_READY_MANUAL_GATE
 
-Reason: 2026-05-31 Codex 已新增 `docs/STAGE8_SOFT_LAUNCH_REPORT.md` 和 `docs/STAGE8_FEEDBACK_LOG.md` 作为小范围灰度发布模板。Stage 8 尚未开始，不应公开分享链接或记录为 PASS。真机验收可按用户指示推迟到最终开发验收前，但进入真实灰度或公开分发前仍需 Stage 6H、Stage 6I 和 Stage 7 审核通过。
+Reason: 2026-05-31 Codex 已新增 `docs/STAGE8_SOFT_LAUNCH_REPORT.md` 和 `docs/STAGE8_FEEDBACK_LOG.md` 作为小范围灰度发布模板，并继续补齐 `/feedback/` 本地反馈模板入口。Stage 8 尚未开始，不应公开分享链接或记录为 PASS。真机验收可按用户指示推迟到最终开发验收前，但进入真实灰度或公开分发前仍需 Stage 6H、Stage 6I 和 Stage 7 审核通过。
+
+Stage 8 feedback template page status: READY_FOR_INTERNAL_TESTING_NOT_PUBLIC
+
+Reason: 2026-05-31 Codex 已新增 `/feedback/` 本地反馈模板页和 `scripts/palmmi-feedback.js`。该页面只从浏览器本地 Palmmi 结果/错误状态生成可复制的 `Palmmi 内测反馈` 文本，不调用 Qwen，不提交网络请求，不接登录、数据库、分析统计、支付或打赏，不读取或导出原图，不写入长期存储。结果页和海报页仅新增轻量反馈模板入口，不改变 UI 主风格或核心识别链路。真实 iPhone Safari、iPhone 微信、Android Chrome、Android 微信里的复制体验仍为 `MANUAL_REQUIRED`，按用户要求推迟到最终开发验收前。
+
+Stage 8 feedback template page verification: PASS_ZERO_COST
+
+Reason: 2026-05-31 Codex 已运行 `npm run test:stage6f` 和 `node tests\stage6h\online-preflight.test.cjs`。Stage 6F 摘要新增 `stage8.feedback_static_contract.status=PASS` 和 `stage8.feedback_template_page.status=PASS`，其中 `fetch_calls=0`；Stage 6H 线上预检单测已把 `/feedback/` 纳入 GET 页面列表。该验证不上传真实图片，不设置 `PALMMI_ALLOW_REAL_QWEN_TESTS=1`，不调用真实 Qwen，不消耗额度。
 
 Stage 9 public launch status: NOT_STARTED_BLOCKED_BY_FINAL_TRUE_DEVICE_GATE
 
@@ -70,7 +78,7 @@ Reason: 2026-05-31 Codex 已新增并更新 `docs/STAGE6H_REAL_DEVICE_QUICK_TEST
 
 Stage 6H online preflight: PASS_ZERO_COST
 
-Reason: 2026-05-31 Codex 已新增 `npm run preflight:stage6h`，用于重复执行 workers.dev 线上零成本预检。该命令只 GET `/`、`/upload/`、`/result/`、`/poster/`，并用无效 `text/plain` body POST `/api/analyze`；对临时网络 `status=0` 读取最多做 4 次有限重试，不上传真实图片，不调用真实 Qwen。最新运行结果 PASS：四个页面 HTTP 200 且为 Palmmi 页面，API invalid POST HTTP 400 `INVALID_REQUEST_BODY`，未发现 API key、base64、stack 或 raw provider response，`api_calls_made=0`、`quota_consumed=false`。
+Reason: 2026-05-31 Codex 已新增 `npm run preflight:stage6h`，用于重复执行 workers.dev 线上零成本预检。该命令只 GET `/`、`/upload/`、`/result/`、`/poster/`、`/feedback/`，并用无效 `text/plain` body POST `/api/analyze`；对临时网络 `status=0` 读取最多做 4 次有限重试，不上传真实图片，不调用真实 Qwen。最新运行结果 PASS：页面 HTTP 200 且为 Palmmi 页面，API invalid POST HTTP 400 `INVALID_REQUEST_BODY`，未发现 API key、base64、stack 或 raw provider response，`api_calls_made=0`、`quota_consumed=false`。
 
 Stage 6H build metadata self-check: PASS_ZERO_COST
 

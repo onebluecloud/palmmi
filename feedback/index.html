@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Palmmi · 内测反馈</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../styles/palmmi.css" />
+  <script src="../scripts/palmmi-feedback.js" defer></script>
+</head>
+<body data-page="feedback">
+  <div class="page">
+    <header class="topbar">
+      <div class="shell topbar__inner">
+        <a class="brand" href="../index.html" aria-label="Palmmi 首页">
+          <span class="brand-mark" aria-hidden="true"></span>
+          Palmmi
+        </a>
+        <a class="top-link" href="../upload/index.html">继续测试</a>
+      </div>
+    </header>
+
+    <main class="result-main feedback-main" id="feedbackApp">
+      <div class="shell result-shell">
+        <section class="result-ready feedback-ready" aria-labelledby="feedbackTitle">
+          <div class="result-card feedback-card">
+            <div class="id-row">
+              <span>Palmmi</span>
+              <span>FEEDBACK</span>
+            </div>
+
+            <div class="result-card__body">
+              <div class="eyebrow">Stage 8 Prep</div>
+              <p class="result-code">内测记录</p>
+              <h1 class="result-name" id="feedbackTitle">复制反馈模板</h1>
+              <p class="result-hook">把下面这段文字发回即可。不要粘贴照片、API key、token、base64、raw provider response 或隐私信息。</p>
+              <div class="result-summary-panel" aria-label="反馈说明">
+                <span>收集范围</span>
+                <p>只记录设备、浏览器、上传/结果/海报是否可用、可见错误码和一句安全描述。</p>
+              </div>
+            </div>
+
+            <div class="result-actions">
+              <button class="btn btn--primary" id="copyFeedbackTemplate" type="button">复制反馈模板</button>
+              <a class="btn" href="../upload/index.html">重新测试</a>
+              <a class="btn" href="../result/index.html">返回结果页</a>
+              <p class="poster-note" id="feedbackCopyStatus">模板只保存在本页，不会自动提交。</p>
+            </div>
+          </div>
+
+          <aside class="result-detail feedback-detail" aria-label="反馈模板">
+            <div>
+              <div class="eyebrow">Manual Feedback</div>
+              <h2>内测反馈模板</h2>
+              <p class="result-description">请按实际情况改写 PASS / FAIL / 未测，再发回 Codex 或手动记录到反馈表。</p>
+            </div>
+
+            <textarea id="feedbackTemplate" class="feedback-template" rows="18" readonly aria-label="Palmmi 内测反馈模板"></textarea>
+
+            <div class="result-detail__block">
+              <span>安全提醒</span>
+              <p>不要粘贴真实 key、token、图片、base64、raw provider response、堆栈、手机号、微信号或其他隐私信息。</p>
+            </div>
+          </aside>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

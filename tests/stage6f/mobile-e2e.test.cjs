@@ -1680,6 +1680,111 @@ async function validateStage7PosterShareKitActions(context) {
   };
 }
 
+function validateStage8FeedbackStaticContract() {
+  const feedbackHtmlPath = path.join(root, "feedback", "index.html");
+  const feedbackScriptPath = path.join(root, "scripts", "palmmi-feedback.js");
+
+  assert.equal(fs.existsSync(feedbackHtmlPath), true, "feedback page must exist for Stage 8 manual collection");
+  assert.equal(fs.existsSync(feedbackScriptPath), true, "feedback page script must exist");
+
+  const sources = [
+    fs.readFileSync(feedbackHtmlPath, "utf8"),
+    fs.readFileSync(feedbackScriptPath, "utf8"),
+  ].join("\n");
+
+  assert.match(sources, /反馈模板|内测反馈/, "feedback page must expose a manual feedback template");
+  assert.match(sources, /copyFeedbackTemplate/, "feedback page must expose a copy action");
+  assert.match(sources, /不要粘贴照片|不要粘贴.*key|不要粘贴.*base64/i, "feedback page must warn against sensitive data");
+  assert.doesNotMatch(sources, /\bfetch\s*\(|XMLHttpRequest|sendBeacon|FormData/i, "feedback page must not submit feedback over network");
+
+  return {
+    status: "PASS",
+    network_submit: false,
+  };
+}
+
+async function validateStage8FeedbackTemplatePage(context) {
+  const page = await context.newPage();
+  const signals = createSignals(page);
+  await page.addInitScript(() => {
+    sessionStorage.setItem("palmmi:lastAnalyzeError", JSON.stringify({
+      code: "NOT_PALM",
+      message: "未检测到清晰掌心，请上传清晰、正面、完整的单手掌照片。",
+      raw_provider_response: { choices: [{ message: { content: "do not leak" } }] },
+      image: "data:image/png;base64,SHOULD_NOT_LEAK",
+    }));
+    sessionStorage.setItem("palmmi:last-analysis", JSON.stringify({
+      version: 1,
+      analysis_id: "analysis_stage8_feedback",
+      created_at: "2026-05-31T00:00:00.000Z",
+      provider: "qwen",
+      analysis_result: {
+        personality_id: "P25",
+        personality_name: "老干部",
+        quality_status: "OK",
+        provider_output: "SHOULD_NOT_LEAK",
+        image_base64: "SHOULD_NOT_LEAK",
+      },
+    }));
+    window.__palmmiFeedbackClipboard = "";
+    window.__palmmiFeedbackFetchCalls = 0;
+    const originalFetch = window.fetch;
+    window.fetch = (...args) => {
+      window.__palmmiFeedbackFetchCalls += 1;
+      return originalFetch(...args);
+    };
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText(text) {
+          window.__palmmiFeedbackClipboard = text;
+          return Promise.resolve();
+        },
+      },
+    });
+  });
+
+  await page.goto(localPageUrl("feedback"), { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#feedbackApp");
+  const initialState = await page.evaluate(() => ({
+    title: document.title,
+    bodyText: document.body.innerText || "",
+    template: document.querySelector("#feedbackTemplate").value,
+    copyDisabled: document.querySelector("#copyFeedbackTemplate").disabled,
+    fetchCalls: window.__palmmiFeedbackFetchCalls,
+  }));
+
+  assert.match(initialState.title, /反馈|Palmmi/);
+  assert.match(initialState.bodyText, /内测反馈|不要粘贴/);
+  assert.match(initialState.template, /Palmmi 内测反馈/);
+  assert.match(initialState.template, /NOT_PALM/);
+  assert.match(initialState.template, /老干部|P25/);
+  assert.equal(initialState.copyDisabled, false, "feedback copy action must be enabled");
+  assert.equal(initialState.fetchCalls, 0, "feedback page must not call fetch on load");
+  assertNoDomLeaks(`${initialState.bodyText}\n${initialState.template}`, "stage8 feedback page");
+
+  await page.click("#copyFeedbackTemplate");
+  const copied = await page.evaluate(() => ({
+    clipboard: window.__palmmiFeedbackClipboard,
+    fetchCalls: window.__palmmiFeedbackFetchCalls,
+    statusText: document.querySelector("#feedbackCopyStatus").textContent || "",
+  }));
+  assert.match(copied.clipboard, /Palmmi 内测反馈/);
+  assert.match(copied.clipboard, /NOT_PALM/);
+  assert.equal(copied.fetchCalls, 0, "copying feedback must not call fetch");
+  assert.match(copied.statusText, /已复制|复制/);
+  assertNoDomLeaks(copied.clipboard, "stage8 copied feedback template");
+
+  await assertBrowserClean(signals, "stage8 feedback template page");
+  await page.close();
+  return {
+    status: "PASS",
+    error_code: "NOT_PALM",
+    fetch_calls: copied.fetchCalls,
+    copied_length: copied.clipboard.length,
+  };
+}
+
 async function validateStage6FFix3InvalidPosterBlocked(context) {
   const page = await context.newPage();
   const signals = createSignals(page);
@@ -4251,6 +4356,7 @@ async function main() {
     stage6f_final_classifier_hard_fix: {},
     stage6g: {},
     stage7: {},
+    stage8: {},
     real_qwen_smoke: null,
     abnormal_inputs: {},
     simulated_qwen_errors: null,
@@ -4274,6 +4380,7 @@ async function main() {
     summary.stage6f_final.smoke_collapse_diagnostics = validateStage6FFinalSmokeCollapseDiagnostics();
     summary.stage6f_final.low_confidence_poster_contract = validateStage6FFinalLowConfidencePosterContract();
     summary.stage7.poster_share_kit_helpers = validateStage7PosterShareKitHelpers();
+    summary.stage8.feedback_static_contract = validateStage8FeedbackStaticContract();
     summary.stage6f_final_fix.feature_driven_local_classification = await validateStage6FFinalFixFeatureDrivenLocalClassification();
     summary.stage6f_final_fix.smoke_uses_local_candidates = await validateStage6FFinalFixSmokeUsesLocalCandidates();
     summary.stage6f_final_fix.poster_main_candidate_mismatch_blocked = validateStage6FFinalFixPosterMainCandidateMismatchBlocked();
@@ -4331,6 +4438,7 @@ async function main() {
       summary.stage6f_fix3.repeated_analysis_isolation = await validateStage6FFix3RepeatedAnalysisIsolation(mobileContext);
       summary.stage6f_fix3.poster_contract = await validateStage6FFix3PosterContract(mobileContext);
       summary.stage7.poster_share_kit_actions = await validateStage7PosterShareKitActions(mobileContext);
+      summary.stage8.feedback_template_page = await validateStage8FeedbackTemplatePage(mobileContext);
       summary.stage6f_fix3.invalid_poster_blocked = await validateStage6FFix3InvalidPosterBlocked(mobileContext);
       summary.abnormal_inputs.non_image = await validateBlockedUpload(
         mobileContext,

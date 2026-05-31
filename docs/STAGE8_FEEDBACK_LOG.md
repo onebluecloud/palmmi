@@ -2,9 +2,11 @@
 
 Date: 2026-05-31
 
-Status: `TEMPLATE_ONLY`
+Status: `TEMPLATE_PLUS_LOCAL_FEEDBACK_PAGE`
 
 Use this file to record small-batch soft launch feedback. Do not include API keys, tokens, base64 images, raw provider responses, full uploaded images, or private user information.
+
+Testers can open `/feedback/` after using Palmmi and copy the generated `Palmmi 内测反馈` template. The page is a local copy helper only; it does not submit feedback to a server.
 
 ## 1. Feedback Rules
 
@@ -39,6 +41,7 @@ Do not record:
 | Real Qwen calls expected? | YES, only user-triggered analyses |
 | Cost reviewed before launch? |  |
 | Stop criteria reviewed? |  |
+| `/feedback/` helper used? |  |
 
 ## 3. Tester Feedback Table
 
@@ -78,3 +81,4 @@ Do not record:
 | Date | Decision | Reason |
 |---|---|---|
 | 2026-05-31 | Stage 8 not started | Stage 6H real-device acceptance and Stage 6I are still blocked. |
+| 2026-05-31 | Feedback template page prepared | `/feedback/` gives testers a copyable safe template without network submission, database, login, or Qwen calls. |

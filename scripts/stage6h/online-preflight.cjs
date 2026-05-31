@@ -8,7 +8,7 @@ const tls = require('node:tls');
 const DEFAULT_BASE_URL = 'https://palmmi.onebluecloud723.workers.dev';
 const DEFAULT_TIMEOUT_MS = 30000;
 const DEFAULT_MAX_ATTEMPTS = 4;
-const PAGE_PATHS = ['/', '/upload/', '/result/', '/poster/'];
+const PAGE_PATHS = ['/', '/upload/', '/result/', '/poster/', '/feedback/'];
 
 function parseArgs(argv) {
   const options = {
@@ -59,7 +59,7 @@ function printHelp() {
   console.log(`Usage: node scripts/stage6h/online-preflight.cjs [--base-url URL] [--timeout-ms MS] [--max-attempts N] [--expect-commit SHA]
 
 Runs a zero-cost online preflight:
-- GET /, /upload/, /result/, /poster/
+- GET /, /upload/, /result/, /poster/, /feedback/
 - POST /api/analyze with invalid text/plain body
 
 It does not upload a real image and does not call Qwen.`);

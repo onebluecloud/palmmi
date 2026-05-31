@@ -74,7 +74,8 @@ async function main() {
     ['/', 200, true, false],
     ['/upload/', 200, true, false],
     ['/result/', 200, true, false],
-    ['/poster/', 200, true, false]
+    ['/poster/', 200, true, false],
+    ['/feedback/', 200, true, false]
   ]);
 
   assert.equal(result.api_invalid_post.path, '/api/analyze');
@@ -96,6 +97,7 @@ async function main() {
     'GET /upload/',
     'GET /result/',
     'GET /poster/',
+    'GET /feedback/',
     'POST /api/analyze',
     'GET /build-meta.json'
   ]);
@@ -154,6 +156,7 @@ async function main() {
     'GET /upload/',
     'GET /result/',
     'GET /poster/',
+    'GET /feedback/',
     'POST /api/analyze',
     'GET /build-meta.json'
   ]);
