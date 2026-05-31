@@ -5,6 +5,9 @@ const { evaluateManualResult } = require('../../scripts/stage6h/manual-result-ch
 const DEPLOYMENT_OK = `线上部署确认：
 - Codex 是否已确认 /build-meta.json 匹配最终报告中的最新 commit：是
 - 如果 Codex 无法确认，Cloudflare Dashboard 部署状态是否 Success：不用，Codex 已确认`;
+const COST_RECORD_OK = `真实清晰掌纹分析次数：
+- 大约调用次数：4
+- 是否接受这次额度消耗：是`;
 
 function deviceBlock(name, overrides = {}) {
   const fields = {
@@ -24,16 +27,14 @@ function deviceBlock(name, overrides = {}) {
   return `${name}：\n${Object.entries(fields).map(([key, value]) => `- ${key}：${value}`).join('\n')}`;
 }
 
-function fullReport(overridesByDevice = {}) {
+function fullReport(overridesByDevice = {}, costRecord = COST_RECORD_OK) {
   return [
     DEPLOYMENT_OK,
     deviceBlock('iPhone Safari', overridesByDevice['iPhone Safari']),
     deviceBlock('iPhone 微信', overridesByDevice['iPhone 微信']),
     deviceBlock('Android Chrome', overridesByDevice['Android Chrome']),
     deviceBlock('Android 微信', overridesByDevice['Android 微信']),
-    `真实清晰掌纹分析次数：
-- 大约调用次数：4
-- 是否接受这次额度消耗：是`
+    costRecord
   ].join('\n\n');
 }
 
@@ -52,7 +53,8 @@ function main() {
     deviceBlock('iPhone Safari', { '相册上传清晰掌心是否成功': '待填' }),
     deviceBlock('iPhone 微信'),
     deviceBlock('Android Chrome', { '相册上传清晰掌心是否成功': '待填' }),
-    deviceBlock('Android 微信')
+    deviceBlock('Android 微信'),
+    COST_RECORD_OK
   ].join('\n\n'));
   assert.equal(wechatOnly.ok, true);
   assert.equal(wechatOnly.can_enter_stage6i, true);
@@ -60,6 +62,26 @@ function main() {
   assert.equal(wechatOnly.all_manual_required_complete, false);
   assert.ok(wechatOnly.missing_required.some((item) => item.device === 'iPhone Safari'));
   assert.ok(wechatOnly.missing_required.some((item) => item.device === 'Android Chrome'));
+
+  const missingCostRecord = evaluateManualResult([
+    DEPLOYMENT_OK,
+    deviceBlock('iPhone 微信'),
+    deviceBlock('Android 微信')
+  ].join('\n\n'));
+  assert.equal(missingCostRecord.ok, false);
+  assert.equal(missingCostRecord.can_enter_stage6i, false);
+  assert.equal(missingCostRecord.stage6h_minimum_conditional_pass, false);
+  assert.equal(missingCostRecord.cost_record.ready, false);
+  assert.ok(missingCostRecord.cost_record.missing.some((item) => item.field === '大约调用次数'));
+  assert.ok(missingCostRecord.cost_record.missing.some((item) => item.field === '是否接受这次额度消耗'));
+
+  const acceptedCostWording = evaluateManualResult(fullReport({}, `真实清晰掌纹分析次数：
+- 大约调用次数：2 次
+- 是否接受这次额度消耗：接受`));
+  assert.equal(acceptedCostWording.ok, true);
+  assert.equal(acceptedCostWording.cost_record.ready, true);
+  assert.equal(acceptedCostWording.cost_record.approximate_calls, 2);
+  assert.equal(acceptedCostWording.cost_record.quota_consumption_acknowledged, true);
 
   const colloquialSafeNegatives = evaluateManualResult(fullReport({
     'iPhone 微信': {

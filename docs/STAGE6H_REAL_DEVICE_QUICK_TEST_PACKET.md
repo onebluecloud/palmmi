@@ -158,3 +158,4 @@ npm run check:stage6h:manual -- --file <Codex 保存的回填文本>
 
 - `can_enter_stage6i=true`：表示 iPhone 微信 + Android 微信最低门槛已满足，且没有明显 P0 / P1 阻塞；可以进入 Stage 6I 条件收口。
 - `missing_required` 不为空：表示仍有 iPhone Safari / Android Chrome 或其他项目没测，必须继续记录为 `MANUAL_REQUIRED`，不能写成 PASS。
+- `真实清晰掌纹分析次数` 也必须填写：`大约调用次数` 需要大于 0，`是否接受这次额度消耗` 可写 `是 / 接受 / 同意 / 确认`。漏填时 `can_enter_stage6i=false`。

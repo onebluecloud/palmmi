@@ -28,6 +28,7 @@ Stage 6I can start after Stage 6H reaches at least `CONDITIONAL_PASS`. The minim
 | iPhone WeChat real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
 | Android Chrome real device | PASS / CONDITIONAL_PASS / MANUAL_REQUIRED_WITH_RISK | MANUAL_REQUIRED | Waiting for user test result; can remain MANUAL_REQUIRED only if WeChat minimum gate passes and no P0 / P1 blocker is observed. |
 | Android WeChat real device | PASS / CONDITIONAL_PASS | MANUAL_REQUIRED | Waiting for user test result. |
+| True-device Qwen cost record | PASS | MANUAL_REQUIRED | Waiting for user to fill approximate real-analysis call count and quota-consumption acknowledgement in the Stage 6H manual result template. |
 | No P0 / P1 true-device blocker | PASS | UNKNOWN | Cannot be known until real-device testing finishes. |
 
 ## 3. Required Verification Commands
@@ -50,7 +51,7 @@ This command runs only the zero-cost checks listed below. It refuses to run if `
 | `npm run smoke:stage6f:qwen` | Dry-run Qwen smoke; must report `api_calls_made=0`. | NO |
 | `npm run preflight:stage6h` | Online page/API invalid-input preflight; must report `api_calls_made=0`. | NO |
 | `npm run preflight:stage6h -- --expect-commit <commit>` | Same as above, plus deployed commit check through `/build-meta.json`. | NO |
-| `npm run check:stage6h:manual -- --file <result-text>` | Text-only check of user true-device result paste; must report `api_calls_made=0`. | NO |
+| `npm run check:stage6h:manual -- --file <result-text>` | Text-only check of user true-device result paste, including approximate real-analysis call count and quota acknowledgement; must report `api_calls_made=0`. | NO |
 | `npm run precheck:stage6i -- --expect-commit <commit> --manual-result-file <result-text> --require-manual-result` | Aggregates the zero-cost commands above, blocks if real-Qwen env is enabled, and fails safe if Stage 6H manual evidence is missing or insufficient. | NO |
 
 Do not run `npm run test:stage6f:real`, `npm run e2e:real-qwen`, or any `--real` smoke command unless the user explicitly approves a real Qwen test and accepts quota use.
@@ -88,6 +89,7 @@ Qwen quota consumed by this precheck: `NO`.
 | Deployed commit self-check | PRECHECK_PASS | `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` confirms `/build-meta.json` matches the expected commit. |
 | Stage 6I aggregate precheck | READY_ZERO_COST | `npm run precheck:stage6i` runs the safe command set, refuses `PALMMI_ALLOW_REAL_QWEN_TESTS=1`, redacts command output summaries, and supports `--require-manual-result` for formal gate fail-safe behavior. |
 | Manual result text checker | READY_ZERO_COST | `npm run check:stage6h:manual` can classify pasted true-device results; it does not verify the truth of the manual claims. |
+| True-device Qwen cost record | WAITING_STAGE6H | The Stage 6H pasted result must include a positive approximate real-analysis call count and quota-consumption acknowledgement. |
 | Result page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |
 | Poster page reads stored result | WAITING_STAGE6H | Needs true-device successful analysis result. |
 | WeChat WebView upload works | WAITING_STAGE6H | iPhone and Android WeChat manual results required. |

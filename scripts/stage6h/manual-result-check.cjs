@@ -124,6 +124,55 @@ function parseDevices(text) {
   return devices;
 }
 
+function parseCostRecord(text) {
+  const blockMatch = String(text || '').match(/真实清晰掌纹分析次数[：:]\s*([\s\S]*?)(?=\n(?:其他问题|iPhone Safari|iPhone 微信|Android Chrome|Android 微信)[：:]|$)/);
+  const fields = {};
+
+  if (blockMatch) {
+    for (const line of blockMatch[1].split(/\r?\n/)) {
+      const fieldMatch = line.match(/^\s*[-*]\s*(.+?)[：:]\s*(.*?)\s*$/);
+      if (fieldMatch) {
+        fields[fieldMatch[1].trim()] = fieldMatch[2].trim();
+      }
+    }
+  }
+
+  const callCountValue = getField(fields, '大约调用次数');
+  const quotaAcceptedValue = getField(fields, '是否接受这次额度消耗');
+  const missing = [];
+
+  if (isMissing(callCountValue)) {
+    missing.push({ field: '大约调用次数', value: callCountValue ? redactSensitiveValue(callCountValue) : null });
+  }
+
+  if (isMissing(quotaAcceptedValue)) {
+    missing.push({ field: '是否接受这次额度消耗', value: quotaAcceptedValue ? redactSensitiveValue(quotaAcceptedValue) : null });
+  }
+
+  const countMatch = String(callCountValue || '').match(/\d+/);
+  const approximateCalls = countMatch ? Number(countMatch[0]) : null;
+  const quotaAccepted = isPositive(quotaAcceptedValue) || /接受|同意|确认|已知|认可/.test(normalizeText(quotaAcceptedValue));
+  const blockers = [];
+
+  if (callCountValue && !isMissing(callCountValue) && !(approximateCalls > 0)) {
+    blockers.push({ field: '大约调用次数', value: redactSensitiveValue(callCountValue), code: 'REAL_ANALYSIS_COUNT_NOT_POSITIVE' });
+  }
+
+  if (quotaAcceptedValue && !isMissing(quotaAcceptedValue) && !quotaAccepted) {
+    blockers.push({ field: '是否接受这次额度消耗', value: redactSensitiveValue(quotaAcceptedValue), code: 'QUOTA_CONSUMPTION_NOT_ACKNOWLEDGED' });
+  }
+
+  return {
+    present: Boolean(blockMatch),
+    fields: redactFields(fields),
+    approximate_calls: approximateCalls,
+    quota_consumption_acknowledged: quotaAccepted,
+    missing,
+    blockers,
+    ready: missing.length === 0 && blockers.length === 0
+  };
+}
+
 function evaluateDevice(deviceName, fields, present) {
   const missing = [];
   const blockers = [];
@@ -184,6 +233,7 @@ function hasMinimumWechatPass(device) {
 function evaluateManualResult(text) {
   const sourceText = String(text || '');
   const parsedDevices = parseDevices(sourceText);
+  const costRecord = parseCostRecord(sourceText);
   const missingRequired = [];
   const severeBlockers = [];
   const devices = {};
@@ -203,7 +253,7 @@ function evaluateManualResult(text) {
   const allManualRequiredComplete = DEVICE_NAMES.every((deviceName) => (
     devices[deviceName].required_complete && devices[deviceName].no_severe_blocker
   ));
-  const stage6hMinimumConditionalPass = deploymentConfirmed && minimumWechatPass && severeBlockers.length === 0;
+  const stage6hMinimumConditionalPass = deploymentConfirmed && minimumWechatPass && severeBlockers.length === 0 && costRecord.ready;
   const canEnterStage6i = stage6hMinimumConditionalPass;
 
   return {
@@ -213,6 +263,7 @@ function evaluateManualResult(text) {
     can_enter_stage6i: canEnterStage6i,
     stage6h_minimum_conditional_pass: stage6hMinimumConditionalPass,
     all_manual_required_complete: allManualRequiredComplete,
+    cost_record: costRecord,
     devices,
     missing_required: missingRequired,
     severe_blockers: severeBlockers,
