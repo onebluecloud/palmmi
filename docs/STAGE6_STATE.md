@@ -24,6 +24,10 @@ Stage 6I precheck: PASS_ZERO_COST
 
 Reason: 2026-05-31 Codex 已预跑 Stage 6I 零成本检查：`npm test`、`npm run build`、`npm run security-scan`、`npm run smoke:stage6f:qwen` 均通过；`npm test` 默认 `api_calls_made=0`、`quota_consumed=false`，`smoke:stage6f:qwen` dry run `api_calls_made=0`、`quota_consumed=false`。本轮未调用真实 Qwen，未消耗额度。Stage 6I 已新增并验证聚合预检入口 `npm run precheck:stage6i`，它只运行默认零成本命令，拒绝在 `PALMMI_ALLOW_REAL_QWEN_TESTS=1` 环境下执行，并在命令摘要输出前做脱敏；为降低线上临时网络抖动误伤，聚合预检只对零成本瞬断做有限重试：`npm test` 仅在输出明确包含 `net::ERR_*`、`TypeError: terminated`、`unexpected EOF` 或 `0 bytes from the transport stream` 等网络错误时最多重试 1 次，`npm run preflight:stage6h` 最多重试 3 次，不重试 build、security-scan、smoke 或人工回填解析。若默认自动命令最终失败，聚合预检现在返回 `stage6i_status=AUTOMATED_PRECHECK_FAILED` 和 `error_code=STAGE6I_AUTOMATED_PRECHECK_FAILED`，不会误写成 Stage 6H 真机门禁阻塞。最新开发门禁复查：`npm run precheck:stage6i -- --expect-commit 1080489d960c81ad2a9a529984c898576237f4bf --defer-manual-result` 通过，`precheck_ok=true`、`ok=true`、`can_continue_development=true`、`manual_result_deferred=true`、`formal_gate_ok=false`、`can_enter_stage6i=false`、`api_calls_made=0`、`quota_consumed=false`、`real_qwen_called=false`，线上 `/build-meta.json` 匹配 `1080489d960c81ad2a9a529984c898576237f4bf`。新增开发模式 `--defer-manual-result` 用于当前策略：允许继续非公开开发，但输出仍保留 `formal_gate_ok=false`、`can_enter_stage6i=false` 和 `manual_result_deferred=true`。正式 Stage 6I 门禁仍应加 `--require-manual-result`；缺少或不足的 Stage 6H 真机回填会返回 `formal_gate_ok=false` 并以非 0 退出。若 `--require-manual-result` 未同时提供 `--manual-result-file`，脚本会在运行任何子命令前立即返回 `STAGE6I_MANUAL_RESULT_FILE_MISSING`；若未同时提供 `--expect-commit`，会立即返回 `STAGE6I_EXPECTED_COMMIT_REQUIRED`。最新 fail-fast 验证：`npm run precheck:stage6i -- --manual-result-file C:\temp\stage6h-result.txt --require-manual-result` 按预期返回非 0，`commands=[]`、`api_calls_made=0`、`quota_consumed=false`、`real_qwen_called=false`，且未运行任何子命令。
 
+Stage 6F specialized fixture coverage: PASS_ZERO_COST
+
+Reason: 2026-05-31 Codex 已补齐暗图、模糊图、裁切不完整图三类本地测试 fixture：`tests/stage6f/specialized-fixtures/dark-palm.jpg`、`tests/stage6f/specialized-fixtures/blurry-palm.jpg`、`tests/stage6f/specialized-fixtures/cropped-incomplete-palm.jpg`。新增 `tests/stage6f/fixture-coverage.test.cjs` 并纳入 `npm run test:stage6f`；该测试先确认 fixture 文件名可被 Stage 6F 扫描发现，再确认文件为小型 JPEG，避免空占位。最新 `npm run test:stage6f` 通过，summary 中 `missing_fixtures=[]`。这些 fixture 由仓库现有掌纹样本派生生成，不包含真实新用户隐私图片，不上传生产 API，不调用真实 Qwen，不消耗额度。
+
 Stage 7 prep status: PREPARED_NOT_ACTIVE
 
 Reason: 2026-05-31 Codex 已补齐 Stage 7 宣发准备文档：`docs/STAGE7_MARKETING_PREP_PLAN.md`、`docs/STAGE7_ACCOUNT_PROFILE_GUIDE.md`、`docs/STAGE7_CONTENT_DRAFTS.md`。这些内容仅为内部准备稿，不是公开发布，不应直接发布。根据用户最新指示，真机测试推迟到最终开发验收前；Stage 7 可以继续做内部准备和文案审核，但不能公开发布，最终上线仍受 Stage 6H 真机结果约束。
@@ -484,9 +488,9 @@ Codex 没有把微信真机测试伪造成 PASS。
 
 ## 缺失 fixture 列表
 
-- 偏暗图 fixture：`BLOCKED_BY_MISSING_FIXTURE`
-- 模糊图 fixture：`BLOCKED_BY_MISSING_FIXTURE`
-- 裁切不完整图 fixture：`BLOCKED_BY_MISSING_FIXTURE`
+- 偏暗图 fixture：`PASS`，`tests/stage6f/specialized-fixtures/dark-palm.jpg`
+- 模糊图 fixture：`PASS`，`tests/stage6f/specialized-fixtures/blurry-palm.jpg`
+- 裁切不完整图 fixture：`PASS`，`tests/stage6f/specialized-fixtures/cropped-incomplete-palm.jpg`
 
 正常掌纹 fixture 已存在：`PalmTag_rule_engine_v0/samples/palms/dayi-left.jpg`。
 
@@ -514,9 +518,9 @@ Codex 没有把微信真机测试伪造成 PASS。
 | Android Chrome 真机测试 | MANUAL_REQUIRED | 需要用户补充真实设备结果 |
 | 安卓微信人格塌缩观察 | MANUAL_REQUIRED | 重点观察是否从 `P31 留一手` 转移到另一个固定人格；自动化和 dry smoke 当前未复现旧问题 |
 | Stage 6G 新代码生产部署后复测 | MANUAL_REQUIRED | 本提交推送后需等待 Cloudflare Pages 正常部署，再确认轻量 duplicate guard 在生产实际生效 |
-| 偏暗图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
-| 模糊图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
-| 裁切不完整图 fixture | BLOCKED_BY_MISSING_FIXTURE | 需要明确图片 fixture |
+| 偏暗图 fixture | PASS | 已补 `tests/stage6f/specialized-fixtures/dark-palm.jpg` |
+| 模糊图 fixture | PASS | 已补 `tests/stage6f/specialized-fixtures/blurry-palm.jpg` |
+| 裁切不完整图 fixture | PASS | 已补 `tests/stage6f/specialized-fixtures/cropped-incomplete-palm.jpg` |
 
 ## Stage 6G 当前结论
 

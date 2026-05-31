@@ -109,7 +109,7 @@ Total real Qwen calls made by Stage 6G-Fix verification: 0. No quota was consume
 - iPhone Safari physical device: `MANUAL_REQUIRED`.
 - Android Chrome physical device: `MANUAL_REQUIRED`.
 - The duplicate guard is best-effort in-memory protection, not durable distributed rate limiting.
-- Missing dark / blurry / cropped-incomplete fixtures remain `BLOCKED_BY_MISSING_FIXTURE`.
+- Dark / blurry / cropped-incomplete fixtures are now covered by `tests/stage6f/specialized-fixtures/` and `tests/stage6f/fixture-coverage.test.cjs`; true-device abnormal image behavior still remains `MANUAL_REQUIRED`.
 
 ## Not Done
 

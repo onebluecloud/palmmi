@@ -8,6 +8,8 @@ Date: 2026-05-22
 
 说明：本报告下方保留了 Stage 6F 早期子阶段的历史记录，可能包含当时的旧模型、旧 BLOCKED 结论或旧 `npm test` 状态；当前收口判断以本节为准。
 
+2026-05-31 追加说明：暗图、模糊图、裁切不完整图三类本地测试 fixture 已补齐到 `tests/stage6f/specialized-fixtures/`，并新增 `tests/stage6f/fixture-coverage.test.cjs` 纳入 `npm run test:stage6f`。后续 Stage 6F summary 已输出 `missing_fixtures=[]`。下方早期 `BLOCKED_BY_MISSING_FIXTURE` 行仅保留为历史记录，不代表当前 fixture 覆盖状态。
+
 | 验证项 | 结果 | 说明 |
 |---|---|---|
 | git 工作区 | PASS | 工作区干净，最新提交 `4473418 fix: use enabled qwen vl flash model` |

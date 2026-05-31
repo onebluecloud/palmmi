@@ -70,6 +70,8 @@ Codex ran a Stage 6I preparation precheck on 2026-05-31. This does not promote S
 | `npm run build` | PASS | Cloudflare Pages static output written to `dist`. |
 | `npm run security-scan` | PASS | `finding_count=0`; no key/base64/raw response/persistent image storage/sensitive logging findings. |
 | `npm run smoke:stage6f:qwen` | PASS | Dry run returned `REAL_QWEN_DISABLED`, `api_calls_made=0`, `quota_consumed=false`. |
+| `node tests\stage6f\fixture-coverage.test.cjs` | PASS | Confirms dark / blurry / cropped-incomplete abnormal image fixtures exist as small JPEG files and are discoverable by Stage 6F scan patterns. |
+| `npm run test:stage6f` | PASS | Default Stage 6F safe regression now includes fixture coverage and mobile E2E; latest summary reports `missing_fixtures=[]`, `api_calls_made=0`, `quota_consumed=false`. |
 | `npm run preflight:stage6h` | PASS | Online pages passed; invalid API POST returned controlled 400; `api_calls_made=0`, `quota_consumed=false`. |
 | `node tests\stage6i\release-candidate-precheck.test.cjs` | PASS | Confirms the aggregate precheck command list stays zero-cost, redacts command summaries, splits automated failures from missing manual evidence, and retries only clear zero-cost transient network failures. |
 | `node tests\stage6h\online-preflight.test.cjs` | PASS | Confirms `/build-meta.json` deployment matching accepts full SHA and 7+ character short SHA prefixes, while wrong prefixes still fail safe. |
@@ -93,6 +95,7 @@ Qwen quota consumed by this precheck: `NO`.
 | Build succeeds | PRECHECK_PASS | `npm run build` passed; re-run when Stage 6I formally starts. |
 | Security scan passes | PRECHECK_PASS | `npm run security-scan` passed with `finding_count=0`; re-run when Stage 6I formally starts. |
 | Qwen smoke dry run is zero-cost | PRECHECK_PASS | `npm run smoke:stage6f:qwen` passed with `api_calls_made=0`; re-run when Stage 6I formally starts. |
+| Specialized abnormal image fixtures | PRECHECK_PASS | `tests/stage6f/specialized-fixtures/dark-palm.jpg`, `blurry-palm.jpg`, and `cropped-incomplete-palm.jpg` are covered by `node tests\stage6f\fixture-coverage.test.cjs`; Stage 6F summary now reports `missing_fixtures=[]`. |
 | Online pages accessible | PRECHECK_PASS | `npm run preflight:stage6h` verified `/`, `/upload/`, `/result/`, `/poster/` on workers.dev. |
 | API invalid input is sanitized | PRECHECK_PASS | `npm run preflight:stage6h` verified invalid `POST /api/analyze` returns controlled 400 and no sensitive leak. |
 | Deployed commit self-check | PRECHECK_PASS | `npm run preflight:stage6h -- --expect-commit <latest-origin-main-commit>` confirms `/build-meta.json` matches the expected commit; full SHA and 7+ character short SHA prefixes are both supported. |
