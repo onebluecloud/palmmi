@@ -12,10 +12,16 @@ Status: `USER_ACTION_REQUIRED`
 https://palmmi.onebluecloud723.workers.dev
 ```
 
-Codex 已提供零成本命令确认线上部署 commit。优先使用命令，不需要手动打开 Cloudflare Dashboard：
+Codex 已提供零成本命令确认线上部署 commit。当前已确认的最新线上 commit 是：
 
 ```text
-npm run preflight:stage6h -- --expect-commit <Codex 最终报告里的最新 commit>
+513f57cb9688eb6d3ad73eed7f23c25338381598
+```
+
+优先使用命令，不需要手动打开 Cloudflare Dashboard：
+
+```text
+npm run preflight:stage6h -- --expect-commit 513f57cb9688eb6d3ad73eed7f23c25338381598
 ```
 
 如果该命令失败，再去 Cloudflare Dashboard 看最新部署；如果最新部署不是最终报告里的最新 commit，先不要做真机结论，只等部署成功后再测。
@@ -31,7 +37,7 @@ npm run preflight:stage6h
 可用下面命令确认线上部署 commit：
 
 ```text
-npm run preflight:stage6h -- --expect-commit <Codex 最终报告里的最新 commit>
+npm run preflight:stage6h -- --expect-commit 513f57cb9688eb6d3ad73eed7f23c25338381598
 ```
 
 ## 2. 测试前准备
@@ -69,7 +75,51 @@ npm run preflight:stage6h -- --expect-commit <Codex 最终报告里的最新 com
 9. 再测试一次非手掌图片，确认不会生成人格结果。
 10. 如果方便，测试模糊或偏暗掌心照片，确认提示能看懂。
 
-## 4. 结果回填模板
+## 4. 最小微信双端回填模板
+
+如果暂时没有时间测 Safari / Chrome，先测 iPhone 微信和 Android 微信也可以进入 Stage 6I 条件收口判断。未测的 Safari / Chrome 仍会保留为 `MANUAL_REQUIRED`，不会被写成 PASS。
+
+把下面这段复制给 Codex，并把 `待填` 改成实际情况。不要粘贴图片、API Key、base64、raw response 或隐私信息。
+
+```text
+线上部署确认：
+- Codex 是否已确认 /build-meta.json 匹配最终报告中的最新 commit：是
+- 如果 Codex 无法确认，Cloudflare Dashboard 部署状态是否 Success：不用，Codex 已确认
+
+iPhone 微信：
+- 首页 / 上传页是否打开：待填
+- 相册上传清晰掌心是否成功：待填
+- 拍照上传是否成功：待填
+- 结果页是否显示：待填
+- 海报页是否显示：待填
+- 是否能保存海报：待填
+- 非手掌图片是否被拒绝：待填
+- 模糊 / 偏暗图片提示是否可读：待填
+- 是否白屏 / 卡死 / 无限加载：待填
+- 是否看到 key、base64、英文堆栈或 raw response：待填
+
+Android 微信：
+- 首页 / 上传页是否打开：待填
+- 相册上传清晰掌心是否成功：待填
+- 拍照上传是否成功：待填
+- 结果页是否显示：待填
+- 海报页是否显示：待填
+- 是否能保存海报：待填
+- 非手掌图片是否被拒绝：待填
+- 模糊 / 偏暗图片提示是否可读：待填
+- 是否白屏 / 卡死 / 无限加载：待填
+- 是否看到 key、base64、英文堆栈或 raw response：待填
+
+真实清晰掌纹分析次数：
+- 大约调用次数：待填
+- 是否接受这次额度消耗：待填
+
+其他问题：
+- Safari 和 Chrome 暂未测，继续保留 MANUAL_REQUIRED。
+- 其他问题待填。
+```
+
+## 5. 完整结果回填模板
 
 把下面这段复制给 Codex，并把 `待填` 改成实际情况。
 填写建议：成功项写 `是 / 成功 / 正常`；没有异常时写 `否 / 没有白屏 / 不白屏不卡死 / 没看到 key`。不要粘贴图片、API Key、base64、raw response 或隐私信息。
@@ -135,7 +185,7 @@ Android 微信：
 - 待填
 ```
 
-## 5. 判定规则
+## 6. 判定规则
 
 可以继续进入 Stage 6I 正式收口的最低条件：
 
